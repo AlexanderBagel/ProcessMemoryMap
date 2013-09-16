@@ -10,11 +10,12 @@ uses
 
 type
   TThreadInfo = (tiNoData, tiExceptionList, tiStackBase,
-    tiStackLimit, tiTLS, tiThreadProc);
+    tiStackLimit, tiTEB, tiThreadProc);
   TThreadData = record
     Flag: TThreadInfo;
     ThreadID: Integer;
     Address: Pointer;
+    Wow64: Boolean;
   end;
 
   TThreads = class
@@ -25,12 +26,16 @@ type
       Flag: TThreadInfo; Address: Pointer; ID: Integer);
     procedure Update(PID: Cardinal; hProcess: THandle);
   public
-    constructor Create(PID: Cardinal; hProcess: THandle);
+    constructor Create; overload;
+    constructor Create(PID: Cardinal; hProcess: THandle); overload;
     destructor Destroy; override;
     property ThreadData: TList<TThreadData> read FThreadData;
   end;
 
 implementation
+
+uses
+  MemoryMap.Core;
 
 { TThreads }
 
@@ -38,22 +43,24 @@ procedure TThreads.Add(hProcess: THandle;
   Flag: TThreadInfo; Address: Pointer; ID: Integer);
 var
   ThreadData: TThreadData;
-  dwLength: NativeUInt;
-  MBI: TMemoryBasicInformation;
 begin
   if Address = nil then Exit;
   ThreadData.Flag := Flag;
   ThreadData.ThreadID := ID;
   ThreadData.Address := Address;
-  dwLength := SizeOf(TMemoryBasicInformation);
-  VirtualQueryEx(hProcess, Address, MBI, dwLength);
+  ThreadData.Wow64 := False;
   FThreadData.Add(ThreadData);
 end;
 
 constructor TThreads.Create(PID: Cardinal; hProcess: THandle);
 begin
-  FThreadData := TList<TThreadData>.Create;
+  Create;
   Update(PID, hProcess);
+end;
+
+constructor TThreads.Create;
+begin
+  FThreadData := TList<TThreadData>.Create;
 end;
 
 destructor TThreads.Destroy;
@@ -75,6 +82,7 @@ var
   lpNumberOfBytesRead: NativeUInt;
   ThreadStartAddress: Pointer;
 begin
+
   // Делаем снимок нитей в системе
   hSnap := CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, PID);
   if hSnap <> INVALID_HANDLE_VALUE then
@@ -106,7 +114,7 @@ begin
           Add(hProcess, tiExceptionList, TIB.ExceptionList, ThreadEntry.th32ThreadID);
           Add(hProcess, tiStackBase, TIB.StackBase, ThreadEntry.th32ThreadID);
           Add(hProcess, tiStackLimit, TIB.StackLimit, ThreadEntry.th32ThreadID);
-          Add(hProcess, tiTLS, TIB.Self, ThreadEntry.th32ThreadID);
+          Add(hProcess, tiTEB, TIB.Self, ThreadEntry.th32ThreadID);
         end;
       finally
         CloseHandle(hThread);

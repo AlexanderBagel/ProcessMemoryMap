@@ -11,24 +11,28 @@ uses
   MemoryMap.Core,
   MemoryMap.RegionData,
   MemoryMap.Symbols,
-  MemoryMap.Threads;
+  MemoryMap.Threads,
+  MemoryMap.NtDll;
 
 type
   TdlgRegionProps = class(TForm)
     edProperties: TRichEdit;
     PopupMenu1: TPopupMenu;
     mnuCopy: TMenuItem;
+    N1: TMenuItem;
+    mnuRefresh: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuCopyClick(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure mnuRefreshClick(Sender: TObject);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
+    CurerntAddr: Pointer;
+    procedure Add(const Value: string);
+    procedure StartQuery(Value: Pointer);
     procedure ShowInfoFromMBI(MBI: TMemoryBasicInformation;
       Address: Pointer);
-    procedure Dump(Value: Pointer);
-    procedure DumpThreadData(Value: Pointer);
-    procedure StartQuery(Value: Pointer);
   public
     procedure ShowModalPropertyAtAddr(Value: Pointer);
     procedure ShowPropertyAtAddr(Value: Pointer);
@@ -140,23 +144,9 @@ dt _KUSER_SHARED_DATA
 
 { TdlgRegionProps }
 
-procedure TdlgRegionProps.Dump(Value: Pointer);
-var
-  Buff: array of Byte;
-  Size, RegionSize: NativeUInt;
+procedure TdlgRegionProps.Add(const Value: string);
 begin
-  Size := 1024;
-  SetLength(Buff, Size);
-  if not ReadProcessData(Process, Value, @Buff[0],
-    Size, RegionSize, rcReadAllwais) then Exit;
-  edProperties.Lines.Add(
-    '------------------------------ Memory dump -----------------------------------');
-  edProperties.Lines.Add(ByteToHexStr(ULONG_PTR(Value), @Buff[0], 1024));
-end;
-
-procedure TdlgRegionProps.DumpThreadData(Value: Pointer);
-begin
-
+  edProperties.Lines.Add(Value);
 end;
 
 procedure TdlgRegionProps.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -174,6 +164,17 @@ begin
   edProperties.CopyToClipboard;
 end;
 
+procedure TdlgRegionProps.mnuRefreshClick(Sender: TObject);
+begin
+  edProperties.Lines.BeginUpdate;
+  try
+    edProperties.Lines.Clear;
+    StartQuery(CurerntAddr);
+  finally
+    edProperties.Lines.EndUpdate;;
+  end;
+end;
+
 procedure TdlgRegionProps.ShowInfoFromMBI(MBI: TMemoryBasicInformation;
   Address: Pointer);
 var
@@ -181,29 +182,24 @@ var
   Path, DescriptionAtAddr: string;
   Symbols: TSymbols;
 begin
-  edProperties.Lines.Add('AllocationBase: ' +
-    UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
-  edProperties.Lines.Add('RegionSize: ' +
-    SizeToStr(MBI.RegionSize));
-  edProperties.Lines.Add('Type: ' +
-    ExtractRegionTypeString(MBI));
-  edProperties.Lines.Add('Access: ' +
-    ExtractAccessString(MBI.Protect));
-  edProperties.Lines.Add('Initail Access: ' +
-    ExtractInitialAccessString(MBI.AllocationProtect));
+  Add('AllocationBase: ' + UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
+  Add('RegionSize: ' + SizeToStr(MBI.RegionSize));
+  Add('Type: ' + ExtractRegionTypeString(MBI));
+  Add('Access: ' + ExtractAccessString(MBI.Protect));
+  Add('Initail Access: ' + ExtractInitialAccessString(MBI.AllocationProtect));
   if GetMappedFileName(Process, MBI.AllocationBase,
     @OwnerName[0], MAX_PATH) > 0 then
   begin
     Path := NormalizePath(string(OwnerName));
-    edProperties.Lines.Add('Mapped file: ' + Path);
+    Add('Mapped file: ' + Path);
     if CheckPEImage(Process, MBI.AllocationBase) then
-      edProperties.Lines.Add('    Executable');
+      Add('    Executable');
     Symbols := TSymbols.Create(Process);
     try
       DescriptionAtAddr := Symbols.GetDescriptionAtAddr(
         ULONG_PTR(Address), ULONG_PTR(MBI.AllocationBase), Path);
       if DescriptionAtAddr <> '' then
-        edProperties.Lines.Add('Function: ' + DescriptionAtAddr);
+        Add('Function: ' + DescriptionAtAddr);
     finally
       Symbols.Free;
     end;
@@ -233,6 +229,7 @@ var
   Index: Integer;
   ARegion: TRegionData;
 begin
+  CurerntAddr := Value;
   ProcessLock := nil;
   Process := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ or
     PROCESS_VM_OPERATION, False, MemoryMapCore.PID);
@@ -248,20 +245,22 @@ begin
          Pointer(Value), MBI, dwLength) <> dwLength then
          RaiseLastOSError;
        ShowInfoFromMBI(MBI, Value);
+       if Value = MemoryMapCore.PebBaseAddress then
+       begin
+         Add(DumpPEBWow64(Process, Value));
+         Exit;
+       end;
        if MemoryMapCore.GetRegionIndex(Value, Index) then
        begin
          ARegion := MemoryMapCore.GetRegionAtUnfilteredIndex(Index);
          if (ARegion.RegionType = rtThread) and
            (ARegion.Thread.Flag = tiExceptionList) then
          begin
-           DumpThreadData(Value);
+           Add(DumpThreadWow64(Process, Value));
            Exit;
-         end
-         else
-           Dump(Value);
-       end
-       else
-         Dump(Value);
+         end;
+       end;
+       Add(DumpMemory(Process, Value));
     finally
       edProperties.SelStart := 0;
       if Settings.SuspendProcess then

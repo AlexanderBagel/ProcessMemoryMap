@@ -3,7 +3,7 @@ object dlgRegionProps: TdlgRegionProps
   Top = 0
   Caption = 'Process Memory Map - Region Properties'
   ClientHeight = 424
-  ClientWidth = 709
+  ClientWidth = 851
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -20,7 +20,7 @@ object dlgRegionProps: TdlgRegionProps
   object edProperties: TRichEdit
     Left = 0
     Top = 0
-    Width = 709
+    Width = 851
     Height = 424
     Align = alClient
     Font.Charset = RUSSIAN_CHARSET
@@ -33,6 +33,7 @@ object dlgRegionProps: TdlgRegionProps
     ReadOnly = True
     ScrollBars = ssBoth
     TabOrder = 0
+    ExplicitWidth = 709
   end
   object PopupMenu1: TPopupMenu
     Left = 376
@@ -41,6 +42,14 @@ object dlgRegionProps: TdlgRegionProps
       Caption = 'Copy'
       ShortCut = 16451
       OnClick = mnuCopyClick
+    end
+    object N1: TMenuItem
+      Caption = '-'
+    end
+    object mnuRefresh: TMenuItem
+      Caption = 'Refresh'
+      ShortCut = 116
+      OnClick = mnuRefreshClick
     end
   end
 end

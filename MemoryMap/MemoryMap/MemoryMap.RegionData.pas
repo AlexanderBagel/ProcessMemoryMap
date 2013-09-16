@@ -149,6 +149,7 @@ var
   procedure AddHeapData(Value: THeapData);
   begin
     S.Add(IntToStr(Value.ID));
+    S.Add(BoolToStr(Value.Wow64));
     S.Add(IntToStr(Value.Entry.Address));
     S.Add(IntToStr(Value.Entry.Size));
     S.Add(IntToStr(Value.Entry.Flags));
@@ -159,6 +160,7 @@ var
     S.Add(GetEnumName(TypeInfo(TThreadInfo), Integer(Value.Flag)));
     S.Add(IntToStr(Value.ThreadID));
     S.Add(IntToStr(ULONG_PTR(Value.Address)));
+    S.Add(BoolToStr(Value.Wow64));
   end;
 
   procedure AddPEBData(Value: TSystemData);
@@ -188,7 +190,11 @@ begin
     AddString(string(Section.Caption));
     S.Add(IntToStr(Section.Address));
     S.Add(IntToStr(Section.Size));
-    S.Add(BoolToStr(Section.IsCode));
+    try
+      S.Add(BoolToStr(Section.IsCode));
+    except
+      S.Add(BoolToStr(Section.IsCode));
+    end;
     S.Add(BoolToStr(Section.IsData));
     S.Add(BoolToStr(Shared));
     S.Add(IntToStr(SharedCount));
@@ -257,6 +263,7 @@ var
   function GetHeapData: THeapData;
   begin
     Result.ID := StrToInt64(NextValue);
+    Result.Wow64 := StrToBool(NextValue);
     Result.Entry.Address := StrToInt64(NextValue);
     Result.Entry.Size := StrToInt64(NextValue);
     Result.Entry.Flags := StrToInt64(NextValue);
@@ -268,6 +275,7 @@ var
       GetEnumValue(TypeInfo(TThreadInfo), NextValue)));
     Result.ThreadID := StrToInt64(NextValue);
     Result.Address := Pointer(StrToInt64(NextValue));
+    Result.Wow64 := StrToBool(NextValue);
   end;
 
   function GetPEBData: TSystemData;

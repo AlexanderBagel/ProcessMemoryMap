@@ -10,10 +10,12 @@ uses
   Vcl.Clipbrd, System.Actions, Vcl.ActnList, Vcl.PlatformDefaultStyleActnCtrls,
   Vcl.ActnMan,
 
-  uDisplayUtils,
   MemoryMap.Core,
   MemoryMap.RegionData,
-  MemoryMap.Utils;
+  MemoryMap.Utils,
+
+  uDisplayUtils,
+  uIPC;
 
 type
   TdlgProcessMM = class(TForm)
@@ -139,17 +141,25 @@ type
     procedure acSaveUpdate(Sender: TObject);
     procedure acDumpRegionExecute(Sender: TObject);
     procedure acDumpRegionUpdate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent: Boolean;
     NodeDataArrayLength: Integer;
     NodeDataArray: array of TNodeData;
     SearchString: string;
     SearchPosition: Integer;
+    {$IFDEF WIN32}
+    IPCServer: TIPCServer;
+    {$ENDIF}
     procedure AddShieldIconToMenu;
     procedure CalcNodeDataArraySize;
     procedure FillTreeView;
     function Search(const Value: string): Boolean;
     function GetSelectedNodeData: PNodeData;
+    {$IFDEF WIN64}
+    procedure OnGetWow64Threads(AStream: TStream);
+    procedure OnGetWow64Heaps(AStream: TStream);
+    {$ENDIF}
   end;
 
 var
@@ -347,6 +357,9 @@ begin
   begin
     M := TMemoryMap.Create;
     try
+//      {$IFDEF WIN64}
+//      M.OnGetWow64MemoryMap := OnGetWow64MemoryMap;
+//      {$ENDIF}
       M.InitFromProcess(MemoryMapCore.PID,
         MemoryMapCore.ProcessName);
       dlgComparator := TdlgComparator.Create(nil);
@@ -688,8 +701,20 @@ begin
   end
   else
     AddShieldIconToMenu;
+  {$IFDEF WIN64}
+//  MemoryMapCore.OnGetWow64MemoryMap := OnGetWow64MemoryMap;
+  {$ELSE}
+  IPCServer := TIPCServer.Create;
+  {$ENDIF}
   Application.Title := Caption;
   FirstRun := True;
+end;
+
+procedure TdlgProcessMM.FormDestroy(Sender: TObject);
+begin
+  {$IFDEF WIN32}
+  IPCServer.Free;
+  {$ENDIF}
 end;
 
 procedure TdlgProcessMM.FormKeyPress(Sender: TObject; var Key: Char);
@@ -817,6 +842,34 @@ begin
   MemoryMapCore.Filter := TFilters(HitInfo.HitNode^.Index);
   FillTreeView;
 end;
+
+{$IFDEF WIN64}
+procedure TdlgProcessMM.OnGetWow64Heaps(AStream: TStream);
+var
+  M: TMemoryStream;
+begin
+  M := GetWin32MemoryMap(MemoryMapCore.PID,
+    'Process Memory Map MMF 123', dtHeap);
+  try
+    AStream.CopyFrom(M, 0);
+  finally
+    M.Free;
+  end;
+end;
+
+procedure TdlgProcessMM.OnGetWow64Threads(AStream: TStream);
+var
+  M: TMemoryStream;
+begin
+  M := GetWin32MemoryMap(MemoryMapCore.PID,
+    'Process Memory Map MMF 123', dtThread);
+  try
+    AStream.CopyFrom(M, 0);
+  finally
+    M.Free;
+  end;
+end;
+{$ENDIF}
 
 function TdlgProcessMM.Search(const Value: string): Boolean;
 var

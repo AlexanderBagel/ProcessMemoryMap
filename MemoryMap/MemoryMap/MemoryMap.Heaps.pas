@@ -16,6 +16,7 @@ type
 
   THeapData = record
     ID: DWORD;
+    Wow64: Boolean;
     Entry: THeapEntry;
   end;
 
@@ -25,7 +26,8 @@ type
   protected
     procedure Update(PID: Cardinal; hProcess: THandle);
   public
-    constructor Create(PID: Cardinal; hProcess: THandle);
+    constructor Create; overload;
+    constructor Create(PID: Cardinal; hProcess: THandle); overload;
     destructor Destroy; override;
     property Data: TList<THeapData> read FData;
   end;
@@ -33,14 +35,20 @@ type
 implementation
 
 uses
+  MemoryMap.Core,
   MemoryMap.NtDll;
 
 { THeap }
 
 constructor THeap.Create(PID: Cardinal; hProcess: THandle);
 begin
-  FData := TList<THeapData>.Create;
+  Create;
   Update(PID, hProcess);
+end;
+
+constructor THeap.Create;
+begin
+  FData := TList<THeapData>.Create;
 end;
 
 destructor THeap.Destroy;
@@ -158,10 +166,11 @@ begin
           if pHeapEntry^.Flags = 0 then
             pHeapEntry^.Flags := LF32_FIXED;
 
-            // Добавляем результат к списку
+          // Добавляем результат к списку
           HeapData.Entry.Address := dwAddr;
           HeapData.Entry.Size := pHeapEntry^.Size;
           HeapData.Entry.Flags := pHeapEntry^.Flags;
+          HeapData.Wow64 := False;
           FData.Add(HeapData);
 
          // Запоминаем адрес последнего блока

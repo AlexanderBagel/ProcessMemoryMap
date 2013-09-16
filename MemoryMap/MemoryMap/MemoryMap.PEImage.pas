@@ -130,6 +130,8 @@ begin
     Section.Caption := 'PEHeader';
     Section.Address := NativeUint(ImageBase);
     Section.Size := FirstSectionSize;
+    Section.IsCode := False;
+    Section.IsData := False;
     FSections.Add(Section);
     if FImageInfo.FileHeader.OptionalHeader.AddressOfEntryPoint <> 0 then
       FEntryPoints.Add(Pointer(NativeUInt(ImageBase) +

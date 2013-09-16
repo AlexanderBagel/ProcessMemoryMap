@@ -17,8 +17,8 @@ uses
   MemoryMap.Symbols;
 
 type
-  TFilters = (fiNone, fiImage, fiPrivate, fiShareable, fiMapped,
-    fiHeap, fiThread, fiSystem, fiFree);
+  TFilters = (fiNone, fiImage, fiPrivate, fiShareable, fiMapped, fiHeap,
+    fiThread, fiSystem, fiFree);
 
   TModule = record
     Path: string;
@@ -63,6 +63,7 @@ type
     FSymbols: TSymbols;
     FModules: TList<TModule>;
     FPeb: TPEB;
+    FPebBaseAddress: Pointer;
     FShowEmpty: Boolean;
     FProcess64: Boolean;
     FTotalData: TTotalData;
@@ -102,25 +103,29 @@ type
     function InitFromProcess(PID: Cardinal; const ProcessName: string): Boolean;
     function GetHiddenRegion(RootIndex, SubIndex: Integer): TRegionData;
     function GetRegionAtUnfilteredIndex(Index: Integer): TRegionData;
-    function GetRegionIndex(Address: Pointer; out Index: Integer): Boolean; overload;
+    function GetRegionIndex(Address: Pointer; out Index: Integer)
+      : Boolean; overload;
     function RegionToFilterType(Value: TRegionData): TFilters;
     function TotalCount: Integer;
-    property DetailedHeapData: Boolean read FDetailedHeapData write SetDetailedHeapData;
+    property DetailedHeapData: Boolean read FDetailedHeapData
+      write SetDetailedHeapData;
     property Items[Index: Integer]: TRegionData read GetItem; default;
     property HighAddress: NativeUInt read FHighAddress;
     property Filter: TFilters read FFilter write SetFilter;
     property Modules: TList<TModule> read FModules;
-    property PEB: TPEB read FPEB;
+    property PEB: TPEB read FPeb;
+    property PebBaseAddress: Pointer read FPebBaseAddress;
     property PID: Cardinal read FPID;
     property Process64: Boolean read FProcess64;
     property ProcessName: string read FProcessName;
     property ShowEmpty: Boolean read FShowEmpty write SetShowEmpty;
-    property SuspendProcessBeforeScan: Boolean read FSuspendProcess write FSuspendProcess;
+    property SuspendProcessBeforeScan: Boolean read FSuspendProcess
+      write FSuspendProcess;
     property TotalData: TTotalData read FTotalData;
   end;
 
-  function MemoryMapCore: TMemoryMap;
-  procedure ReplaceMemoryMap(Value: TMemoryMap);
+function MemoryMapCore: TMemoryMap;
+procedure ReplaceMemoryMap(Value: TMemoryMap);
 
 implementation
 
@@ -174,47 +179,47 @@ begin
 
     case RegionToFilterType(R) of
       fiImage:
-      begin
-        Inc(FTotalData.Image.Size, R.MBI.RegionSize);
-        Inc(FTotalData.Image.Commited, Size);
-        Inc(FTotalData.Image.Blocks);
-      end;
+        begin
+          Inc(FTotalData.Image.Size, R.MBI.RegionSize);
+          Inc(FTotalData.Image.Commited, Size);
+          Inc(FTotalData.Image.Blocks);
+        end;
       fiPrivate:
-      begin
-        Inc(FTotalData._Private.Size, R.MBI.RegionSize);
-        Inc(FTotalData._Private.Commited, Size);
-        Inc(FTotalData._Private.Blocks);
-      end;
+        begin
+          Inc(FTotalData._Private.Size, R.MBI.RegionSize);
+          Inc(FTotalData._Private.Commited, Size);
+          Inc(FTotalData._Private.Blocks);
+        end;
       fiShareable:
-      begin
-        Inc(FTotalData.Shareable.Size, R.MBI.RegionSize);
-        Inc(FTotalData.Shareable.Commited, Size);
-        Inc(FTotalData.Shareable.Blocks);
-      end;
+        begin
+          Inc(FTotalData.Shareable.Size, R.MBI.RegionSize);
+          Inc(FTotalData.Shareable.Commited, Size);
+          Inc(FTotalData.Shareable.Blocks);
+        end;
       fiMapped:
-      begin
-        Inc(FTotalData.Mapped.Size, R.MBI.RegionSize);
-        Inc(FTotalData.Mapped.Commited, Size);
-        Inc(FTotalData.Mapped.Blocks);
-      end;
+        begin
+          Inc(FTotalData.Mapped.Size, R.MBI.RegionSize);
+          Inc(FTotalData.Mapped.Commited, Size);
+          Inc(FTotalData.Mapped.Blocks);
+        end;
       fiHeap:
-      begin
-        Inc(FTotalData.Heap.Size, R.MBI.RegionSize);
-        Inc(FTotalData.Heap.Commited, Size);
-        Inc(FTotalData.Heap.Blocks);
-      end;
+        begin
+          Inc(FTotalData.Heap.Size, R.MBI.RegionSize);
+          Inc(FTotalData.Heap.Commited, Size);
+          Inc(FTotalData.Heap.Blocks);
+        end;
       fiThread:
-      begin
-        Inc(FTotalData.Thread.Size, R.MBI.RegionSize);
-        Inc(FTotalData.Thread.Commited, Size);
-        Inc(FTotalData.Thread.Blocks);
-      end;
+        begin
+          Inc(FTotalData.Thread.Size, R.MBI.RegionSize);
+          Inc(FTotalData.Thread.Commited, Size);
+          Inc(FTotalData.Thread.Blocks);
+        end;
       fiSystem:
-      begin
-        Inc(FTotalData.System.Size, R.MBI.RegionSize);
-        Inc(FTotalData.System.Commited, Size);
-        Inc(FTotalData.System.Blocks);
-      end;
+        begin
+          Inc(FTotalData.System.Size, R.MBI.RegionSize);
+          Inc(FTotalData.System.Commited, Size);
+          Inc(FTotalData.System.Blocks);
+        end;
     end;
   end;
 end;
@@ -246,7 +251,7 @@ var
   pSectionAddr: UInt64;
   MBI: TMemoryBasicInformation;
   RegionData, LastRegionData: TFriendlyRegionData;
-  OwnerName: array [0..MAX_PATH - 1] of Char;
+  OwnerName: array [0 .. MAX_PATH - 1] of Char;
   Info: TSystemInfo;
   Shared: Boolean;
   SharedCount: Byte;
@@ -261,14 +266,13 @@ begin
 
   GetSystemInfo(Info);
   FHighAddress := NativeUInt(Info.lpMaximumApplicationAddress);
-  {$IFDEF WIN64}
-    if not Process64 then
-      FHighAddress := MM_USER_PROBE_ADDRESS;
-  {$ELSE}
-    if Is64OS then
-      FHighAddress := MM_USER_PROBE_ADDRESS;
-  {$ENDIF}
-
+{$IFDEF WIN64}
+  if not Process64 then
+    FHighAddress := MM_USER_PROBE_ADDRESS;
+{$ELSE}
+  if Is64OS then
+    FHighAddress := MM_USER_PROBE_ADDRESS;
+{$ENDIF}
   LastRegionData := nil;
   while pSectionAddr < FHighAddress do
   begin
@@ -278,8 +282,8 @@ begin
       MBI := GetPageAtAddr(Pointer(pSectionAddr));
 
       RegionData.SetMBI(MBI);
-      if Workset.GetPageSharedInfo(MBI.BaseAddress, Shared,
-        SharedCount) and Shared then
+      if Workset.GetPageSharedInfo(MBI.BaseAddress, Shared, SharedCount) and Shared
+      then
       begin
         RegionData.SetShared(True);
         RegionData.SetSharedCount(SharedCount);
@@ -287,19 +291,18 @@ begin
 
       if LastRegionData = nil then
         LastRegionData := RegionData
+      else if MBI.AllocationBase = LastRegionData.MBI.AllocationBase then
+      begin
+        LastRegionData.IncHiddenRegionCount;
+        LastRegionData.IncTotalRegionSize(RegionData.TotalRegionSize);
+        RegionData.SetRegionVisible(False);
+        RegionData.SetParent(LastRegionData);
+      end
       else
-        if MBI.AllocationBase = LastRegionData.MBI.AllocationBase then
-        begin
-          LastRegionData.IncHiddenRegionCount;
-          LastRegionData.IncTotalRegionSize(RegionData.TotalRegionSize);
-          RegionData.SetRegionVisible(False);
-          RegionData.SetParent(LastRegionData);
-        end
-        else
-          LastRegionData := RegionData;
+        LastRegionData := RegionData;
 
-      if GetMappedFileName(FProcess, MBI.BaseAddress,
-        @OwnerName[0], MAX_PATH) > 0 then
+      if GetMappedFileName(FProcess, MBI.BaseAddress, @OwnerName[0], MAX_PATH) > 0
+      then
       begin
         Module.Path := NormalizePath(string(OwnerName));
         RegionData.SetDetails(Module.Path);
@@ -308,7 +311,8 @@ begin
           Module.BaseAddr := ULONG_PTR(MBI.BaseAddress);
           FModules.Add(Module);
           RegionData.SetRegionType(rtExecutableImage);
-          PEImage.GetInfoFromImage(Module.Path, MBI.BaseAddress, MBI.RegionSize);
+          PEImage.GetInfoFromImage(Module.Path, MBI.BaseAddress,
+            MBI.RegionSize);
         end;
       end;
 
@@ -342,8 +346,8 @@ var
   dwLength: Cardinal;
 begin
   dwLength := SizeOf(TMemoryBasicInformation);
-  if VirtualQueryEx(FProcess,
-    Pointer(Address), Result, dwLength) <> dwLength then
+  if VirtualQueryEx(FProcess, Pointer(Address), Result, dwLength) <> dwLength
+  then
     RaiseLastOSError;
 end;
 
@@ -374,7 +378,8 @@ begin
   Index := 0;
   L := 0;
   R := FRegions.Count - 1;
-  if ULONG_PTR(Address) <= ULONG_PTR(FRegions[L].MBI.BaseAddress) then Exit(True);
+  if ULONG_PTR(Address) <= ULONG_PTR(FRegions[L].MBI.BaseAddress) then
+    Exit(True);
   if ULONG_PTR(Address) >= ULONG_PTR(FRegions[R].MBI.BaseAddress) then
   begin
     Index := R;
@@ -418,8 +423,7 @@ begin
   FFilter := fiNone;
   ProcessLock := nil;
   // Открываем процесс на чтение
-  FProcess := OpenProcess(
-    PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
+  FProcess := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
     False, PID);
   if FProcess = 0 then
     RaiseLastOSError;
@@ -428,14 +432,13 @@ begin
     FProcessName := ProcessName;
 
     FProcess64 := False;
-    {$IFDEF WIN64}
-      if not IsWow64(FProcess) then
-        FProcess64 := True;
-    {$ELSE}
-      if Is64OS and not IsWow64(FProcess) then
-        raise Exception.Create('Can''t scan process.');
-    {$ENDIF}
-
+{$IFDEF WIN64}
+    if not IsWow64(FProcess) then
+      FProcess64 := True;
+{$ELSE}
+    if Is64OS and not IsWow64(FProcess) then
+      raise Exception.Create('Can''t scan process.');
+{$ENDIF}
     if SuspendProcessBeforeScan then
       ProcessLock := SuspendProcess(PID);
     try
@@ -537,24 +540,31 @@ begin
   Result := fiNone;
   case Value.RegionType of
     rtDefault:
-    begin
-      if Value.MBI.State = MEM_FREE then Exit(fiFree);
-      if Value.MBI.State = MEM_COMMIT then
-        case Value.MBI.Type_9 of
-          MEM_IMAGE: Result := fiImage;
-          MEM_MAPPED:
-          begin
-            Result := fiMapped;
-            if Value.Shared then
-              Result := fiShareable;
+      begin
+        if Value.MBI.State = MEM_FREE then
+          Exit(fiFree);
+        if Value.MBI.State = MEM_COMMIT then
+          case Value.MBI.Type_9 of
+            MEM_IMAGE:
+              Result := fiImage;
+            MEM_MAPPED:
+              begin
+                Result := fiMapped;
+                if Value.Shared then
+                  Result := fiShareable;
+              end;
+            MEM_PRIVATE:
+              Result := fiPrivate;
           end;
-          MEM_PRIVATE: Result := fiPrivate;
-        end;
-    end;
-    rtHeap: Exit(fiHeap);
-    rtThread: Exit(fiThread);
-    rtSystem: Exit(fiSystem);
-    rtExecutableImage: Exit(fiImage);
+      end;
+    rtHeap:
+      Exit(fiHeap);
+    rtThread:
+      Exit(fiThread);
+    rtSystem:
+      Exit(fiSystem);
+    rtExecutableImage:
+      Exit(fiImage);
   end;
   if not Value.RegionVisible then
   begin
@@ -623,8 +633,8 @@ begin
   end;
 end;
 
-function TMemoryMap.SplitRegionAtAddr(Address: Pointer;
-  Index: Integer): Integer;
+function TMemoryMap.SplitRegionAtAddr(Address: Pointer; Index: Integer)
+  : Integer;
 var
   OriginalRegion, NextRegion, NewRegion: TFriendlyRegionData;
   MBI: TMemoryBasicInformation;
@@ -731,7 +741,8 @@ begin
   begin
     for I := 0 to 14 do
     begin
-      if not CheckAddr(Directory.Data[I].Address) then Continue;
+      if not CheckAddr(Directory.Data[I].Address) then
+        Continue;
       RegionData := GetRegionAtAddr(Pointer(Directory.Data[I].Address));
       RegionData.Directory.Add(Directory.Data[I]);
     end;
@@ -762,7 +773,8 @@ procedure TMemoryMap.AddPEBData;
     ContainItem: TContainItem;
     SystemData: TSystemData;
   begin
-    if not CheckAddr(Address) then Exit;
+    if not CheckAddr(Address) then
+      Exit;
     SystemData.Description := ShortString(Description);
     SystemData.Address := Address;
     RegionData := GetRegionAtAddr(Address);
@@ -786,14 +798,13 @@ var
   SBI: TSystemInfo;
 begin
   ReturnLength := 0;
-  if NtQueryInformationProcess(FProcess, 0,
-    @pProcBasicInfo, SizeOf(PROCESS_BASIC_INFORMATION),
-    @ReturnLength) <> STATUS_SUCCESS then
+  if NtQueryInformationProcess(FProcess, 0, @pProcBasicInfo,
+    SizeOf(PROCESS_BASIC_INFORMATION), @ReturnLength) <> STATUS_SUCCESS then
     RaiseLastOSError;
   AddNewData('Process Environment Block', pProcBasicInfo.PebBaseAddress);
 
-  if not ReadProcessMemory(FProcess, pProcBasicInfo.PebBaseAddress,
-    @FPeb, SizeOf(TPEB), ReturnLength) then
+  if not ReadProcessMemory(FProcess, pProcBasicInfo.PebBaseAddress, @FPeb,
+    SizeOf(TPEB), ReturnLength) then
     RaiseLastOSError;
   AddNewData('Process Parameters', FPeb.ProcessParameters);
   AddNewData('LoaderData', FPeb.ProcessParameters);
@@ -806,8 +817,8 @@ begin
   AddNewData('OemCodePageData', FPeb.InitOemCodePageData);
   AddNewData('UnicodeCaseTableData', FPeb.InitUnicodeCaseTableData);
   AddNewData('GdiSharedHandleTable', FPeb.GdiSharedHandleTable);
-  if not ReadProcessMemory(FProcess, FPeb.ProcessParameters,
-    @ProcessParameters, SizeOf(RTL_USER_PROCESS_PARAMETERS), ReturnLength) then
+  if not ReadProcessMemory(FProcess, FPeb.ProcessParameters, @ProcessParameters,
+    SizeOf(RTL_USER_PROCESS_PARAMETERS), ReturnLength) then
     RaiseLastOSError;
   AddNewData('Process Environments', ProcessParameters.Environment);
   GetSystemInfo(SBI);
@@ -823,61 +834,64 @@ begin
   FRegionFilters.Clear;
   case Filter of
     fiNone:
-    begin
-      for I := 0 to FRegions.Count - 1 do
       begin
-        R := FRegions[I];
-        if not R.RegionVisible then Continue;
-        if ShowEmpty then
-          FRegionFilters.Add(I)
-        else
-          if (R.MBI.State <> MEM_FREE) or (R.RegionType <> rtDefault) then
+        for I := 0 to FRegions.Count - 1 do
+        begin
+          R := FRegions[I];
+          if not R.RegionVisible then
+            Continue;
+          if ShowEmpty then
+            FRegionFilters.Add(I)
+          else if (R.MBI.State <> MEM_FREE) or (R.RegionType <> rtDefault) then
             FRegionFilters.Add(I);
+        end;
       end;
-    end;
     fiThread:
-    begin
-      for I := 0 to FRegions.Count - 1 do
       begin
-        R := FRegions[I];
-        if RegionToFilterType(R) = Filter then
+        for I := 0 to FRegions.Count - 1 do
         begin
-          if not R.RegionVisible then Continue;
-          FRegionFilters.Add(I);
-        end
-        else
-          for A := 0 to R.Contains.Count - 1 do
-            if R.Contains[A].ItemType = itThreadProc then
-            begin
-              FRegionFilters.Add(I);
-              Break;
-            end;
+          R := FRegions[I];
+          if RegionToFilterType(R) = Filter then
+          begin
+            if not R.RegionVisible then
+              Continue;
+            FRegionFilters.Add(I);
+          end
+          else
+            for A := 0 to R.Contains.Count - 1 do
+              if R.Contains[A].ItemType = itThreadProc then
+              begin
+                FRegionFilters.Add(I);
+                Break;
+              end;
+        end;
       end;
-    end;
     fiSystem:
-    begin
-      for I := 0 to FRegions.Count - 1 do
       begin
-        R := FRegions[I];
-        if RegionToFilterType(R) = Filter then
+        for I := 0 to FRegions.Count - 1 do
         begin
-          if not R.RegionVisible then Continue;
-          FRegionFilters.Add(I);
-        end
-        else
-          for A := 0 to R.Contains.Count - 1 do
-            if R.Contains[A].ItemType = itSystem then
-            begin
-              FRegionFilters.Add(I);
-              Break;
-            end;
+          R := FRegions[I];
+          if RegionToFilterType(R) = Filter then
+          begin
+            if not R.RegionVisible then
+              Continue;
+            FRegionFilters.Add(I);
+          end
+          else
+            for A := 0 to R.Contains.Count - 1 do
+              if R.Contains[A].ItemType = itSystem then
+              begin
+                FRegionFilters.Add(I);
+                Break;
+              end;
+        end;
       end;
-    end;
   else
     for I := 0 to FRegions.Count - 1 do
     begin
       R := FRegions[I];
-      if not R.RegionVisible then Continue;
+      if not R.RegionVisible then
+        Continue;
       if RegionToFilterType(R) = Filter then
         FRegionFilters.Add(I);
     end;
@@ -896,7 +910,8 @@ begin
   try
     for ThreadData in Threads.ThreadData do
     begin
-      if not CheckAddr(ThreadData.Address) then Continue;
+      if not CheckAddr(ThreadData.Address) then
+        Continue;
 
       RegionData := GetRegionAtAddr(ThreadData.Address);
 
@@ -916,22 +931,23 @@ begin
         end;
 
         if ImageRegion <> nil then
-          RegionData.SetDetails(FSymbols.GetDescriptionAtAddr(
-            ULONG_PTR(ThreadData.Address),
-            ULONG_PTR(ImageRegion.MBI.BaseAddress),
-            ImageRegion.Details));
+          RegionData.SetDetails
+            (FSymbols.GetDescriptionAtAddr(ULONG_PTR(ThreadData.Address),
+            ULONG_PTR(ImageRegion.MBI.BaseAddress), ImageRegion.Details));
 
         Continue;
       end;
 
       RegionData.SetRegionType(rtThread);
       RegionData.SetThread(ThreadData);
-      if ThreadData.Flag = tiThreadProc then Continue;
+      if ThreadData.Flag = tiThreadProc then
+        Continue;
       if not RegionData.RegionVisible then
       begin
         TFriendlyRegionData(RegionData.Parent).SetRegionType(rtThread);
         if TFriendlyRegionData(RegionData.Parent).Thread.ThreadID = 0 then
-          TFriendlyRegionData(RegionData.Parent).SetThreadID(ThreadData.ThreadID);
+          TFriendlyRegionData(RegionData.Parent)
+            .SetThreadID(ThreadData.ThreadID);
       end;
     end;
   finally
@@ -943,6 +959,6 @@ initialization
 
 finalization
 
-  _MemoryMap.Free;
+_MemoryMap.Free;
 
 end.

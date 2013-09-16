@@ -118,10 +118,13 @@ begin
       tiExceptionList: Result := 'Thread Exception List';
       tiStackBase: Result := 'Thread Stack Base';
       tiStackLimit: Result := 'Thread Stack Limit';
-      tiTLS: Result := 'TLS';
+      tiTEB: Result := 'Thread Environment Block';
       tiThreadProc: Result := 'ThreadProc(' +
         UInt64ToStr(NativeUInt(Value.Thread.Address)) + ')';
     end;
+  if Value.Thread.Flag <> tiThreadProc then
+    if Value.Thread.Wow64 then
+      Result := Result + ' (Wow64)';
 end;
 
 function ExtractHeapEntryString(Value: DWORD): string;

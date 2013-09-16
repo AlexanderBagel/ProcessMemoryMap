@@ -16,6 +16,7 @@ object dlgProcessMM: TdlgProcessMM
   Position = poScreenCenter
   OnActivate = FormActivate
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
   DesignSize = (
     1007

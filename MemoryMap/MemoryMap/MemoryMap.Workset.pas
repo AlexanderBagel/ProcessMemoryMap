@@ -75,7 +75,7 @@ var
   I: Integer;
   ShareInfo: TShareInfo;
 begin
-  SetLength(WorksetBuff, $FFFF);
+  SetLength(WorksetBuff, $400000);
   while not QueryWorkingSet(hProcess, @WorksetBuff[0],
     Length(WorksetBuff) * SizeOf(ULONG_PTR)) do
     SetLength(WorksetBuff, WorksetBuff[0] * 2);
