@@ -226,9 +226,9 @@ begin
     if ReadCondition = rcReadAllwais then
       ReadCondition := rcReadIfReadAccessPresent;
   dwLength := SizeOf(TMemoryBasicInformation);
+  RegionSize := 0;
   if VirtualQueryEx(Process,
-    Address, MBI, dwLength) <> dwLength then
-    RaiseLastOSError;
+    Address, MBI, dwLength) <> dwLength then Exit;
   RegionSize := MBI.RegionSize -
     (NativeUInt(Address) - NativeUInt(MBI.BaseAddress));
   case ReadCondition of

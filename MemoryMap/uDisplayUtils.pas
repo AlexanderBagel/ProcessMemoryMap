@@ -34,6 +34,8 @@ type
 
   function AddDataToLevel1Node(ARegion: TRegionData;
     Node: PNodeData): TColorRef;
+  function GetRegionColor(Value: TRegionData;
+    FirstLevel: Boolean): TColorRef;
   procedure AddDataToLevel2Node(ARegion: TRegionData; Node:
     PNodeData; AColor: TColorRef; PEImage: Boolean);
   procedure AddDataToDirectoryesNode(ARegion: TRegionData;
@@ -53,6 +55,7 @@ implementation
 
 const
   NodeOffset = '      ';
+  Wow64 = ' (Wow64)';
 
 function ExtractInitialAccessString(const Value: DWORD): string;
 begin
@@ -124,7 +127,7 @@ begin
     end;
   if Value.Thread.Flag <> tiThreadProc then
     if Value.Thread.Wow64 then
-      Result := Result + ' (Wow64)';
+      Result := Result + Wow64;
 end;
 
 function ExtractHeapEntryString(Value: DWORD): string;
@@ -174,7 +177,12 @@ function GetLevel1RegionTypeString(ARegion: TRegionData): string;
 begin
   Result := '';
   case ARegion.RegionType of
-    rtHeap: Result := 'Heap';
+    rtHeap:
+    begin
+      Result := 'Heap';
+      if ARegion.Heap.Wow64 then
+        Result := Result + Wow64;
+    end;
     rtThread: Result := ExtractThreadDataString(True, ARegion);
     rtSystem:
     begin

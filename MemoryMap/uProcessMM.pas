@@ -13,6 +13,8 @@ uses
   MemoryMap.Core,
   MemoryMap.RegionData,
   MemoryMap.Utils,
+  MemoryMap.Threads,
+  MemoryMap.Heaps,
 
   uDisplayUtils,
   uIPC;
@@ -151,15 +153,14 @@ type
     {$IFDEF WIN32}
     IPCServer: TIPCServer;
     {$ENDIF}
+    IPCServerMMFName: string;
     procedure AddShieldIconToMenu;
     procedure CalcNodeDataArraySize;
     procedure FillTreeView;
     function Search(const Value: string): Boolean;
     function GetSelectedNodeData: PNodeData;
-    {$IFDEF WIN64}
-    procedure OnGetWow64Threads(AStream: TStream);
-    procedure OnGetWow64Heaps(AStream: TStream);
-    {$ENDIF}
+    procedure OnGetWow64Threads(Value: TThreads);
+    procedure OnGetWow64Heaps(Value: THeap);
   end;
 
 var
@@ -357,9 +358,8 @@ begin
   begin
     M := TMemoryMap.Create;
     try
-//      {$IFDEF WIN64}
-//      M.OnGetWow64MemoryMap := OnGetWow64MemoryMap;
-//      {$ENDIF}
+      M.OnGetWow64Threads := OnGetWow64Threads;
+      M.OnGetWow64Heaps := OnGetWow64Heaps;
       M.InitFromProcess(MemoryMapCore.PID,
         MemoryMapCore.ProcessName);
       dlgComparator := TdlgComparator.Create(nil);
@@ -631,7 +631,14 @@ begin
     begin
       // «апол€ем данные по узлам первого уровн€
       Region := MemoryMapCore[Lvl1];
-      NodesColor := AddDataToLevel1Node(Region, @NodeDataArray[Counter]);
+      if Region.RegionVisible then
+        NodesColor := AddDataToLevel1Node(Region, @NodeDataArray[Counter])
+      else
+      begin
+        NodesColor := GetRegionColor(Region, True);
+        AddDataToLevel2Node(Region, @NodeDataArray[Counter], NodesColor,
+          Region.RegionType = rtExecutableImage);
+      end;
       Lvl1Root :=
         stMemoryMap.AddChild(stMemoryMap.RootNode, @NodeDataArray[Counter]);
       NodeDataArray[Counter].Node := Lvl1Root;
@@ -702,10 +709,12 @@ begin
   else
     AddShieldIconToMenu;
   {$IFDEF WIN64}
-//  MemoryMapCore.OnGetWow64MemoryMap := OnGetWow64MemoryMap;
+  IPCServerMMFName := ParamStr(1);
   {$ELSE}
   IPCServer := TIPCServer.Create;
   {$ENDIF}
+  MemoryMapCore.OnGetWow64Threads := OnGetWow64Threads;
+  MemoryMapCore.OnGetWow64Heaps := OnGetWow64Heaps;
   Application.Title := Caption;
   FirstRun := True;
 end;
@@ -843,33 +852,31 @@ begin
   FillTreeView;
 end;
 
-{$IFDEF WIN64}
-procedure TdlgProcessMM.OnGetWow64Heaps(AStream: TStream);
+procedure TdlgProcessMM.OnGetWow64Heaps(Value: THeap);
 var
   M: TMemoryStream;
 begin
-  M := GetWin32MemoryMap(MemoryMapCore.PID,
-    'Process Memory Map MMF 123', dtHeap);
+  M := GetWin32MemoryMap(MemoryMapCore.PID, IPCServerMMFName, dtHeap);
   try
-    AStream.CopyFrom(M, 0);
+    if M.Size > 0 then
+      LoadHeaps(Value, M);
   finally
     M.Free;
   end;
 end;
 
-procedure TdlgProcessMM.OnGetWow64Threads(AStream: TStream);
+procedure TdlgProcessMM.OnGetWow64Threads(Value: TThreads);
 var
   M: TMemoryStream;
 begin
-  M := GetWin32MemoryMap(MemoryMapCore.PID,
-    'Process Memory Map MMF 123', dtThread);
+  M := GetWin32MemoryMap(MemoryMapCore.PID, IPCServerMMFName, dtThread);
   try
-    AStream.CopyFrom(M, 0);
+    if M.Size > 0 then
+      LoadThreads(Value, M);
   finally
     M.Free;
   end;
 end;
-{$ENDIF}
 
 function TdlgProcessMM.Search(const Value: string): Boolean;
 var

@@ -42,6 +42,8 @@ type
 
   function GetWin32MemoryMap(PID: DWORD; const MMFName: string;
     DataType: TRemoteDataType): TMemoryStream;
+  procedure LoadThreads(Value: TThreads; AStream: TStream);
+  procedure LoadHeaps(Value: THeap; AStream: TStream);
 
 implementation
 
@@ -54,6 +56,7 @@ var
 begin
   for TD in Value.ThreadData do
   begin
+    if TD.Flag = tiThreadProc then Continue;    
     AStream.WriteBuffer(Byte(TD.Flag), 1);
     AStream.WriteBuffer(TD.ThreadID, 4);
     AStream.WriteBuffer(Integer(TD.Address), 4);
@@ -238,6 +241,7 @@ begin
     if not ReadProcessMemory(Process, Pointer(RemoteData.Address),
       @MemoryMapData[0], RemoteData.Size, lpNumberOfBytesRead) then Exit;
     Result.WriteBuffer(MemoryMapData[0], RemoteData.Size);
+    Result.Position := 0;
   finally
     CloseHandle(Process);
   end;

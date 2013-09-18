@@ -52,6 +52,7 @@ type
     FDirectories: TList<TDirectory>;
     FShared: Boolean;
     FSharedCount: Integer;
+    FFiltered: Boolean;
   protected
     procedure IncHiddenRegionCount;
     procedure IncTotalRegionSize(Value: NativeUInt);
@@ -65,11 +66,12 @@ type
     procedure SetParent(Value: TRegionData);
     procedure SetHeap(Value: THeapData);
     procedure SetThread(Value: TThreadData);
-    procedure SetThreadID(Value: Integer);
+    procedure SetThreadIDAndWow(Value: Integer; Wow64: Boolean);
     procedure SetPEBData(Value: TSystemData);
     procedure SetSection(Value: TSection);
     procedure SetShared(const Value: Boolean);
     procedure SetSharedCount(const Value: Integer);
+    procedure SetFiltered(Value: Boolean);
   protected
     procedure InitFromString(const Value: string);
     function GetAsString: string;
@@ -91,6 +93,7 @@ type
     property SharedCount: Integer read FSharedCount;
     property Directory: TList<TDirectory> read FDirectories;
     property Contains: TList<TContainItem> read FContains;
+    property Filtered: Boolean read FFiltered;
   end;
 
 implementation
@@ -346,6 +349,11 @@ begin
   FDetails := Value;
 end;
 
+procedure TRegionData.SetFiltered(Value: Boolean);
+begin
+  FFiltered := Value;
+end;
+
 procedure TRegionData.SetMBI(Value: TMemoryBasicInformation);
 begin
   FMBI := Value;
@@ -397,9 +405,10 @@ begin
   FThread := Value;
 end;
 
-procedure TRegionData.SetThreadID(Value: Integer);
+procedure TRegionData.SetThreadIDAndWow(Value: Integer; Wow64: Boolean);
 begin
   FThread.ThreadID := Value;
+  FThread.Wow64 := Wow64;
 end;
 
 procedure TRegionData.SetTotalRegionSize(Value: NativeUInt);

@@ -175,9 +175,6 @@ end;
 //  содержит ли секция исполяемый код
 // =============================================================================
 function IsExecute(const Value: DWORD): Boolean;
-const
-  IMAGE_SCN_CNT_CODE = $00000020;
-  IMAGE_SCN_MEM_EXECUTE = $20000000;
 begin
   Result := False;
   if (Value and IMAGE_SCN_CNT_CODE) =
@@ -191,9 +188,6 @@ end;
 //  содержит ли секция неинициализированные данные
 // =============================================================================
 function IsWrite(const Value: DWORD): Boolean;
-const
-  IMAGE_SCN_CNT_UNINITIALIZED_DATA = $00000080;
-  IMAGE_SCN_MEM_WRITE = $80000000;
 begin
   Result := False;
   if (Value and IMAGE_SCN_CNT_UNINITIALIZED_DATA) =

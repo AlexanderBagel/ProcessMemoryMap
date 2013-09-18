@@ -111,7 +111,6 @@ begin
             TBI.TebBaseAddress, @TIB, SizeOf(NT_TIB),
             lpNumberOfBytesRead) then Exit;
           // Добавляем в массив адрес стэка
-          Add(hProcess, tiExceptionList, TIB.ExceptionList, ThreadEntry.th32ThreadID);
           Add(hProcess, tiStackBase, TIB.StackBase, ThreadEntry.th32ThreadID);
           Add(hProcess, tiStackLimit, TIB.StackLimit, ThreadEntry.th32ThreadID);
           Add(hProcess, tiTEB, TIB.Self, ThreadEntry.th32ThreadID);

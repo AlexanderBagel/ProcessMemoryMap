@@ -1,3 +1,7 @@
+
+// –азмеры структур должны быть выравнены
+{$A8}
+
 unit MemoryMap.NtDll;
 
 interface
@@ -67,6 +71,139 @@ type
     ReturnLength: PDWORD): NTSTATUS; stdcall; external ntdll;
 
 type
+  WOW64_POINTER = ULONG;
+
+  UNICODE_STRING32 = record
+    Length: USHORT;
+    MaximumLength: USHORT;
+    Buffer: ULONG;
+  end;
+
+  LIST_ENTRY_32 = record
+    FLink, BLink: ULONG;
+  end;
+
+  PLIST_ENTRY = ^LIST_ENTRY;
+  LIST_ENTRY = record
+    FLink, BLink: PLIST_ENTRY;
+  end;
+
+
+const
+  FLS_MAXIMUM_AVAILABLE = 128;
+
+type
+  PWOW64_PEB = ^TWOW64_PEB;
+  TWOW64_PEB = record
+    InheritedAddressSpace: BOOLEAN;
+    ReadImageFileExecOptions: BOOLEAN;
+    BeingDebugged: BOOLEAN;
+    BitField: BOOLEAN;
+        {
+            BOOLEAN ImageUsesLargePages : 1;
+            BOOLEAN IsProtectedProcess : 1;
+            BOOLEAN IsLegacyProcess : 1;
+            BOOLEAN IsImageDynamicallyRelocated : 1;
+            BOOLEAN SkipPatchingUser32Forwarders : 1;
+            BOOLEAN IsPackagedProcess : 1;
+            BOOLEAN IsAppContainer : 1;
+            BOOLEAN SpareBits : 1;
+        }
+    Mutant: WOW64_POINTER;
+    ImageBaseAddress: WOW64_POINTER;
+    LoaderData: WOW64_POINTER;
+    ProcessParameters: WOW64_POINTER;
+    SubSystemData: WOW64_POINTER;
+    ProcessHeap: WOW64_POINTER;
+    FastPebLock: WOW64_POINTER;
+    AtlThunkSListPtr: WOW64_POINTER;
+    IFEOKey: WOW64_POINTER;
+    EnvironmentUpdateCount: ULONG;
+    UserSharedInfoPtr: WOW64_POINTER;
+    SystemReserved: ULONG;
+    AtlThunkSListPtr32: ULONG;
+    ApiSetMap: WOW64_POINTER;
+    TlsExpansionCounter: ULONG;
+    TlsBitmap: WOW64_POINTER;
+    TlsBitmapBits: array[0..1] of ULONG;
+    ReadOnlySharedMemoryBase: WOW64_POINTER;
+    HotpatchInformation: WOW64_POINTER;
+    ReadOnlyStaticServerData: WOW64_POINTER;
+    AnsiCodePageData: WOW64_POINTER;
+    OemCodePageData: WOW64_POINTER;
+    UnicodeCaseTableData: WOW64_POINTER;
+
+    KeNumberOfProcessors: ULONG;
+    NtGlobalFlag: ULONG;
+
+    CriticalSectionTimeout: LARGE_INTEGER;
+    HeapSegmentReserve: WOW64_POINTER;
+    HeapSegmentCommit: WOW64_POINTER;
+    HeapDeCommitTotalFreeThreshold: WOW64_POINTER;
+    HeapDeCommitFreeBlockThreshold: WOW64_POINTER;
+
+    NumberOfHeaps: ULONG;
+    MaximumNumberOfHeaps: ULONG;
+    ProcessHeaps: WOW64_POINTER;
+
+    GdiSharedHandleTable: WOW64_POINTER;
+    ProcessStarterHelper: WOW64_POINTER;
+    GdiDCAttributeList: ULONG;
+
+    LoaderLock: WOW64_POINTER;
+
+    NtMajorVersion: ULONG;
+    NtMinorVersion: ULONG;
+    NtBuildNumber: USHORT;
+    NtCSDVersion: USHORT;
+    PlatformId: ULONG;
+    Subsystem: ULONG;
+    MajorSubsystemVersion: ULONG;
+    MinorSubsystemVersion: ULONG;
+    AffinityMask: WOW64_POINTER;
+    GdiHandleBuffer: array [0..33] of ULONG;
+    PostProcessInitRoutine: WOW64_POINTER;
+
+    TlsExpansionBitmap: WOW64_POINTER;
+    TlsExpansionBitmapBits: array [0..31] of ULONG;
+
+    SessionId: ULONG;
+
+    AppCompatFlags: ULARGE_INTEGER;
+    AppCompatFlagsUser: ULARGE_INTEGER;
+    pShimData: WOW64_POINTER;
+    AppCompatInfo: WOW64_POINTER;
+
+    CSDVersion: UNICODE_STRING32;
+
+    ActivationContextData: WOW64_POINTER;
+    ProcessAssemblyStorageMap: WOW64_POINTER;
+    SystemDefaultActivationContextData: WOW64_POINTER;
+    SystemAssemblyStorageMap: WOW64_POINTER;
+
+    MinimumStackCommit: WOW64_POINTER;
+
+    FlsCallback: WOW64_POINTER;
+    FlsListHead: LIST_ENTRY_32;
+    FlsBitmap: WOW64_POINTER;
+    FlsBitmapBits: array [1..FLS_MAXIMUM_AVAILABLE div SizeOf(ULONG) * 8] of ULONG;
+    FlsHighIndex: ULONG;
+
+    WerRegistrationData: WOW64_POINTER;
+    WerShipAssertPtr: WOW64_POINTER;
+    pContextData: WOW64_POINTER;
+    pImageHeaderHash: WOW64_POINTER;
+
+    TracingFlags: ULONG;
+        {
+            ULONG HeapTracingEnabled : 1;
+            ULONG CritSecTracingEnabled : 1;
+            ULONG LibLoaderTracingEnabled : 1;
+            ULONG SpareTracingBits : 29;
+        }
+    CsrServerReadOnlySharedMemoryBase: ULONGLONG;
+  end;
+
   RTL_DRIVE_LETTER_CURDIR = record
     Flags: Word;
     Length: Word;
@@ -111,50 +248,67 @@ type
   KSPIN_LOCK = ULONG_PTR;
   PPEBLOCKROUTINE = ULONG_PTR;
 
+  HANDLE = THandle;
+
   PPEB = ^TPEB;
   TPEB = record
-    InheritedAddressSpace: UCHAR;
-    ReadImageFileExecOptions: UCHAR;
-    BeingDebugged: UCHAR;
-    Spare: Byte;
-    Mutant: PVOID;
+    InheritedAddressSpace: BOOLEAN;
+    ReadImageFileExecOptions: BOOLEAN;
+    BeingDebugged: BOOLEAN;
+    BitField: BOOLEAN;
+        {
+            BOOLEAN ImageUsesLargePages : 1;
+            BOOLEAN IsProtectedProcess : 1;
+            BOOLEAN IsLegacyProcess : 1;
+            BOOLEAN IsImageDynamicallyRelocated : 1;
+            BOOLEAN SkipPatchingUser32Forwarders : 1;
+            BOOLEAN IsPackagedProcess : 1;
+            BOOLEAN IsAppContainer : 1;
+            BOOLEAN SpareBits : 1;
+        }
+    Mutant: HANDLE;
     ImageBaseAddress: PVOID;
-    LoaderData: PVOID; //PPEB_LDR_DATA;
+    LoaderData: PVOID;
     ProcessParameters: PRTL_USER_PROCESS_PARAMETERS;
     SubSystemData: PVOID;
     ProcessHeap: PVOID;
-    FastPebLock: KSPIN_LOCK;
-    FastPebLockRoutine: PPEBLOCKROUTINE;
-    FastPebUnlockRoutine: PPEBLOCKROUTINE;
+    FastPebLock: PRTLCriticalSection;
+    AtlThunkSListPtr: PVOID;
+    IFEOKey: PVOID;
     EnvironmentUpdateCount: ULONG;
-    KernelCallbackTable: PPVOID;
-    EventLogSection: PVOID;
-    EventLog: PVOID;
-    FreeList: PVOID; //PPEB_FREE_BLOCK;
+    UserSharedInfoPtr: PVOID;
+    SystemReserved: ULONG;
+    AtlThunkSListPtr32: ULONG;
+    ApiSetMap: PVOID;
     TlsExpansionCounter: ULONG;
     TlsBitmap: PVOID;
     TlsBitmapBits: array[0..1] of ULONG;
     ReadOnlySharedMemoryBase: PVOID;
-    ReadOnlySharedMemoryHeap: PVOID;
-    ReadOnlyStaticServerData: PVOID;
-    InitAnsiCodePageData: PVOID;
-    InitOemCodePageData: PVOID;
-    InitUnicodeCaseTableData: PVOID;
+    HotpatchInformation: PVOID;
+    ReadOnlyStaticServerData: PPVOID;
+    AnsiCodePageData: PVOID;
+    OemCodePageData: PVOID;
+    UnicodeCaseTableData: PVOID;
+
     KeNumberOfProcessors: ULONG;
     NtGlobalFlag: ULONG;
-    Spare2: array[0..3] of Byte;
-    MmCriticalSectionTimeout: LARGE_INTEGER;
-    MmHeapSegmentReserve: ULONG;
-    MmHeapSegmentCommit: ULONG;
-    MmHeapDeCommitTotalFreeThreshold: ULONG;
-    MmHeapDeCommitFreeBlockThreshold: ULONG;
+
+    CriticalSectionTimeout: LARGE_INTEGER;
+    HeapSegmentReserve: SIZE_T;
+    HeapSegmentCommit: SIZE_T;
+    HeapDeCommitTotalFreeThreshold: SIZE_T;
+    HeapDeCommitFreeBlockThreshold: SIZE_T;
+
     NumberOfHeaps: ULONG;
     MaximumNumberOfHeaps: ULONG;
-    ProcessHeapsListBuffer: PHANDLE;
+    ProcessHeaps: PPVOID;
+
     GdiSharedHandleTable: PVOID;
     ProcessStarterHelper: PVOID;
-    GdiDCAttributeList: PVOID;
-    LoaderLock: KSPIN_LOCK;
+    GdiDCAttributeList: ULONG;
+
+    LoaderLock: PRTLCriticalSection;
+
     NtMajorVersion: ULONG;
     NtMinorVersion: ULONG;
     NtBuildNumber: USHORT;
@@ -163,14 +317,52 @@ type
     Subsystem: ULONG;
     MajorSubsystemVersion: ULONG;
     MinorSubsystemVersion: ULONG;
-    AffinityMask: KAFFINITY;
+    AffinityMask: ULONG_PTR;
+    {$IFDEF WIN32}
     GdiHandleBuffer: array [0..33] of ULONG;
-    PostProcessInitRoutine: ULONG;
-    TlsExpansionBitmap: ULONG;
-    TlsExpansionBitmapBits: array [0..127] of UCHAR;
+    {$ELSE}
+    GdiHandleBuffer: array [0..59] of ULONG;
+    {$ENDIF}
+    PostProcessInitRoutine: PVOID;
+
+    TlsExpansionBitmap: PVOID;
+    TlsExpansionBitmapBits: array [0..31] of ULONG;
+
     SessionId: ULONG;
+
     AppCompatFlags: ULARGE_INTEGER;
-    CSDVersion: PWORD;
+    AppCompatFlagsUser: ULARGE_INTEGER;
+    pShimData: PVOID;
+    AppCompatInfo: PVOID;
+
+    CSDVersion: UNICODE_STRING;
+
+    ActivationContextData: PVOID;
+    ProcessAssemblyStorageMap: PVOID;
+    SystemDefaultActivationContextData: PVOID;
+    SystemAssemblyStorageMap: PVOID;
+
+    MinimumStackCommit: SIZE_T;
+
+    FlsCallback: PPVOID;
+    FlsListHead: LIST_ENTRY;
+    FlsBitmap: PVOID;
+    FlsBitmapBits: array [1..FLS_MAXIMUM_AVAILABLE div SizeOf(ULONG) * 8] of ULONG;
+    FlsHighIndex: ULONG;
+
+    WerRegistrationData: PVOID;
+    WerShipAssertPtr: PVOID;
+    pContextData: PVOID;
+    pImageHeaderHash: PVOID;
+
+    TracingFlags: ULONG;
+        {
+            ULONG HeapTracingEnabled : 1;
+            ULONG CritSecTracingEnabled : 1;
+            ULONG LibLoaderTracingEnabled : 1;
+            ULONG SpareTracingBits : 29;
+        }
+    CsrServerReadOnlySharedMemoryBase: ULONGLONG;
   end;
 
   PPROCESS_BASIC_INFORAMTION = ^PROCESS_BASIC_INFORMATION;
@@ -194,8 +386,6 @@ const
   RTL_QUERY_PROCESS_HEAP_ENTRIES = $00000010;
 
 type
-  HANDLE = THandle;
-
   TSettableAndTag = record
     Settable: SIZE_T;
     Tag: ULONG;

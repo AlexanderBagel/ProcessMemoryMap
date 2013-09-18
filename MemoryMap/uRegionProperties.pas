@@ -46,99 +46,8 @@ implementation
 uses
   uUtils,
   uSettings,
-  uHexUtils,
+  uDumpDisplayUtils,
   uDisplayUtils;
-
-{
-w8 _KUSER_SHARED_DATA
-для w7 тут
-dt _KUSER_SHARED_DATA
-
-   +0x000 TickCountLowDeprecated : Uint4B
-   +0x004 TickCountMultiplier : Uint4B
-   +0x008 InterruptTime    : _KSYSTEM_TIME
-   +0x014 SystemTime       : _KSYSTEM_TIME
-   +0x020 TimeZoneBias     : _KSYSTEM_TIME
-   +0x02c ImageNumberLow   : Uint2B
-   +0x02e ImageNumberHigh  : Uint2B
-   +0x030 NtSystemRoot     : [260] Wchar
-   +0x238 MaxStackTraceDepth : Uint4B
-   +0x23c CryptoExponent   : Uint4B
-   +0x240 TimeZoneId       : Uint4B
-   +0x244 LargePageMinimum : Uint4B
-   +0x248 AitSamplingValue : Uint4B
-   +0x24c AppCompatFlag    : Uint4B
-   +0x250 RNGSeedVersion   : Uint8B
-   +0x258 GlobalValidationRunlevel : Uint4B
-   +0x25c Reserved2        : [2] Uint4B
-   +0x264 NtProductType    : _NT_PRODUCT_TYPE
-   +0x268 ProductTypeIsValid : UChar
-   +0x269 Reserved0        : [1] UChar
-   +0x26a NativeProcessorArchitecture : Uint2B
-   +0x26c NtMajorVersion   : Uint4B
-   +0x270 NtMinorVersion   : Uint4B
-   +0x274 ProcessorFeatures : [64] UChar
-   +0x2b4 Reserved1        : Uint4B
-   +0x2b8 Reserved3        : Uint4B
-   +0x2bc TimeSlip         : Uint4B
-   +0x2c0 AlternativeArchitecture : _ALTERNATIVE_ARCHITECTURE_TYPE
-   +0x2c4 AltArchitecturePad : [1] Uint4B
-   +0x2c8 SystemExpirationDate : _LARGE_INTEGER
-   +0x2d0 SuiteMask        : Uint4B
-   +0x2d4 KdDebuggerEnabled : UChar
-   +0x2d5 MitigationPolicies : UChar
-   +0x2d5 NXSupportPolicy  : Pos 0, 2 Bits
-   +0x2d5 SEHValidationPolicy : Pos 2, 2 Bits
-   +0x2d5 CurDirDevicesSkippedForDlls : Pos 4, 2 Bits
-   +0x2d5 Reserved         : Pos 6, 2 Bits
-   +0x2d6 Reserved6        : [2] UChar
-   +0x2d8 ActiveConsoleId  : Uint4B
-   +0x2dc DismountCount    : Uint4B
-   +0x2e0 ComPlusPackage   : Uint4B
-   +0x2e4 LastSystemRITEventTickCount : Uint4B
-   +0x2e8 NumberOfPhysicalPages : Uint4B
-   +0x2ec SafeBootMode     : UChar
-   +0x2ed Reserved12       : [3] UChar
-   +0x2f0 SharedDataFlags  : Uint4B
-   +0x2f0 DbgErrorPortPresent : Pos 0, 1 Bit
-   +0x2f0 DbgElevationEnabled : Pos 1, 1 Bit
-   +0x2f0 DbgVirtEnabled   : Pos 2, 1 Bit
-   +0x2f0 DbgInstallerDetectEnabled : Pos 3, 1 Bit
-   +0x2f0 DbgLkgEnabled    : Pos 4, 1 Bit
-   +0x2f0 DbgDynProcessorEnabled : Pos 5, 1 Bit
-   +0x2f0 DbgConsoleBrokerEnabled : Pos 6, 1 Bit
-   +0x2f0 SpareBits        : Pos 7, 25 Bits
-   +0x2f4 DataFlagsPad     : [1] Uint4B
-   +0x2f8 TestRetInstruction : Uint8B
-   +0x300 Reserved9        : Uint4B
-   +0x304 Reserved10       : Uint4B
-   +0x308 SystemCallPad    : [3] Uint8B
-   +0x320 TickCount        : _KSYSTEM_TIME
-   +0x320 TickCountQuad    : Uint8B
-   +0x320 ReservedTickCountOverlay : [3] Uint4B
-   +0x32c TickCountPad     : [1] Uint4B
-   +0x330 Cookie           : Uint4B
-   +0x334 CookiePad        : [1] Uint4B
-   +0x338 ConsoleSessionForegroundProcessId : Int8B
-   +0x340 TimeUpdateSequence : Uint8B
-   +0x348 LastTimeUpdateQpcValue : Uint8B
-   +0x350 LastInterruptTimeUpdateQpcValue : Uint8B
-   +0x358 QpcTimeIncrement : Uint8B
-   +0x360 QpcTimeIncrement32 : Uint4B
-   +0x364 Reserved8        : [7] Uint4B
-   +0x380 UserModeGlobalLogger : [16] Uint2B
-   +0x3a0 ImageFileExecutionOptions : Uint4B
-   +0x3a4 LangGenerationCount : Uint4B
-   +0x3a8 InterruptTimeBias : Uint8B
-   +0x3b0 TscQpcBias       : Uint8B
-   +0x3b8 ActiveProcessorCount : Uint4B
-   +0x3bc ActiveGroupCount : UChar
-   +0x3bd QpcTimeIncrementShift : UChar
-   +0x3be TscQpcData       : Uint2B
-   +0x3be TscQpcEnabled    : UChar
-   +0x3bf TscQpcShift      : UChar
-   +0x3c0 XState           : _XSTATE_CONFIGURATION
-}
 
 {$R *.dfm}
 
@@ -222,6 +131,8 @@ begin
 end;
 
 procedure TdlgRegionProps.StartQuery(Value: Pointer);
+const
+  KUSER_SHARED_DATA_ADDR = Pointer($7FFE0000);
 var
   MBI: TMemoryBasicInformation;
   dwLength: Cardinal;
@@ -244,23 +155,57 @@ begin
       if VirtualQueryEx(Process,
          Pointer(Value), MBI, dwLength) <> dwLength then
          RaiseLastOSError;
-       ShowInfoFromMBI(MBI, Value);
-       if Value = MemoryMapCore.PebBaseAddress then
-       begin
-         Add(DumpPEBWow64(Process, Value));
-         Exit;
-       end;
-       if MemoryMapCore.GetRegionIndex(Value, Index) then
-       begin
-         ARegion := MemoryMapCore.GetRegionAtUnfilteredIndex(Index);
-         if (ARegion.RegionType = rtThread) and
-           (ARegion.Thread.Flag = tiExceptionList) then
-         begin
-           Add(DumpThreadWow64(Process, Value));
-           Exit;
-         end;
-       end;
-       Add(DumpMemory(Process, Value));
+      ShowInfoFromMBI(MBI, Value);
+
+      if Value = KUSER_SHARED_DATA_ADDR then
+      begin
+        Add(DumpKUserSharedData(Process, Value));
+        Exit;
+      end;
+
+      if Value = MemoryMapCore.PebBaseAddress then
+      begin
+        {$IFDEF WIN32}
+        Add(DumpPEB32(Process, Value));
+        {$ELSE}
+        Add(DumpPEB64(Process, Value));
+        {$ENDIF}
+        Exit;
+      end;
+
+      {$IFDEF WIN64}
+      if Value = MemoryMapCore.PebWow64BaseAddress then
+      begin
+        Add(DumpPEB32(Process, Value));
+        Exit;
+      end;
+      {$ENDIF}
+
+      if CheckPEImage(Process, Value) then
+      begin
+        Add(DumpPEHeader(Process, Value));
+        Exit;
+      end;
+
+      if MemoryMapCore.GetRegionIndex(Value, Index) then
+      begin
+        ARegion := MemoryMapCore.GetRegionAtUnfilteredIndex(Index);
+        if (ARegion.RegionType = rtThread) and
+          (ARegion.Thread.Flag = tiTEB) then
+        begin
+          {$IFDEF WIN32}
+          Add(DumpThread32(Process, Value));
+          {$ELSE}
+          if ARegion.Thread.Wow64 then
+            Add(DumpThread32(Process, Value))
+          else
+            Add(DumpThread64(Process, Value));
+          {$ENDIF}
+          Exit;
+        end;
+      end;
+
+      Add(DumpMemory(Process, Value));
     finally
       edProperties.SelStart := 0;
       if Settings.SuspendProcess then
