@@ -26,8 +26,14 @@ const
     '-------------------------------------------- Memory dump -------------------------------------------------';
   PEBHeader =
     '------------------------------------- Process Environment Block ------------------------------------------';
-  TEB_Header =
-    '-------------------------------------- Thread Environment Block ------------------------------------------';
+  TIB32_Header =
+    '---------------------------------------------- NT_TIB32 --------------------------------------------------';
+  TEB32_Header =
+    '----------------------------------------------- TEB32 ----------------------------------------------------';
+  TI64_Header =
+    '---------------------------------------------- NT_TIB64 --------------------------------------------------';
+  TEB64_Header =
+    '----------------------------------------------- TEB64 ----------------------------------------------------';
   PEHeader =
     '------------------------------------------ IMAGE_DOS_HEADER ----------------------------------------------';
   NT_HEADERS =
@@ -48,7 +54,7 @@ const
     '------------------------------------------ KUSER_SHARED_DATA ---------------------------------------------';
 type
   TDataType = (dtByte, dtWord, dtDword,
-    dtInt64, dtString, dtAnsiString, dtBuff, dtUnicodeString32,
+    dtInt64, dtGUID, dtString, dtAnsiString, dtBuff, dtUnicodeString32,
     dtUnicodeString64);
 
 function ByteToHexStr(Base: NativeUInt; Data: Pointer;
@@ -161,6 +167,7 @@ begin
     dtWord: UString := IntToHex(PWord(Address)^, 1);
     dtDword: UString := IntToHex(PDWORD(Address)^, 1);
     dtInt64: UString := IntToHex(PInt64(Address)^, 1);
+    dtGUID: UString := GUIDToString(PGUID(Address)^);
     dtString:
     begin
       SetLength(UString, Size div 2);
@@ -192,6 +199,7 @@ begin
     dtWord: AddString(OutValue, Comment, Address, DataType, 2, Cursor, SubComment);
     dtDword: AddString(OutValue, Comment, Address, DataType, 4, Cursor, SubComment);
     dtInt64: AddString(OutValue, Comment, Address, DataType, 8, Cursor, SubComment);
+    dtGUID: AddString(OutValue, Comment, Address, DataType, 16, Cursor, SubComment);
     dtUnicodeString32: AddString(OutValue, Comment, Address, DataType, 8, Cursor, SubComment);
     dtUnicodeString64: AddString(OutValue, Comment, Address, DataType, 16, Cursor, SubComment);
   end;
@@ -255,12 +263,14 @@ var
 begin
   Result := '';
   Size := PWord(Address)^;
-  if Size = 0 then Exit;
-  SetLength(Result, Size div 2);
   Address := PByte(Address) + 4;
   Address := Pointer(PDWORD(Address)^);
-  ReadProcessData(Process, Address, @Result[1],
-    Size, Dummy, rcReadAllwais);
+  if Size > 0 then
+  begin
+    SetLength(Result, Size div 2);
+    ReadProcessData(Process, Address, @Result[1],
+      Size, Dummy, rcReadAllwais);
+  end;
   Result := '[' + IntToHex(ULONG_PTR(Address), 1) + '] "' + PChar(Result) + '"';
 end;
 
@@ -270,12 +280,14 @@ var
 begin
   Result := '';
   Size := PDWORD(Address)^;
-  if Size = 0 then Exit;
-  SetLength(Result, Size div 2);
   Address := PByte(Address) + 8;
   Address := Pointer(Address^);
-  ReadProcessData(Process, Address, @Result[1],
-    Size, Dummy, rcReadAllwais);
+  if Size > 0 then
+  begin
+    SetLength(Result, Size div 2);
+    ReadProcessData(Process, Address, @Result[1],
+      Size, Dummy, rcReadAllwais);
+  end;
   Result := '[' + IntToHex(ULONG_PTR(Address), 1) + '] "' + PChar(Result) + '"';
 end;
 
@@ -872,6 +884,30 @@ begin
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
 
+function SameTebFlagsToStr(Value: Word): string;
+const
+  SameTebFlags: array [0..11] of string = (
+    'SafeThunkCall', 'InDebugPrint', 'HasFiberData', 'SkipThreadAttach',
+    'WerInShipAssertCode', 'RanProcessInit', 'ClonedThread', 'SuppressDebugMsg',
+    'DisableUserStackWalk', 'RtlExceptionAttached', 'InitialThread', 'SessionAware');
+
+  procedure AddResult(const Value: string);
+  begin
+    if Result = '' then
+      Result := Value
+    else
+      Result := Result + '|' + Value;
+  end;
+
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 0 to 11 do
+    if Value and (1 shl I) <> 0 then
+      AddResult(SameTebFlags[I]);
+end;
+
 function DumpThread64(Process: THandle; Address: Pointer): string;
 var
   Buff: array of Byte;
@@ -884,12 +920,12 @@ begin
   if not ReadProcessData(Process, Address, @Buff[0],
     Size, RegionSize, rcReadAllwais) then Exit;
   Cursor := 0;
-  AddString(Result, TEB_Header);
+  AddString(Result, TI64_Header);
   AddString(Result, 'SEH Chain', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'StackBase', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'StackLimit', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'SubSystemTib', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'FiberData', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'FiberData', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'ArbitraryUserPointer', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'Self', @Buff[Cursor], dtInt64, Cursor);
 
@@ -901,6 +937,7 @@ function DumpThread32(Process: THandle; Address: Pointer): string;
 var
   Buff: array of Byte;
   Size, RegionSize, Cursor: NativeUInt;
+  ValueBuff: DWORD;
 begin
   Result := '';
   CurerntAddr := Address;
@@ -909,8 +946,127 @@ begin
   if not ReadProcessData(Process, Address, @Buff[0],
     Size, RegionSize, rcReadAllwais) then Exit;
   Cursor := 0;
-  AddString(Result, TEB_Header);
-
+  AddString(Result, TIB32_Header);
+  AddString(Result, 'ExceptionList', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StackBase', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StackLimit', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'SubSystemTib', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'FiberData', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ArbitraryUserPointer', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Self', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, TEB32_Header);
+  AddString(Result, 'EnvironmentPointer', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ClientId.UniqueProcess', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ClientId.UniqueThread', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ActiveRpcHandle', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ThreadLocalStoragePointer', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ProcessEnvironmentBlock', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'LastErrorValue', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountOfOwnedCriticalSections', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CsrClientThread', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Win32ThreadInfo', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'User32Reserved', @Buff[Cursor], dtBuff, 104, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'UserReserved', @Buff[Cursor], dtBuff, 20, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'WOW32Reserved', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CurrentLocale', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'FpSoftwareStatusRegister', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'SystemReserved1', @Buff[Cursor], dtBuff, 216, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'ExceptionCode', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ActivationContextStackPointer', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'SpareBytes', @Buff[Cursor], dtBuff, 36, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'TxFsContext', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiTebBatch.Offset', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiTebBatch.HDC', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'GdiTebBatch.Buffer', @Buff[Cursor], dtBuff, 1240, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'RealClientId.UniqueProcess', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'RealClientId.UniqueThread', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiCachedProcessHandle', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiClientPID', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiClientTID', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiThreadLocalInfo', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'Win32ClientInfo', @Buff[Cursor], dtBuff, 248, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'glDispatchTable', @Buff[Cursor], dtBuff, 932, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'glReserved1', @Buff[Cursor], dtBuff, 116, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'glReserved2', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'glSectionInfo', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'glSection', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'glTable', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'glCurrentRC', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'glContext', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'LastStatusValue', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StaticUnicodeString = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'StaticUnicodeBuffer', @Buff[Cursor], dtBuff, 524, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'DeallocationStack', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'TlsSlots', @Buff[Cursor], dtBuff, 256, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'TlsLinks.FLink', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'TlsLinks.BLink', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Vdm', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ReservedForNtRpc', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'DbgSsReserved', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'HardErrorMode', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'Instrumentation', @Buff[Cursor], dtBuff, 9 * 4, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'ActivityId', @Buff[Cursor], dtGUID, Cursor);
+  AddString(Result, 'SubProcessTag', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'EtwLocalData', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'EtwTraceData', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'WinSockData', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiBatchCount', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'InDbgPrint', @Buff[Cursor], dtByte, Cursor);
+  AddString(Result, 'FreeStackOnTermination', @Buff[Cursor], dtByte, Cursor);
+  AddString(Result, 'HasFiberData', @Buff[Cursor], dtByte, Cursor);
+  AddString(Result, 'IdealProcessor', @Buff[Cursor], dtByte, Cursor);
+  AddString(Result, 'GuaranteedStackBytes', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ReservedForPerf', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ReservedForOle', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'WaitingOnLoaderLock', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'SavedPriorityState', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'SoftPatchPtr1', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ThreadPoolData', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'TlsExpansionSlots = ' + ExtractPPVoidData32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtBuff, 4, Cursor);
+  AddString(Result, 'MuiGeneration', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'IsImpersonating', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'NlsCache', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'pShimData', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'HeapVirtualAffinity', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CurrentTransactionHandle', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ActiveFrame', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'FlsData', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'PreferredLanguages', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'UserPrefLanguages', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'MergedPrefLanguages', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'MuiImpersonation', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CrossTebFlags', @Buff[Cursor], dtWord, Cursor);
+  ValueBuff := PDWORD(@Buff[Cursor])^;
+  AddString(Result, 'SameTebFlags', @Buff[Cursor], dtWord, Cursor,
+    SameTebFlagsToStr(ValueBuff));
+  AddString(Result, 'TxnScopeEnterCallback', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'TxnScopeExitCallback', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'TxnScopeContext', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'LockCount', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'SpareUlong0', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ResourceRetValue', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ReservedForWdf', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
@@ -934,6 +1090,139 @@ begin
   else
     Result := '';
   end;
+end;
+
+procedure DumpProcessorFeatures(var OutValue: string;
+  Address: PByte; var Cursor: NativeUInt);
+const
+  MaxFeaturesCount = 64;
+  KnownFeaturesCount = 28;
+  FeaturesStrings: array [0..KnownFeaturesCount - 1] of string =
+    (
+      'PF_FLOATING_POINT_PRECISION_ERRATA',
+      'PF_FLOATING_POINT_EMULATED',
+      'PF_COMPARE_EXCHANGE_DOUBLE',
+      'PF_MMX_INSTRUCTIONS_AVAILABLE',
+      'PF_PPC_MOVEMEM_64BIT_OK',
+      'PF_ALPHA_BYTE_INSTRUCTIONS',
+      'PF_XMMI_INSTRUCTIONS_AVAILABLE',
+      'PF_3DNOW_INSTRUCTIONS_AVAILABLE',
+      'PF_RDTSC_INSTRUCTION_AVAILABLE',
+      'PF_PAE_ENABLED',
+      'PF_XMMI64_INSTRUCTIONS_AVAILABLE',
+      'PF_SSE_DAZ_MODE_AVAILABLE',
+      'PF_NX_ENABLED',
+      'PF_SSE3_INSTRUCTIONS_AVAILABLE',
+      'PF_COMPARE_EXCHANGE128',
+      'PF_COMPARE64_EXCHANGE128',
+      'PF_CHANNELS_ENABLED',
+      'PF_XSAVE_ENABLED',
+      'PF_ARM_VFP_32_REGISTERS_AVAILABLE',
+      'PF_ARM_NEON_INSTRUCTIONS_AVAILABLE',
+      'PF_SECOND_LEVEL_ADDRESS_TRANSLATION',
+      'PF_VIRT_FIRMWARE_ENABLED',
+      'PF_RDWRFSGSBASE_AVAILABLE',
+      'PF_FASTFAIL_AVAILABLE',
+      'PF_ARM_DIVIDE_INSTRUCTION_AVAILABLE',
+      'PF_ARM_64BIT_LOADSTORE_ATOMIC',
+      'PF_ARM_EXTERNAL_CACHE_AVAILABLE',
+      'PF_ARM_FMAC_INSTRUCTIONS_AVAILABLE'
+    );
+var
+  I: Integer;
+begin
+  AddString(OutValue, EmptyHeader);
+  for I := 0 to KnownFeaturesCount - 1 do
+  begin
+    AddString(OutValue, 'ProcessorFeatures[' + FeaturesStrings[I] + ']',
+      Address, dtByte, Cursor);
+    Inc(Address);
+  end;
+  AddString(OutValue, EmptyHeader);
+  AddString(OutValue, 'Unknown Processor Features', Address, dtBuff,
+    MaxFeaturesCount - KnownFeaturesCount, Cursor);
+  AddString(OutValue, EmptyHeader);
+end;
+
+function AlternativeArchitectureTypeToStr(Value: DWORD): string;
+begin
+  case Value of
+    0: Result := 'StandardDesign';
+    1: Result := 'NEC98x86';
+    2: Result := 'EndAlternatives';
+  else
+    Result := '';
+  end;
+end;
+
+function MitigationPoliciesToStr(Value: Byte): string;
+
+  procedure AddResult(const Value: string);
+  begin
+    if Result = '' then
+      Result := Value
+    else
+      Result := Result + '|' + Value;
+  end;
+
+begin
+  Result := '';
+  (*
+    union
+    {
+        UCHAR MitigationPolicies;
+        struct
+        {
+            UCHAR NXSupportPolicy : 2;
+            UCHAR SEHValidationPolicy : 2;
+            UCHAR CurDirDevicesSkippedForDlls : 2;
+            UCHAR Reserved : 2;
+        };
+    };
+  *)
+  if Value and 3 <> 0 then AddResult('NXSupportPolicy');
+  if Value and $C <> 0 then AddResult('SEHValidationPolicy');
+  if Value and $30 <> 0 then AddResult('CurDirDevicesSkippedForDlls');
+end;
+
+function DbgFlagToStr(Value: Byte): string;
+
+  procedure AddResult(const Value: string);
+  begin
+    if Result = '' then
+      Result := Value
+    else
+      Result := Result + '|' + Value;
+  end;
+
+begin
+  Result := '';
+  (*
+    union
+    {
+        ULONG SharedDataFlags;
+        struct
+        {
+            ULONG DbgErrorPortPresent : 1;
+            ULONG DbgElevationEnabled : 1;
+            ULONG DbgVirtEnabled : 1;
+            ULONG DbgInstallerDetectEnabled : 1;
+            ULONG DbgLkgEnabled : 1;
+            ULONG DbgDynProcessorEnabled : 1;
+            ULONG DbgConsoleBrokerEnabled : 1;
+            ULONG DbgSecureBootEnabled : 1;
+            ULONG SpareBits : 24;
+        };
+    };
+  *)
+  if Value and 1 <> 0 then AddResult('DbgErrorPortPresent');
+  if Value and 2 <> 0 then AddResult('DbgElevationEnabled');
+  if Value and 4 <> 0 then AddResult('DbgVirtEnabled');
+  if Value and 8 <> 0 then AddResult('DbgInstallerDetectEnabled');
+  if Value and 16 <> 0 then AddResult('DbgLkgEnabled');
+  if Value and 32 <> 0 then AddResult('DbgDynProcessorEnabled');
+  if Value and 64 <> 0 then AddResult('DbgConsoleBrokerEnabled');
+  if Value and 128 <> 0 then AddResult('DbgSecureBootEnabled');
 end;
 
 function DumpKUserSharedData(Process: THandle; Address: Pointer): string;
@@ -977,7 +1266,60 @@ begin
   AddString(Result, 'NativeProcessorArchitecture', @Buff[Cursor], dtWord, Cursor);
   AddString(Result, 'NtMajorVersion', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'NtMinorVersion', @Buff[Cursor], dtDword, Cursor);
-
+  DumpProcessorFeatures(Result, @Buff[Cursor], Cursor);
+  AddString(Result, 'Reserved1', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Reserved3', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'TimeSlip', @Buff[Cursor], dtDword, Cursor);
+  ValueBuff := PDWORD(@Buff[Cursor])^;
+  AddString(Result, 'AlternativeArchitecture', @Buff[Cursor], dtDword,
+    Cursor, AlternativeArchitectureTypeToStr(ValueBuff));
+  AddString(Result, 'AltArchitecturePad', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'SystemExpirationDate', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'SuiteMask', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'KdDebuggerEnabled', @Buff[Cursor], dtByte, Cursor);
+  ValueBuff := PByte(@Buff[Cursor])^;
+  AddString(Result, 'MitigationPolicies', @Buff[Cursor], dtByte, Cursor,
+    MitigationPoliciesToStr(ValueBuff));
+  AddString(Result, 'Reserved6', @Buff[Cursor], dtWord, Cursor);
+  AddString(Result, 'ActiveConsoleId', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'DismountCount', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ComPlusPackage', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'LastSystemRITEventTickCount', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'NumberOfPhysicalPages', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'SafeBootMode', @Buff[Cursor], dtByte, Cursor);
+  AddString(Result, 'Reserved12', Address, dtBuff, 3, Cursor);
+  ValueBuff := PDWORD(@Buff[Cursor])^;
+  AddString(Result, 'SharedDataFlags', @Buff[Cursor], dtDword, Cursor,
+    DbgFlagToStr(ValueBuff));
+  AddString(Result, 'DataFlagsPad', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'TestRetInstruction', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'QpcFrequency', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'SystemCallPad', @Buff[Cursor], dtBuff, 24, Cursor);
+  AddString(Result, EmptyHeader);
+  DumpKSystemTime(Result, 'TickCount', @Buff[Cursor], Cursor);
+  AddString(Result, 'TickCountPad', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Cookie', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CookiePad', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ConsoleSessionForegroundProcessId', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'Wow64SharedInformation', @Buff[Cursor], dtBuff, 64, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'UserModeGlobalLogger', @Buff[Cursor], dtBuff, 32, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'ImageFileExecutionOptions', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'LangGenerationCount', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Reserved5', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'InterruptTimeBias', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'TscQpcBias', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ActiveProcessorCount', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ActiveGroupCount', @Buff[Cursor], dtWord, Cursor);
+  AddString(Result, 'Reserved4', @Buff[Cursor], dtWord, Cursor);
+  ValueBuff := PWORD(@Buff[Cursor])^;
+  AddString(Result, 'AitSamplingValue', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'AppCompatFlag', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'SystemDllNativeRelocation', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'SystemDllWowRelocation', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;

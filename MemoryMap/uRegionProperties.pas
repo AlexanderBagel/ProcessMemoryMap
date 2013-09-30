@@ -74,11 +74,15 @@ begin
 end;
 
 procedure TdlgRegionProps.mnuRefreshClick(Sender: TObject);
+var
+  ThumbPos: Integer;
 begin
   edProperties.Lines.BeginUpdate;
   try
+    ThumbPos := SendMessage(edProperties.Handle, EM_GETFIRSTVISIBLELINE, 0, 0);
     edProperties.Lines.Clear;
     StartQuery(CurerntAddr);
+    SendMessage(edProperties.Handle, EM_LINESCROLL, 0, ThumbPos);
   finally
     edProperties.Lines.EndUpdate;;
   end;
