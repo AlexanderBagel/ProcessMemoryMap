@@ -18,19 +18,24 @@ uses
 
 implementation
 
+// Добавить гиперссылки
+// {\field{\*\fldinst HYPERLINK "http://www.microsoft.com"}{\fldrslt Microsoft}}
+
 uses
   uUtils;
 
 const
   MemoryDumpHeader =
     '-------------------------------------------- Memory dump -------------------------------------------------';
-  PEBHeader =
-    '------------------------------------- Process Environment Block ------------------------------------------';
+  PEBHeader32 =
+    '---------------------------------- Process Environment Block (x32) ---------------------------------------';
+  PEBHeader64 =
+    '---------------------------------- Process Environment Block (x64) ---------------------------------------';
   TIB32_Header =
     '---------------------------------------------- NT_TIB32 --------------------------------------------------';
   TEB32_Header =
     '----------------------------------------------- TEB32 ----------------------------------------------------';
-  TI64_Header =
+  TIB64_Header =
     '---------------------------------------------- NT_TIB64 --------------------------------------------------';
   TEB64_Header =
     '----------------------------------------------- TEB64 ----------------------------------------------------';
@@ -56,6 +61,27 @@ type
   TDataType = (dtByte, dtWord, dtDword,
     dtInt64, dtGUID, dtString, dtAnsiString, dtBuff, dtUnicodeString32,
     dtUnicodeString64);
+
+  Pointer32 = DWORD;
+
+function IsLonghornOrHigher: Boolean;
+begin
+  Result := Win32MajorVersion >= 6;
+end;
+
+function IsW2003OrHigher: Boolean;
+begin
+  Result := IsLonghornOrHigher;
+  if not Result then
+    Result := (Win32MajorVersion = 5) and (Win32MinorVersion >= 2);
+end;
+
+function IsXPOrHigher: Boolean;
+begin
+  Result := IsW2003OrHigher;
+  if not Result then
+    Result := (Win32MajorVersion = 5) and (Win32MinorVersion >= 1);
+end;
 
 function ByteToHexStr(Base: NativeUInt; Data: Pointer;
   Len: Integer; const Comment: string = ''): string;
@@ -299,6 +325,7 @@ begin
   Size := 4;
   Address := Pointer(PDWORD(Address)^);
   if Address = nil then Exit('[NULL] "NULL"');
+  Data := nil;
   if not ReadProcessData(Process, Address, @Data,
     Size, Dummy, rcReadAllwais) then
     Exit('[' + IntToHex(ULONG_PTR(Address), 1) + ']');
@@ -327,10 +354,29 @@ begin
       IntToHex(ULONG_PTR(Data), 1) + '"';
 end;
 
+function CrossProcessFlagsToStr(Value: ULONG): string;
+
+  procedure AddToResult(const Value: string);
+  begin
+    if Result = '' then
+      Result := Value
+    else
+      Result := Result + '|' + Value;
+  end;
+
+begin
+  Result := '';
+  if Value and 1 <> 0 then AddToResult('ProcessInJob');
+  if Value and 2 <> 0 then AddToResult('ProcessInitializing');
+  if Value and 4 <> 0 then AddToResult('ProcessUsingVEH');
+  if Value and 8 <> 0 then AddToResult('ProcessUsingVCH');
+end;
+
 function DumpPEB32(Process: THandle; Address: Pointer): string;
 var
   Buff: array of Byte;
   Size, Dummy, Cursor: NativeUInt;
+  ValueBuff: DWORD;
 begin
   Result := '';
   CurerntAddr := Address;
@@ -339,7 +385,7 @@ begin
   if not ReadProcessData(Process, Address, @Buff[0],
     Size, Dummy, rcReadAllwais) then Exit;
   Cursor := 0;
-  AddString(Result, PEBHeader);
+  AddString(Result, PEBHeader32);
   AddString(Result, 'InheritedAddressSpace', @Buff[Cursor], dtByte, Cursor);
   AddString(Result, 'ReadImageFileExecOptions', @Buff[Cursor], dtByte, Cursor);
   AddString(Result, 'BeingDebugged', @Buff[Cursor], dtByte, Cursor);
@@ -351,10 +397,32 @@ begin
   AddString(Result, 'SubSystemData', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ProcessHeap', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'FastPebLock', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'AtlThunkSListPtr', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'IFEOKey', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'EnvironmentUpdateCount', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'UserSharedInfoPtr', @Buff[Cursor], dtDword, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'AtlThunkSListPtr', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'IFEOKey', @Buff[Cursor], dtDword, Cursor);
+    ValueBuff := PULONG(@Buff[Cursor])^;
+    AddString(Result, 'CrossProcessFlags', @Buff[Cursor], dtDword, Cursor,
+      CrossProcessFlagsToStr(ValueBuff));
+    AddString(Result, 'UserSharedInfoPtr', @Buff[Cursor], dtDword, Cursor);
+  end
+  else
+    if IsW2003OrHigher then
+    begin
+      AddString(Result, 'AtlThunkSListPtr', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'SparePtr2', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'EnvironmentUpdateCount', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'KernelCallbackTable', @Buff[Cursor], dtDword, Cursor);
+    end
+    else
+    begin
+      AddString(Result, 'FastPebLockRoutine', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'FastPebUnlockRoutine', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'EnvironmentUpdateCount', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'KernelCallbackTable', @Buff[Cursor], dtDword, Cursor);
+    end;
+
   AddString(Result, 'SystemReserved', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'AtlThunkSListPtr32', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ApiSetMap', @Buff[Cursor], dtDword, Cursor);
@@ -363,7 +431,12 @@ begin
   AddString(Result, 'TlsBitmapBits[0]', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'TlsBitmapBits[1]', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ReadOnlySharedMemoryBase', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'HotpatchInformation', @Buff[Cursor], dtDword, Cursor);
+
+  if IsLonghornOrHigher then
+    AddString(Result, 'HotpatchInformation', @Buff[Cursor], dtDword, Cursor)
+  else
+    AddString(Result, 'ReadOnlySharedMemoryHeap', @Buff[Cursor], dtDword, Cursor);
+
   AddString(Result, 'ReadOnlyStaticServerData = ' + ExtractPPVoidData32(Process, @Buff[Cursor]),
     @Buff[Cursor], dtBuff, 4, Cursor);
   AddString(Result, 'AnsiCodePageData', @Buff[Cursor], dtDword, Cursor);
@@ -403,32 +476,45 @@ begin
   AddString(Result, 'TlsExpansionBitmapBits', @Buff[Cursor], dtBuff, 128, Cursor);
   AddString(Result, EmptyHeader);
   AddString(Result, 'SessionId', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'AppCompatFlags', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'AppCompatFlagsUser', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'pShimData', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'AppCompatInfo', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'CSDVersion = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
-    @Buff[Cursor], dtUnicodeString32, Cursor);
-  AddString(Result, 'ActivationContextData', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'ProcessAssemblyStorageMap', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'SystemDefaultActivationContextData', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'SystemAssemblyStorageMap', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'MinimumStackCommit', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'FlsCallback = ' + ExtractPPVoidData32(Process, @Buff[Cursor]),
-    @Buff[Cursor], dtBuff, 4, Cursor);
-  AddString(Result, 'FlsListHead.FLink', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'FlsListHead.BLink', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'FlsBitmap', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, EmptyHeader);
-  AddString(Result, 'FlsBitmapBits', @Buff[Cursor], dtBuff, 256, Cursor);
-  AddString(Result, EmptyHeader);
-  AddString(Result, 'FlsHighIndex', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'WerRegistrationData', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'WerShipAssertPtr', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'pContextData', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'pImageHeaderHash', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, PebTracingFlagsToStr(Buff[Cursor]), @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'CsrServerReadOnlySharedMemoryBase', @Buff[Cursor], dtInt64, Cursor);
+
+  if IsXPOrHigher then
+  begin
+    AddString(Result, 'AppCompatFlags', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'AppCompatFlagsUser', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'pShimData', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'AppCompatInfo', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'CSDVersion = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+      @Buff[Cursor], dtUnicodeString32, Cursor);
+    AddString(Result, 'ActivationContextData', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'ProcessAssemblyStorageMap', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'SystemDefaultActivationContextData', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'SystemAssemblyStorageMap', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'MinimumStackCommit', @Buff[Cursor], dtDword, Cursor);
+  end;
+
+  if IsW2003OrHigher then
+  begin
+    AddString(Result, 'FlsCallback = ' + ExtractPPVoidData32(Process, @Buff[Cursor]),
+      @Buff[Cursor], dtBuff, 4, Cursor);
+    AddString(Result, 'FlsListHead.FLink', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'FlsListHead.BLink', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'FlsBitmap', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'FlsBitmapBits', @Buff[Cursor], dtBuff, 256, Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'FlsHighIndex', @Buff[Cursor], dtDword, Cursor);
+  end;
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'WerRegistrationData', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'WerShipAssertPtr', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'pContextData', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'pImageHeaderHash', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, PebTracingFlagsToStr(Buff[Cursor]), @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'CsrServerReadOnlySharedMemoryBase', @Buff[Cursor], dtInt64, Cursor);
+  end;
+
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
@@ -437,6 +523,7 @@ function DumpPEB64(Process: THandle; Address: Pointer): string;
 var
   Buff: array of Byte;
   Size, RegionSize, Cursor: NativeUInt;
+  ValueBuff: DWORD;
 begin
   Result := '';
   CurerntAddr := Address;
@@ -445,7 +532,7 @@ begin
   if not ReadProcessData(Process, Address, @Buff[0],
     Size, RegionSize, rcReadAllwais) then Exit;
   Cursor := 0;
-  AddString(Result, PEBHeader);
+  AddString(Result, PEBHeader64);
   AddString(Result, 'InheritedAddressSpace', @Buff[Cursor], dtByte, Cursor);
   AddString(Result, 'ReadImageFileExecOptions', @Buff[Cursor], dtByte, Cursor);
   AddString(Result, 'BeingDebugged', @Buff[Cursor], dtByte, Cursor);
@@ -458,11 +545,35 @@ begin
   AddString(Result, 'SubSystemData', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'ProcessHeap', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'FastPebLock', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'AtlThunkSListPtr', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'IFEOKey', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'EnvironmentUpdateCount', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
-  AddString(Result, 'UserSharedInfoPtr', @Buff[Cursor], dtInt64, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'AtlThunkSListPtr', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'IFEOKey', @Buff[Cursor], dtInt64, Cursor);
+    ValueBuff := PULONG(@Buff[Cursor])^;
+    AddString(Result, 'CrossProcessFlags', @Buff[Cursor], dtDword, Cursor,
+      CrossProcessFlagsToStr(ValueBuff));
+    AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+    AddString(Result, 'UserSharedInfoPtr', @Buff[Cursor], dtInt64, Cursor);
+  end
+  else
+    if IsW2003OrHigher then
+    begin
+      AddString(Result, 'AtlThunkSListPtr', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'SparePtr2', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'EnvironmentUpdateCount', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+      AddString(Result, 'KernelCallbackTable', @Buff[Cursor], dtInt64, Cursor);
+    end
+    else
+    begin
+      AddString(Result, 'FastPebLockRoutine', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'FastPebUnlockRoutine', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'EnvironmentUpdateCount', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+      AddString(Result, 'KernelCallbackTable', @Buff[Cursor], dtInt64, Cursor);
+    end;
+
   AddString(Result, 'SystemReserved', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'AtlThunkSListPtr32', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ApiSetMap', @Buff[Cursor], dtInt64, Cursor);
@@ -472,7 +583,12 @@ begin
   AddString(Result, 'TlsBitmapBits[0]', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'TlsBitmapBits[1]', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ReadOnlySharedMemoryBase', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'HotpatchInformation', @Buff[Cursor], dtInt64, Cursor);
+
+  if IsLonghornOrHigher then
+    AddString(Result, 'HotpatchInformation', @Buff[Cursor], dtInt64, Cursor)
+  else
+    AddString(Result, 'ReadOnlySharedMemoryHeap', @Buff[Cursor], dtInt64, Cursor);
+
   AddString(Result, 'ReadOnlyStaticServerData = ' + ExtractPPVoidData64(Process, @Buff[Cursor]),
     @Buff[Cursor], dtBuff, 8, Cursor);
   AddString(Result, 'AnsiCodePageData', @Buff[Cursor], dtInt64, Cursor);
@@ -513,35 +629,48 @@ begin
   AddString(Result, 'TlsExpansionBitmapBits', @Buff[Cursor], dtBuff, 128, Cursor);
   AddString(Result, EmptyHeader);
   AddString(Result, 'SessionId', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
-  AddString(Result, 'AppCompatFlags', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'AppCompatFlagsUser', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'pShimData', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'AppCompatInfo', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'CSDVersion = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
-    @Buff[Cursor], dtUnicodeString64, Cursor);
-  AddString(Result, 'ActivationContextData', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'ProcessAssemblyStorageMap', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'SystemDefaultActivationContextData', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'SystemAssemblyStorageMap', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'MinimumStackCommit', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'FlsCallback = ' + ExtractPPVoidData64(Process, @Buff[Cursor]),
-    @Buff[Cursor], dtBuff, 8, Cursor);
-  AddString(Result, 'FlsListHead.FLink', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'FlsListHead.BLink', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'FlsBitmap', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, EmptyHeader);
-  AddString(Result, 'FlsBitmapBits', @Buff[Cursor], dtBuff, 256, Cursor);
-  AddString(Result, EmptyHeader);
-  AddString(Result, 'FlsHighIndex', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
-  AddString(Result, 'WerRegistrationData', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'WerShipAssertPtr', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'pContextData', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'pImageHeaderHash', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, PebTracingFlagsToStr(Buff[Cursor]), @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
-  AddString(Result, 'CsrServerReadOnlySharedMemoryBase', @Buff[Cursor], dtInt64, Cursor);
+
+  if IsXPOrHigher then
+  begin
+    AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+    AddString(Result, 'AppCompatFlags', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'AppCompatFlagsUser', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'pShimData', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'AppCompatInfo', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'CSDVersion = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+      @Buff[Cursor], dtUnicodeString64, Cursor);
+    AddString(Result, 'ActivationContextData', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'ProcessAssemblyStorageMap', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'SystemDefaultActivationContextData', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'SystemAssemblyStorageMap', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'MinimumStackCommit', @Buff[Cursor], dtInt64, Cursor);
+  end;
+
+  if IsW2003OrHigher then
+  begin
+    AddString(Result, 'FlsCallback = ' + ExtractPPVoidData64(Process, @Buff[Cursor]),
+      @Buff[Cursor], dtBuff, 8, Cursor);
+    AddString(Result, 'FlsListHead.FLink', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'FlsListHead.BLink', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'FlsBitmap', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'FlsBitmapBits', @Buff[Cursor], dtBuff, 256, Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'FlsHighIndex', @Buff[Cursor], dtDword, Cursor);
+  end;
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+    AddString(Result, 'WerRegistrationData', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'WerShipAssertPtr', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'pContextData', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'pImageHeaderHash', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, PebTracingFlagsToStr(Buff[Cursor]), @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+    AddString(Result, 'CsrServerReadOnlySharedMemoryBase', @Buff[Cursor], dtInt64, Cursor);
+  end;
+
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
@@ -912,22 +1041,264 @@ function DumpThread64(Process: THandle; Address: Pointer): string;
 var
   Buff: array of Byte;
   Size, RegionSize, Cursor: NativeUInt;
+  ValueBuff: DWORD;
 begin
   Result := '';
   CurerntAddr := Address;
-  Size := 4096;
+  Size := 8192;
   SetLength(Buff, Size);
   if not ReadProcessData(Process, Address, @Buff[0],
     Size, RegionSize, rcReadAllwais) then Exit;
   Cursor := 0;
-  AddString(Result, TI64_Header);
-  AddString(Result, 'SEH Chain', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, TIB64_Header);
+  AddString(Result, 'ExceptionList', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'StackBase', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'StackLimit', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'SubSystemTib', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'FiberData', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'ArbitraryUserPointer', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'Self', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, TEB64_Header);
+  Assert(Cursor = $38);
+  AddString(Result, 'EnvironmentPointer', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ClientId.UniqueProcess', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ClientId.UniqueThread', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ActiveRpcHandle', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ThreadLocalStoragePointer', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ProcessEnvironmentBlock', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'LastErrorValue', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountOfOwnedCriticalSections', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CsrClientThread', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'Win32ThreadInfo', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'User32Reserved', @Buff[Cursor], dtBuff, 26 * SizeOf(ULONG), Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'UserReserved', @Buff[Cursor], dtBuff, 5 * SizeOf(ULONG), Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'WOW32Reserved', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'CurrentLocale', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'FpSoftwareStatusRegister', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'SystemReserved1', @Buff[Cursor], dtBuff, 54 * SizeOf(Pointer), Cursor);
+  AddString(Result, EmptyHeader);
+  Assert(Cursor = $2C0);
+  AddString(Result, 'ExceptionCode', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'ActivationContextStackPointer', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'SpareBytes', @Buff[Cursor], dtBuff, $30 - 3 * SizeOf(Pointer), Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'TxFsContext', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+  end
+  else
+    if IsW2003OrHigher then
+    begin
+      AddString(Result, 'ActivationContextStackPointer', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, EmptyHeader);
+      AddString(Result, 'SpareBytes', @Buff[Cursor], dtBuff, $34 - 3 * SizeOf(Pointer), Cursor);
+      AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+      AddString(Result, EmptyHeader);
+    end
+    else
+    begin
+      AddString(Result, 'ActivationContextStack.Flags', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'ActivationContextStack.NextCookieSequenceNumber', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'ActivationContextStack.ActiveFrame', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'ActivationContextStack.FrameListCache.FLink', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'ActivationContextStack.FrameListCache.BLink', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, EmptyHeader);
+      AddString(Result, 'SpareBytes', @Buff[Cursor], dtBuff, 8, Cursor);
+      AddString(Result, EmptyHeader);
+    end;
+
+  Assert(Cursor = $2F0);
+  AddString(Result, 'GdiTebBatch.Offset', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+  AddString(Result, 'GdiTebBatch.HDC', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'GdiTebBatch.Buffer', @Buff[Cursor], dtBuff, $136 * SizeOf(ULONG), Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'RealClientId.UniqueProcess', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'RealClientId.UniqueThread', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'GdiCachedProcessHandle', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'GdiClientPID', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiClientTID', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'GdiThreadLocalInfo', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'Win32ClientInfo', @Buff[Cursor], dtBuff, 62 * SizeOf(SIZE_T), Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'glDispatchTable', @Buff[Cursor], dtBuff, 233 * SizeOf(PVOID), Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'glReserved1', @Buff[Cursor], dtBuff, 29 * SizeOf(SIZE_T), Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'glReserved2', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'glSectionInfo', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'glSection', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'glTable', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'glCurrentRC', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'glContext', @Buff[Cursor], dtInt64, Cursor);
+  Assert(Cursor = $1250);
+  AddString(Result, 'LastStatusValue', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+  AddString(Result, 'StaticUnicodeString = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'StaticUnicodeBuffer', @Buff[Cursor], dtBuff, 261 * SizeOf(WCHAR), Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 6, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'DeallocationStack', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'TlsSlots', @Buff[Cursor], dtBuff, 64 * SizeOf(PVOID), Cursor);
+  AddString(Result, EmptyHeader);
+  AddString(Result, 'TlsLinks.FLink', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'TlsLinks.BLink', @Buff[Cursor], dtInt64, Cursor);
+  Assert(Cursor = $1690);
+  AddString(Result, 'Vdm', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ReservedForNtRpc', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'DbgSsReserved[0]', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'DbgSsReserved[1]', @Buff[Cursor], dtInt64, Cursor);
+
+  if IsW2003OrHigher then
+    AddString(Result, 'HardErrorMode', @Buff[Cursor], dtDword, Cursor)
+  else
+    AddString(Result, 'HardErrorsAreDisabled', @Buff[Cursor], dtDword, Cursor);
+
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+
+  AddString(Result, EmptyHeader);
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'Instrumentation', @Buff[Cursor], dtBuff,
+      (13 - SizeOf(TGUID) div SizeOf(Pointer)) * SizeOf(Pointer), Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'ActivityId', @Buff[Cursor], dtGUID, Cursor);
+    AddString(Result, 'SubProcessTag', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'EtwLocalData', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'EtwTraceData', @Buff[Cursor], dtInt64, Cursor);
+  end
+  else
+    if IsW2003OrHigher then
+    begin
+      AddString(Result, 'Instrumentation', @Buff[Cursor], dtBuff,
+        14 * SizeOf(Pointer), Cursor);
+      AddString(Result, EmptyHeader);
+      AddString(Result, 'SubProcessTag', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'EtwLocalData', @Buff[Cursor], dtInt64, Cursor);
+    end
+    else
+    begin
+      AddString(Result, 'Instrumentation', @Buff[Cursor], dtBuff,
+        16 * SizeOf(Pointer), Cursor);
+      AddString(Result, EmptyHeader);
+    end;
+
+  AddString(Result, 'WinSockData', @Buff[Cursor], dtInt64, Cursor);
+
+  Assert(Cursor = $1740);
+  AddString(Result, 'GdiBatchCount', @Buff[Cursor], dtDword, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'SpareBool0', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'SpareBool1', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'SpareBool2', @Buff[Cursor], dtByte, Cursor);
+  end
+  else
+  begin
+    AddString(Result, 'InDbgPrint', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'FreeStackOnTermination', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'HasFiberData', @Buff[Cursor], dtByte, Cursor);
+  end;
+
+  Assert(Cursor = $1747);
+  AddString(Result, 'IdealProcessor', @Buff[Cursor], dtByte, Cursor);
+
+  if IsW2003OrHigher then
+    AddString(Result, 'GuaranteedStackBytes', @Buff[Cursor], dtDword, Cursor)
+  else
+    AddString(Result, 'Spare3', @Buff[Cursor], dtDword, Cursor);
+
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+
+  AddString(Result, 'ReservedForPerf', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ReservedForOle', @Buff[Cursor], dtInt64, Cursor);
+  Assert(Cursor = $1760);
+  AddString(Result, 'WaitingOnLoaderLock', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'SavedPriorityState', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'SoftPatchPtr1', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'ThreadPoolData', @Buff[Cursor], dtInt64, Cursor);
+  end
+  else
+    if IsW2003OrHigher then
+    begin
+      AddString(Result, 'SparePointer1', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'SoftPatchPtr1', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'SoftPatchPtr2', @Buff[Cursor], dtInt64, Cursor);
+    end
+    else
+    begin
+      AddString(Result, 'Wx86Thread.CallBx86Eip', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'Wx86Thread.DeallocationCpu', @Buff[Cursor], dtInt64, Cursor);
+      AddString(Result, 'Wx86Thread.UseKnownWx86Dll', @Buff[Cursor], dtByte, Cursor);
+      AddString(Result, 'Wx86Thread.OleStubInvoked', @Buff[Cursor], dtByte, Cursor);
+      AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 6, Cursor);
+    end;
+
+  Assert(Cursor = $1780);
+  AddString(Result, 'TlsExpansionSlots = ' + ExtractPPVoidData64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtBuff, 8, Cursor);
+
+  AddString(Result, 'DeallocationBStore', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'BStoreLimit', @Buff[Cursor], dtInt64, Cursor);
+
+  AddString(Result, 'ImpersonationLocale', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'IsImpersonating', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'NlsCache', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'pShimData', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'HeapVirtualAffinity', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+
+  AddString(Result, 'CurrentTransactionHandle', @Buff[Cursor], dtInt64, Cursor);
+  Assert(Cursor = $17C0);
+  AddString(Result, 'ActiveFrame', @Buff[Cursor], dtInt64, Cursor);
+
+  if IsW2003OrHigher then
+    AddString(Result, 'FlsData', @Buff[Cursor], dtInt64, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'PreferredLanguages', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'UserPrefLanguages', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'MergedPrefLanguages', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'MuiImpersonation', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'CrossTebFlags', @Buff[Cursor], dtWord, Cursor);
+    ValueBuff := PDWORD(@Buff[Cursor])^;
+    AddString(Result, 'SameTebFlags', @Buff[Cursor], dtWord, Cursor,
+      SameTebFlagsToStr(ValueBuff));
+    AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+    AddString(Result, 'TxnScopeEnterCallback', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'TxnScopeExitCallback', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'TxnScopeContext', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'LockCount', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'ProcessRundown', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'LastSwitchTime', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'TotalSwitchOutTime', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'WaitReasonBitMap', @Buff[Cursor], dtInt64, Cursor);
+  end
+  else
+  begin
+    AddString(Result, 'SafeThunkCall', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'BooleanSpare', @Buff[Cursor], dtBuff, 3, Cursor);
+  end;
 
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
@@ -955,6 +1326,7 @@ begin
   AddString(Result, 'ArbitraryUserPointer', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'Self', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, TEB32_Header);
+  Assert(Cursor = $1C);
   AddString(Result, 'EnvironmentPointer', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ClientId.UniqueProcess', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ClientId.UniqueThread', @Buff[Cursor], dtDword, Cursor);
@@ -976,16 +1348,42 @@ begin
   AddString(Result, EmptyHeader);
   AddString(Result, 'SystemReserved1', @Buff[Cursor], dtBuff, 216, Cursor);
   AddString(Result, EmptyHeader);
+  Assert(Cursor = $1A4);
   AddString(Result, 'ExceptionCode', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'ActivationContextStackPointer', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, EmptyHeader);
-  AddString(Result, 'SpareBytes', @Buff[Cursor], dtBuff, 36, Cursor);
-  AddString(Result, EmptyHeader);
-  AddString(Result, 'TxFsContext', @Buff[Cursor], dtDword, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'ActivationContextStackPointer', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'SpareBytes', @Buff[Cursor], dtBuff, $30 - 3 * SizeOf(Pointer32), Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'TxFsContext', @Buff[Cursor], dtDword, Cursor);
+  end
+  else
+    if IsW2003OrHigher then
+    begin
+      AddString(Result, 'ActivationContextStackPointer', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, EmptyHeader);
+      AddString(Result, 'SpareBytes', @Buff[Cursor], dtBuff, $34 - 3 * SizeOf(Pointer32), Cursor);
+      AddString(Result, EmptyHeader);
+    end
+    else
+    begin
+      AddString(Result, 'ActivationContextStack.Flags', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'ActivationContextStack.NextCookieSequenceNumber', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'ActivationContextStack.ActiveFrame', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'ActivationContextStack.FrameListCache.FLink', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'ActivationContextStack.FrameListCache.BLink', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, EmptyHeader);
+      AddString(Result, 'SpareBytes', @Buff[Cursor], dtBuff, 24, Cursor);
+      AddString(Result, EmptyHeader);
+    end;
+
+  Assert(Cursor = $1D4);
   AddString(Result, 'GdiTebBatch.Offset', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'GdiTebBatch.HDC', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, EmptyHeader);
-  AddString(Result, 'GdiTebBatch.Buffer', @Buff[Cursor], dtBuff, 1240, Cursor);
+  AddString(Result, 'GdiTebBatch.Buffer', @Buff[Cursor], dtBuff, $136 * SizeOf(ULONG), Cursor);
   AddString(Result, EmptyHeader);
   AddString(Result, 'RealClientId.UniqueProcess', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'RealClientId.UniqueThread', @Buff[Cursor], dtDword, Cursor);
@@ -1006,6 +1404,7 @@ begin
   AddString(Result, 'glTable', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'glCurrentRC', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'glContext', @Buff[Cursor], dtDword, Cursor);
+  Assert(Cursor = $BF4);
   AddString(Result, 'LastStatusValue', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'StaticUnicodeString = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
     @Buff[Cursor], dtUnicodeString32, Cursor);
@@ -1018,55 +1417,135 @@ begin
   AddString(Result, EmptyHeader);
   AddString(Result, 'TlsLinks.FLink', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'TlsLinks.BLink', @Buff[Cursor], dtDword, Cursor);
+  Assert(Cursor = $F18);
   AddString(Result, 'Vdm', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ReservedForNtRpc', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'DbgSsReserved', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'HardErrorMode', @Buff[Cursor], dtDword, Cursor);
+
+  if IsW2003OrHigher then
+    AddString(Result, 'HardErrorMode', @Buff[Cursor], dtDword, Cursor)
+  else
+    AddString(Result, 'HardErrorsAreDisabled', @Buff[Cursor], dtDword, Cursor);
+
   AddString(Result, EmptyHeader);
-  AddString(Result, 'Instrumentation', @Buff[Cursor], dtBuff, 9 * 4, Cursor);
-  AddString(Result, EmptyHeader);
-  AddString(Result, 'ActivityId', @Buff[Cursor], dtGUID, Cursor);
-  AddString(Result, 'SubProcessTag', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'EtwLocalData', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'EtwTraceData', @Buff[Cursor], dtDword, Cursor);
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'Instrumentation', @Buff[Cursor], dtBuff,
+      (13 - SizeOf(TGUID) div SizeOf(Pointer32)) * SizeOf(Pointer32), Cursor);
+    AddString(Result, EmptyHeader);
+    AddString(Result, 'ActivityId', @Buff[Cursor], dtGUID, Cursor);
+    AddString(Result, 'SubProcessTag', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'EtwLocalData', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'EtwTraceData', @Buff[Cursor], dtDword, Cursor);
+  end
+  else
+    if IsW2003OrHigher then
+    begin
+      AddString(Result, 'Instrumentation', @Buff[Cursor], dtBuff,
+        14 * SizeOf(Pointer32), Cursor);
+      AddString(Result, EmptyHeader);
+      AddString(Result, 'SubProcessTag', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'EtwLocalData', @Buff[Cursor], dtDword, Cursor);
+    end
+    else
+    begin
+      AddString(Result, 'Instrumentation', @Buff[Cursor], dtBuff,
+        16 * SizeOf(Pointer32), Cursor);
+      AddString(Result, EmptyHeader);
+    end;
+
   AddString(Result, 'WinSockData', @Buff[Cursor], dtDword, Cursor);
+
+  Assert(Cursor = $F70);
   AddString(Result, 'GdiBatchCount', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'InDbgPrint', @Buff[Cursor], dtByte, Cursor);
-  AddString(Result, 'FreeStackOnTermination', @Buff[Cursor], dtByte, Cursor);
-  AddString(Result, 'HasFiberData', @Buff[Cursor], dtByte, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'SpareBool0', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'SpareBool1', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'SpareBool2', @Buff[Cursor], dtByte, Cursor);
+  end
+  else
+  begin
+    AddString(Result, 'InDbgPrint', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'FreeStackOnTermination', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'HasFiberData', @Buff[Cursor], dtByte, Cursor);
+  end;
+
   AddString(Result, 'IdealProcessor', @Buff[Cursor], dtByte, Cursor);
-  AddString(Result, 'GuaranteedStackBytes', @Buff[Cursor], dtDword, Cursor);
+
+  if IsW2003OrHigher then
+    AddString(Result, 'GuaranteedStackBytes', @Buff[Cursor], dtDword, Cursor)
+  else
+    AddString(Result, 'Spare3', @Buff[Cursor], dtDword, Cursor);
+
   AddString(Result, 'ReservedForPerf', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ReservedForOle', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'WaitingOnLoaderLock', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'SavedPriorityState', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'SoftPatchPtr1', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'ThreadPoolData', @Buff[Cursor], dtDword, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'SavedPriorityState', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'SoftPatchPtr1', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'ThreadPoolData', @Buff[Cursor], dtDword, Cursor);
+  end
+  else
+    if IsW2003OrHigher then
+    begin
+      AddString(Result, 'SparePointer1', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'SoftPatchPtr1', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'SoftPatchPtr2', @Buff[Cursor], dtDword, Cursor);
+    end
+    else
+    begin
+      AddString(Result, 'Wx86Thread.CallBx86Eip', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'Wx86Thread.DeallocationCpu', @Buff[Cursor], dtDword, Cursor);
+      AddString(Result, 'Wx86Thread.UseKnownWx86Dll', @Buff[Cursor], dtByte, Cursor);
+      AddString(Result, 'Wx86Thread.OleStubInvoked', @Buff[Cursor], dtByte, Cursor);
+      AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 2, Cursor);
+    end;
+
+  Assert(Cursor = $F94);
   AddString(Result, 'TlsExpansionSlots = ' + ExtractPPVoidData32(Process, @Buff[Cursor]),
     @Buff[Cursor], dtBuff, 4, Cursor);
-  AddString(Result, 'MuiGeneration', @Buff[Cursor], dtDword, Cursor);
+
+  AddString(Result, 'ImpersonationLocale', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'IsImpersonating', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'NlsCache', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'pShimData', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'HeapVirtualAffinity', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'CurrentTransactionHandle', @Buff[Cursor], dtDword, Cursor);
+  Assert(Cursor = $FB0);
   AddString(Result, 'ActiveFrame', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'FlsData', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'PreferredLanguages', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'UserPrefLanguages', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'MergedPrefLanguages', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'MuiImpersonation', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'CrossTebFlags', @Buff[Cursor], dtWord, Cursor);
-  ValueBuff := PDWORD(@Buff[Cursor])^;
-  AddString(Result, 'SameTebFlags', @Buff[Cursor], dtWord, Cursor,
-    SameTebFlagsToStr(ValueBuff));
-  AddString(Result, 'TxnScopeEnterCallback', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'TxnScopeExitCallback', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'TxnScopeContext', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'LockCount', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'SpareUlong0', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'ResourceRetValue', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'ReservedForWdf', @Buff[Cursor], dtDword, Cursor);
+
+  if IsW2003OrHigher then
+    AddString(Result, 'FlsData', @Buff[Cursor], dtDword, Cursor);
+
+  if IsLonghornOrHigher then
+  begin
+    AddString(Result, 'PreferredLanguages', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'UserPrefLanguages', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'MergedPrefLanguages', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'MuiImpersonation', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'CrossTebFlags', @Buff[Cursor], dtWord, Cursor);
+    ValueBuff := PDWORD(@Buff[Cursor])^;
+    AddString(Result, 'SameTebFlags', @Buff[Cursor], dtWord, Cursor,
+      SameTebFlagsToStr(ValueBuff));
+    AddString(Result, 'TxnScopeEnterCallback', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'TxnScopeExitCallback', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'TxnScopeContext', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'LockCount', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'ProcessRundown', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'LastSwitchTime', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'TotalSwitchOutTime', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'WaitReasonBitMap', @Buff[Cursor], dtInt64, Cursor);
+  end
+  else
+  begin
+    AddString(Result, 'SafeThunkCall', @Buff[Cursor], dtByte, Cursor);
+    AddString(Result, 'BooleanSpare', @Buff[Cursor], dtBuff, 3, Cursor);
+  end;
+
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
@@ -1315,7 +1794,6 @@ begin
   AddString(Result, 'ActiveProcessorCount', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ActiveGroupCount', @Buff[Cursor], dtWord, Cursor);
   AddString(Result, 'Reserved4', @Buff[Cursor], dtWord, Cursor);
-  ValueBuff := PWORD(@Buff[Cursor])^;
   AddString(Result, 'AitSamplingValue', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'AppCompatFlag', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'SystemDllNativeRelocation', @Buff[Cursor], dtInt64, Cursor);

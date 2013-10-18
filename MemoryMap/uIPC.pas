@@ -53,10 +53,30 @@ const
 procedure SaveThreads(Value: TThreads; AStream: TStream);
 var
   TD: TThreadData;
+  TS: TThreadStackEntry;
+  SEH: TSEHEntry;
 begin
+  AStream.WriteBuffer(Value.ThreadStackEntries.Count, 4);
+  for TS in Value.ThreadStackEntries do
+  begin
+    AStream.WriteBuffer(TS.ThreadID, 4);
+    AStream.WriteBuffer(TS.Data.AddrPC.Offset, 4);
+    AStream.WriteBuffer(TS.Data.AddrReturn.Offset, 4);
+    AStream.WriteBuffer(TS.Data.AddrFrame.Offset, 4);
+    AStream.WriteBuffer(TS.Data.AddrStack.Offset, 4);
+    AStream.WriteBuffer(TS.Data.AddrBStore.Offset, 4);
+  end;
+  AStream.WriteBuffer(Value.SEHEntries.Count, 4);
+  for SEH in Value.SEHEntries do
+  begin
+    AStream.WriteBuffer(SEH.ThreadID, 4);
+    AStream.WriteBuffer(Integer(SEH.Address), 4);
+    AStream.WriteBuffer(Integer(SEH.Previous), 4);
+    AStream.WriteBuffer(Integer(SEH.Handler), 4);
+  end;
   for TD in Value.ThreadData do
   begin
-    if TD.Flag = tiThreadProc then Continue;    
+    if TD.Flag = tiThreadProc then Continue;
     AStream.WriteBuffer(Byte(TD.Flag), 1);
     AStream.WriteBuffer(TD.ThreadID, 4);
     AStream.WriteBuffer(Integer(TD.Address), 4);
@@ -65,8 +85,35 @@ end;
 
 procedure LoadThreads(Value: TThreads; AStream: TStream);
 var
+  I, Count: Integer;
   TD: TThreadData;
+  TS: TThreadStackEntry;
+  SEH: TSEHEntry;
 begin
+  AStream.ReadBuffer(Count, 4);
+  ZeroMemory(@TS, SizeOf(TThreadStackEntry));
+  for I := 0 to Count - 1 do
+  begin
+    AStream.ReadBuffer(TS.ThreadID, 4);
+    AStream.ReadBuffer(TS.Data.AddrPC.Offset, 4);
+    AStream.ReadBuffer(TS.Data.AddrReturn.Offset, 4);
+    AStream.ReadBuffer(TS.Data.AddrFrame.Offset, 4);
+    AStream.ReadBuffer(TS.Data.AddrStack.Offset, 4);
+    AStream.ReadBuffer(TS.Data.AddrBStore.Offset, 4);
+    TS.Wow64 := True;
+    Value.ThreadStackEntries.Add(TS);
+  end;
+  AStream.ReadBuffer(Count, 4);
+  ZeroMemory(@SEH, SizeOf(TSEHEntry));
+  for I := 0 to Count - 1 do
+  begin
+    AStream.ReadBuffer(SEH.ThreadID, 4);
+    AStream.ReadBuffer(SEH.Address, 4);
+    AStream.ReadBuffer(SEH.Previous, 4);
+    AStream.ReadBuffer(SEH.Handler, 4);
+    SEH.Wow64 := True;
+    Value.SEHEntries.Add(SEH);
+  end;
   ZeroMemory(@TD, SizeOf(TThreadData));
   while AStream.Position < AStream.Size do
   begin

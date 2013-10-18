@@ -264,7 +264,6 @@ end;
 
 procedure TMemoryMap.GetAllRegions;
 var
-  pSectionAddr: UInt64;
   MBI: TMemoryBasicInformation;
   dwLength: NativeUInt;
   RegionData, LastRegionData: TFriendlyRegionData;
@@ -275,13 +274,13 @@ var
 begin
   FRegions.Clear;
   FRegionFilters.Clear;
-  pSectionAddr := 0;
+  FHighAddress := 0;
 
   // Перебираем в цикле все страницы памяти от нулевой,
   // до максимально доступной пользователю
   LastRegionData := nil;
   dwLength := SizeOf(TMemoryBasicInformation);
-  while VirtualQueryEx(FProcess, Pointer(pSectionAddr), MBI, dwLength) <> 0 do
+  while VirtualQueryEx(FProcess, Pointer(FHighAddress), MBI, dwLength) <> 0 do
   begin
     RegionData := NewRegionData;
     try
@@ -326,7 +325,7 @@ begin
       raise;
     end;
 
-    Inc(pSectionAddr, RegionData.MBI.RegionSize);
+    Inc(FHighAddress, RegionData.MBI.RegionSize);
   end;
 end;
 
@@ -921,6 +920,9 @@ var
   RegionData, ImageRegion: TFriendlyRegionData;
   ThreadData: TThreadData;
   ContainItem: TContainItem;
+  ThreadStackEntry: TThreadStackEntry;
+  Index: Integer;
+  SEHEntry: TSEHEntry;
 begin
   for ThreadData in Value.ThreadData do
   begin
@@ -962,6 +964,60 @@ begin
         TFriendlyRegionData(RegionData.Parent).SetThreadIDAndWow(
           ThreadData.ThreadID, ThreadData.Wow64);
     end;
+  end;
+
+  for ThreadStackEntry in Value.ThreadStackEntries do
+  begin
+    if not CheckAddr(ThreadStackEntry.Data.AddrFrame.Offset) then Continue;
+    RegionData := GetRegionAtAddr(Pointer(ThreadStackEntry.Data.AddrFrame.Offset));
+    ContainItem.ItemType := itStackFrame;
+
+    GetRegionIndex(Pointer(ThreadStackEntry.Data.AddrPC.Offset), Index);
+    ImageRegion := GetFriendlyRegion(Index);
+
+    if ImageRegion.RegionType <> rtExecutableImage then
+    begin
+      ImageRegion := TFriendlyRegionData(ImageRegion.Parent);
+      if ImageRegion <> nil then
+        if ImageRegion.RegionType <> rtExecutableImage then
+          ImageRegion := nil;
+    end;
+
+    if ImageRegion <> nil then
+      ThreadStackEntry.SetFuncName(FSymbols.GetDescriptionAtAddr(
+        ULONG_PTR(ThreadStackEntry.Data.AddrPC.Offset),
+        ULONG_PTR(ImageRegion.MBI.BaseAddress),
+        ImageRegion.Details));
+
+    ContainItem.StackFrame := ThreadStackEntry;
+    RegionData.Contains.Add(ContainItem);
+  end;
+
+  for SEHEntry in Value.SEHEntries do
+  begin
+    if not CheckAddr(SEHEntry.Address) then Continue;
+    RegionData := GetRegionAtAddr(SEHEntry.Address);
+    ContainItem.ItemType := itSEHFrame;
+
+    GetRegionIndex(SEHEntry.Handler, Index);
+    ImageRegion := GetFriendlyRegion(Index);
+
+    if ImageRegion.RegionType <> rtExecutableImage then
+    begin
+      ImageRegion := TFriendlyRegionData(ImageRegion.Parent);
+      if ImageRegion <> nil then
+        if ImageRegion.RegionType <> rtExecutableImage then
+          ImageRegion := nil;
+    end;
+
+    if ImageRegion <> nil then
+      SEHEntry.SetHandlerName(FSymbols.GetDescriptionAtAddr(
+        ULONG_PTR(SEHEntry.Handler),
+        ULONG_PTR(ImageRegion.MBI.BaseAddress),
+        ImageRegion.Details));
+
+    ContainItem.SEH := SEHEntry;
+    RegionData.Contains.Add(ContainItem);
   end;
 end;
 
@@ -1013,7 +1069,7 @@ begin
           AddToFilter(I, R, True)
         else
           for A := 0 to R.Contains.Count - 1 do
-            if R.Contains[A].ItemType = itThreadProc then
+            if R.Contains[A].ItemType in [itThreadProc, itStackFrame, itSEHFrame] then
             begin
               AddToFilter(I, R, True);
               Break;

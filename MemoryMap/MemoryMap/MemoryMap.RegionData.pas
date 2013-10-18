@@ -25,14 +25,18 @@ type
     Address: Pointer;
   end;
 
-  TContainItemType = (itHeapBlock, itThreadProc, itSystem);
+  TContainItemType = (itHeapBlock, itThreadProc,
+    itStackFrame, itSEHFrame, itSystem);
+
   TContainItem = record
     ItemType: TContainItemType;
     function Hash: string;
     case Integer of
       0: (Heap: THeapData);
       1: (ThreadProc: TThreadData);
-      2: (System: TSystemData);
+      2: (StackFrame: TThreadStackEntry);
+      3: (SEH: TSEHEntry);
+      4: (System: TSystemData);
   end;
 
   TRegionData = class
@@ -111,6 +115,16 @@ begin
       Result := Result +
         GetEnumName(TypeInfo(TThreadInfo), Integer(ThreadProc.Flag)) +
         IntToStr(ThreadProc.ThreadID) + IntToStr(NativeUInt(ThreadProc.Address));
+    itStackFrame:
+      Result := Result +
+        IntToStr(StackFrame.ThreadID) + IntToStr(StackFrame.Data.AddrPC.Offset) +
+        IntToStr(StackFrame.Data.AddrFrame.Offset) +
+        IntToStr(StackFrame.Data.AddrReturn.Offset);
+    itSEHFrame:
+      Result := Result +
+        IntToStr(SEH.ThreadID) + IntToStr(NativeUInt(SEH.Address)) +
+        IntToStr(NativeUInt(SEH.Previous)) +
+        IntToStr(NativeUInt(SEH.Handler));
     itSystem:
       Result := Result + string(System.Description) +
         IntToStr(NativeUInt(System.Address));

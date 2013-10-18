@@ -339,6 +339,31 @@ begin
       if Settings.ShowColors then
         Node^.Color := Settings.ThreadColor;
     end;
+    itStackFrame:
+    begin
+      Node^.Address := Item.StackFrame.Data.AddrFrame.Offset;
+      if Item.StackFrame.Data.AddrReturn.Offset <= 0 then
+        Node^.RegionType := NodeOffset + 'Primary Stack Frame'
+      else
+        Node^.RegionType := NodeOffset + 'Stack Frame, ret addr: ' +
+          UInt64ToStr(Item.StackFrame.Data.AddrReturn.Offset);
+      Node^.Details := string(Item.StackFrame.FuncName);
+      if Settings.ShowColors then
+        Node^.Color := Settings.ThreadColor;
+    end;
+    itSEHFrame:
+    begin
+      Node^.Address := NativeUInt(Item.SEH.Address);
+      if Integer(Item.SEH.Previous) <= 0 then
+        Node^.RegionType := NodeOffset + 'Primary SEH Frame, handler addr: ' +
+          UInt64ToStr(Item.SEH.Handler)
+      else
+        Node^.RegionType := NodeOffset + 'SEH Frame, handler addr: ' +
+          UInt64ToStr(Item.SEH.Handler);
+      Node^.Details := string(Item.SEH.HandlerName);
+      if Settings.ShowColors then
+        Node^.Color := Settings.ThreadColor;
+    end;
     itHeapBlock:
     begin
       Node^.Address := Item.Heap.Entry.Address;

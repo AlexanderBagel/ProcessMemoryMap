@@ -270,6 +270,11 @@ begin
       if VirtualQueryEx(Process,
         SearchPos, MBI, dwLength) <> dwLength then
         RaiseLastOSError;
+      if MBI.State <> MEM_COMMIT then
+      begin
+        IncSearchPos(MBI.RegionSize);
+        Continue;
+      end;
       Size := MBI.RegionSize;
       SetLength(Buff, Size);
       if cbSkipROMem.Checked then

@@ -584,7 +584,7 @@ var
       case MemoryMapCore.Filter of
         fiNone: NeedAdd := True;
         fiHeap: NeedAdd := Region.Contains[I].ItemType = itHeapBlock;
-        fiThread: NeedAdd := Region.Contains[I].ItemType = itThreadProc;
+        fiThread: NeedAdd := Region.Contains[I].ItemType in [itThreadProc, itStackFrame, itSEHFrame];
         fiSystem: NeedAdd := Region.Contains[I].ItemType = itSystem;
       end;
       if not NeedAdd then Continue;

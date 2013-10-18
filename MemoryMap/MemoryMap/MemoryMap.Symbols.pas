@@ -153,6 +153,8 @@ begin
   finally
     FreeMem(Symbol);
   end;
+  if Result = '' then
+    Result := ExtractFileName(ModuleName) + ' + 0x' + IntToHex(Address - BaseAddress, 1);
 end;
 
 end.
