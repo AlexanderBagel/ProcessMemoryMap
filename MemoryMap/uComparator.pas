@@ -210,7 +210,7 @@ begin
       begin
         case OldCont.ItemType of
           itHeapBlock: CompareHeap(OldCont.Heap, NewCont.Heap);
-          itThreadProc: CompareThread(OldCont.ThreadProc, NewCont.ThreadProc);
+          itThreadData: CompareThread(OldCont.ThreadData, NewCont.ThreadData);
           itSystem: CompareSystem(OldCont.System, NewCont.System);
         end;
         Dict.Remove(OldCont.Hash);
@@ -220,7 +220,7 @@ begin
       // в противном случае говорим что значение удалено
       case OldCont.ItemType of
         itHeapBlock: Address := OldCont.Heap.Entry.Address;
-        itThreadProc: Address := NativeUInt(OldCont.ThreadProc.Address);
+        itThreadData: Address := NativeUInt(OldCont.ThreadData.Address);
         itSystem: Address := NativeUInt(OldCont.System.Address);
       end;
       AddChanged(
@@ -234,7 +234,7 @@ begin
     begin
       case NewCont.ItemType of
         itHeapBlock: Address := NewCont.Heap.Entry.Address;
-        itThreadProc: Address := NativeUInt(NewCont.ThreadProc.Address);
+        itThreadData: Address := NativeUInt(NewCont.ThreadData.Address);
         itSystem: Address := NativeUInt(NewCont.System.Address);
       end;
       AddChanged(

@@ -8,10 +8,12 @@ uses
   Winapi.ShellAPI,
   Winapi.TlHelp32,
   Winapi.CommCtrl,
+  System.Classes,
   MemoryMap.Core;
 
   function CheckIsAdmin: Boolean;
   function RestartAsAdmin: Boolean;
+  function Run64App(const FilePath, Param: string): THandle;
   function SetDebugPriv: Boolean;
   function GetProcessIco(APid: Cardinal): HICON;
   procedure ConcatenateStrings(var A: string; const B: string);
@@ -67,11 +69,39 @@ begin
   SEI.cbSize := SizeOf(TShellExecuteInfo);
   SEI.lpFile := PChar(ParamStr(0));
   SEI.lpDirectory := PChar(ExtractFilePath(ParamStr(0)));
-  SEI.lpParameters := PChar(ParamStr(0));
+  SEI.lpParameters := PChar(ParamStr(1));
   SEI.lpVerb := PChar('runas');
   SEI.fMask := SEE_MASK_DEFAULT;
   SEI.nShow := SW_SHOWNORMAL;
   Result := ShellExecuteEx(@SEI);
+end;
+
+function Run64App(const FilePath, Param: string): THandle;
+var
+  SEI: TShellExecuteInfo;
+  R: TResourceStream;
+begin
+  if not FileExists(FilePath) then
+  begin
+    R := TResourceStream.Create(HInstance, 'PE64_IMAGE', RT_RCDATA);
+    try
+      R.SaveToFile(FilePath);
+    finally
+      R.Free;
+    end;
+  end;
+  ZeroMemory(@SEI, SizeOf(TShellExecuteInfo));
+  SEI.cbSize := SizeOf(TShellExecuteInfo);
+  SEI.lpFile := PChar(FilePath);
+  SEI.lpDirectory := PChar(ExtractFilePath(FilePath));
+  SEI.lpParameters := PChar('"' + Param +'"');
+  SEI.lpVerb := PChar('open');
+  SEI.fMask := SEE_MASK_NOCLOSEPROCESS;
+  SEI.nShow := SW_SHOWNORMAL;
+  if ShellExecuteEx(@SEI) then
+    Result := SEI.hProcess
+  else
+    Result := 0;
 end;
 
 function SetDebugPriv: Boolean;

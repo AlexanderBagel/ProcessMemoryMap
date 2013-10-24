@@ -25,7 +25,7 @@ type
     Address: Pointer;
   end;
 
-  TContainItemType = (itHeapBlock, itThreadProc,
+  TContainItemType = (itHeapBlock, itThreadData,
     itStackFrame, itSEHFrame, itSystem);
 
   TContainItem = record
@@ -33,7 +33,7 @@ type
     function Hash: string;
     case Integer of
       0: (Heap: THeapData);
-      1: (ThreadProc: TThreadData);
+      1: (ThreadData: TThreadData);
       2: (StackFrame: TThreadStackEntry);
       3: (SEH: TSEHEntry);
       4: (System: TSystemData);
@@ -111,10 +111,10 @@ begin
     itHeapBlock:
       Result := Result + IntToStr(Heap.ID) + IntToStr(Heap.Entry.Address) +
         IntToStr(Heap.Entry.Size) + IntToStr(Heap.Entry.Flags);
-    itThreadProc:
+    itThreadData:
       Result := Result +
-        GetEnumName(TypeInfo(TThreadInfo), Integer(ThreadProc.Flag)) +
-        IntToStr(ThreadProc.ThreadID) + IntToStr(NativeUInt(ThreadProc.Address));
+        GetEnumName(TypeInfo(TThreadInfo), Integer(ThreadData.Flag)) +
+        IntToStr(ThreadData.ThreadID) + IntToStr(NativeUInt(ThreadData.Address));
     itStackFrame:
       Result := Result +
         IntToStr(StackFrame.ThreadID) + IntToStr(StackFrame.Data.AddrPC.Offset) +
@@ -230,7 +230,7 @@ begin
       S.Add(GetEnumName(TypeInfo(TContainItemType), Integer(CI.ItemType)));
       case CI.ItemType of
         itHeapBlock: AddHeapData(CI.Heap);
-        itThreadProc: AddThreadData(CI.ThreadProc);
+        itThreadData: AddThreadData(CI.ThreadData);
         itSystem: AddPEBData(CI.System);
       end;
     end;
@@ -343,7 +343,7 @@ begin
         GetEnumValue(TypeInfo(TContainItemType), NextValue)));
       case CI.ItemType of
         itHeapBlock: CI.Heap := GetHeapData;
-        itThreadProc: CI.ThreadProc := GetThreadData;
+        itThreadData: CI.ThreadData := GetThreadData;
         itSystem: CI.System := GetPEBData;
       end;
       Contains.Add(CI);

@@ -330,11 +330,14 @@ begin
   Node^.Region := ARegion;
   Node^.Color := $FFFFFF;
   case Item.ItemType of
-    itThreadProc:
+    itThreadData:
     begin
-      Node^.Address := NativeUInt(Item.ThreadProc.Address);
-      Node^.RegionType := NodeOffset + 'ThreadProc, Thread ID: ' +
-        IntToStr(Item.ThreadProc.ThreadID);
+      Node^.Address := NativeUInt(Item.ThreadData.Address);
+      if Item.ThreadData.Flag = tiThreadProc then
+        Node^.RegionType := NodeOffset + 'ThreadProc, Thread ID: ' +
+          IntToStr(Item.ThreadData.ThreadID)
+      else
+        Node^.RegionType := NodeOffset + ThreadInfoStr[Item.ThreadData.Flag];
       Node^.Details := ARegion.Details;
       if Settings.ShowColors then
         Node^.Color := Settings.ThreadColor;

@@ -150,10 +150,10 @@ type
     NodeDataArray: array of TNodeData;
     SearchString: string;
     SearchPosition: Integer;
+    IPCServerMMFName: string;
     {$IFDEF WIN32}
     IPCServer: TIPCServer;
     {$ENDIF}
-    IPCServerMMFName: string;
     procedure AddShieldIconToMenu;
     procedure CalcNodeDataArraySize;
     procedure FillTreeView;
@@ -584,7 +584,7 @@ var
       case MemoryMapCore.Filter of
         fiNone: NeedAdd := True;
         fiHeap: NeedAdd := Region.Contains[I].ItemType = itHeapBlock;
-        fiThread: NeedAdd := Region.Contains[I].ItemType in [itThreadProc, itStackFrame, itSEHFrame];
+        fiThread: NeedAdd := Region.Contains[I].ItemType in [itThreadData, itStackFrame, itSEHFrame];
         fiSystem: NeedAdd := Region.Contains[I].ItemType = itSystem;
       end;
       if not NeedAdd then Continue;
@@ -730,6 +730,7 @@ procedure TdlgProcessMM.FormKeyPress(Sender: TObject; var Key: Char);
 var
   TmpString, ClipboardString: string;
 begin
+  // реализуем быстрый поиск при нажатии клавиш
   if Key = #8 then
   begin
     Delete(SearchString, Length(SearchString), 1);

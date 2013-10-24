@@ -5,7 +5,7 @@
         <FrameworkType>VCL</FrameworkType>
         <MainSource>ProcessMM.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -43,6 +43,29 @@
     <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_2)'!=''">
         <Cfg_2>true</Cfg_2>
         <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Cfg_2)'=='true') or '$(Cfg_2_Win32)'!=''">
+        <Cfg_2_Win32>true</Cfg_2_Win32>
+        <CfgParent>Cfg_2</CfgParent>
+        <Cfg_2>true</Cfg_2>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='SingleInstance' or '$(Cfg_3)'!=''">
+        <Cfg_3>true</Cfg_3>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Cfg_3)'=='true') or '$(Cfg_3_Win32)'!=''">
+        <Cfg_3_Win32>true</Cfg_3_Win32>
+        <CfgParent>Cfg_3</CfgParent>
+        <Cfg_3>true</Cfg_3>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_3)'=='true') or '$(Cfg_3_Win64)'!=''">
+        <Cfg_3_Win64>true</Cfg_3_Win64>
+        <CfgParent>Cfg_3</CfgParent>
+        <Cfg_3>true</Cfg_3>
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
@@ -84,12 +107,15 @@
         <DCC_RemoteDebug>true</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
+        <PreBuildEvent><![CDATA[call rsvars.bat
+brcc32 $(PROJECTDIR)\win64debug.rc
+msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64
+$(PreBuildEvent)]]></PreBuildEvent>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
-        <Debugger_RunParams>&quot;Process Memory Map MMF 123&quot;</Debugger_RunParams>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
@@ -99,47 +125,63 @@
         <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
         <DCC_DebugInformation>false</DCC_DebugInformation>
     </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <PreBuildEvent><![CDATA[call rsvars.bat
+brcc32 $(PROJECTDIR)\win64release.rc
+msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64
+$(PreBuildEvent)]]></PreBuildEvent>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_3)'!=''">
+        <Manifest_File>None</Manifest_File>
+        <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
+        <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Locale>1049</VerInfo_Locale>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_3_Win32)'!=''">
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <DCC_Define>SINGLE_INSTANCE;$(DCC_Define)</DCC_Define>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_3_Win64)'!=''">
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+        <Debugger_RunParams>&quot;Process Memory Map MMF&quot;</Debugger_RunParams>
+    </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="uProcessMM.pas">
             <Form>dlgProcessMM</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uSelectProcess.pas">
             <Form>dlgSelectProcess</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uExportList.pas">
             <Form>dlgExportList</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uSettings.pas">
             <Form>dlgSettings</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uUtils.pas"/>
         <DCCReference Include="uDisplayUtils.pas"/>
         <DCCReference Include="uRegionProperties.pas">
             <Form>dlgRegionProps</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uSelectAddress.pas">
             <Form>dlgSelectAddress</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uFindData.pas">
             <Form>dlgFindData</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uComparator.pas">
             <Form>dlgComparator</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uProgress.pas">
             <Form>dlgProgress</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uDump.pas"/>
         <DCCReference Include="uDumpDisplayUtils.pas"/>
@@ -155,6 +197,10 @@
         <DCCReference Include="MemoryMap\MemoryMap.Workset.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+        <BuildConfiguration Include="SingleInstance">
+            <Key>Cfg_3</Key>
             <CfgParent>Base</CfgParent>
         </BuildConfiguration>
         <BuildConfiguration Include="Base">
@@ -230,4 +276,20 @@
     </ProjectExtensions>
     <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
+    <PropertyGroup Condition="'$(Config)'=='Debug' And '$(Platform)'=='Win32'">
+        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\win64debug.rc&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64</PreBuildEvent>
+        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
+        <PreLinkEvent/>
+        <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
+        <PostBuildEvent/>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win32'">
+        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\win64release.rc&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64</PreBuildEvent>
+        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
+        <PreLinkEvent/>
+        <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
+        <PostBuildEvent/>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+    </PropertyGroup>
 </Project>

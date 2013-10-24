@@ -13,6 +13,12 @@ type
   TThreadInfo = (tiNoData, tiExceptionList, tiStackBase,
     tiStackLimit, tiTEB, tiThreadProc);
 
+const
+  ThreadInfoStr: array [TThreadInfo] of string = ('UnknownThreadData',
+    'Thread Exception List', 'Thread Stack Base', 'Thread Stack Limit',
+    'TEB', 'ThreadProc');
+
+type
   TThreadData = record
     Flag: TThreadInfo;
     ThreadID: Integer;

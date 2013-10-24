@@ -7,6 +7,7 @@ uses
   System.Classes,
   System.SysUtils,
   Generics.Collections,
+  Generics.Defaults,
   Winapi.PsAPI,
   MemoryMap.RegionData,
   MemoryMap.Workset,
@@ -102,6 +103,7 @@ type
     procedure GetAllRegions;
     procedure CalcTotal;
     procedure UpdateRegionFilters;
+    procedure SortAllContainsBlocks;
   protected
     property PEImage: TPEImage read FPEImage;
     property Workset: TWorkset read FWorkset;
@@ -464,6 +466,7 @@ begin
           AddHeapsData;
           AddPEBData;
           AddImagesData;
+          SortAllContainsBlocks;
         finally
           FPEImage.Free;
         end;
@@ -632,6 +635,43 @@ begin
     FShowEmpty := Value;
     UpdateRegionFilters;
   end;
+end;
+
+procedure TMemoryMap.SortAllContainsBlocks;
+var
+  Region: TRegionData;
+begin
+  for Region in FRegions do
+    Region.Contains.Sort(TComparer<TContainItem>.Construct(
+      function (const A, B: TContainItem): Integer
+      var
+        AddrA, AddrB: NativeUInt;
+      begin
+        Result := 0;
+        case A.ItemType of
+          itHeapBlock: AddrA := A.Heap.Entry.Address;
+          itThreadData: AddrA := NativeUInt(A.ThreadData.Address);
+          itStackFrame: AddrA := NativeUInt(A.StackFrame.Data.AddrFrame.Offset);
+          itSEHFrame: AddrA := NativeUInt(A.SEH.Address);
+          itSystem: AddrA := NativeUInt(A.System.Address);
+        else
+          AddrA := 0;
+        end;
+        case B.ItemType of
+          itHeapBlock: AddrB := B.Heap.Entry.Address;
+          itThreadData: AddrB := NativeUInt(B.ThreadData.Address);
+          itStackFrame: AddrB := NativeUInt(B.StackFrame.Data.AddrFrame.Offset);
+          itSEHFrame: AddrB := NativeUInt(B.SEH.Address);
+          itSystem: AddrB := NativeUInt(B.System.Address);
+        else
+          AddrB := 0;
+        end;
+        if AddrA < AddrB then
+          Result := -1
+        else
+          if AddrA > AddrB then
+            Result := 1;
+      end));
 end;
 
 function TMemoryMap.SplitRegionAtAddr(Address: Pointer;
@@ -932,8 +972,8 @@ begin
 
     if ThreadData.Flag = tiThreadProc then
     begin
-      ContainItem.ItemType := itThreadProc;
-      ContainItem.ThreadProc := ThreadData;
+      ContainItem.ItemType := itThreadData;
+      ContainItem.ThreadData := ThreadData;
       RegionData.Contains.Add(ContainItem);
 
       ImageRegion := RegionData;
@@ -955,7 +995,15 @@ begin
     end;
 
     RegionData.SetRegionType(rtThread);
-    RegionData.SetThread(ThreadData);
+    if RegionData.MBI.BaseAddress = ThreadData.Address then
+      RegionData.SetThread(ThreadData)
+    else
+    begin
+      ContainItem.ItemType := itThreadData;
+      ContainItem.ThreadData := ThreadData;
+      RegionData.Contains.Add(ContainItem);
+    end;
+
     if ThreadData.Flag = tiThreadProc then Continue;
     if not RegionData.RegionVisible then
     begin
@@ -964,6 +1012,8 @@ begin
         TFriendlyRegionData(RegionData.Parent).SetThreadIDAndWow(
           ThreadData.ThreadID, ThreadData.Wow64);
     end;
+
+
   end;
 
   for ThreadStackEntry in Value.ThreadStackEntries do
@@ -1069,7 +1119,7 @@ begin
           AddToFilter(I, R, True)
         else
           for A := 0 to R.Contains.Count - 1 do
-            if R.Contains[A].ItemType in [itThreadProc, itStackFrame, itSEHFrame] then
+            if R.Contains[A].ItemType in [itThreadData, itStackFrame, itSEHFrame] then
             begin
               AddToFilter(I, R, True);
               Break;

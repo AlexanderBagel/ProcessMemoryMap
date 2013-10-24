@@ -10,6 +10,9 @@ uses
   MemoryMap.Threads,
   MemoryMap.Heaps;
 
+const
+  WM_GETMEMORYMAP = WM_USER + 123;
+
 type
   TRemoteDataType = (dtThread, dtHeap);
 
@@ -20,7 +23,8 @@ type
 
   PIPCServerParams = ^TIPCServerParams;
   TIPCServerParams = packed record
-    PID, WndHandle: DWORD;
+    PID: DWORD;
+    WndHandle: THandle;
   end;
 
   TIPCServer = class
@@ -38,6 +42,7 @@ type
     constructor Create;
     destructor Destroy; override;
     property MMFName: string read FMMFName;
+    property WndHandle: THandle read FIPCServerParams.WndHandle;
   end;
 
   function GetWin32MemoryMap(PID: DWORD; const MMFName: string;
@@ -46,9 +51,6 @@ type
   procedure LoadHeaps(Value: THeap; AStream: TStream);
 
 implementation
-
-const
-  WM_GETMEMORYMAP = WM_USER + 123;
 
 procedure SaveThreads(Value: TThreads; AStream: TStream);
 var
@@ -159,7 +161,13 @@ end;
 constructor TIPCServer.Create;
 begin
   Randomize;
-  FMMFName := 'Process Memory Map MMF 123';// + IntToHex(Random(MaxInt), 1);
+  // Директива SINGLE_INSTANCE не дает запускать 32 битному приложению 64 битный аналог
+  // Сугубо для отладки
+  {$IFDEF SINGLE_INSTANCE}
+  FMMFName := 'Process Memory Map MMF';
+  {$ELSE}
+  FMMFName := 'Process Memory Map MMF ' + IntToHex(Random(MaxInt), 1);
+  {$ENDIF}
   InitFileMapping;
 end;
 
@@ -261,7 +269,7 @@ var
 begin
   Result := TMemoryStream.Create;
   IPCServerParams.WndHandle := 0;
-  MMFHandle := OpenFileMapping(FILE_MAP_READ, false, PChar(MMFName));
+  MMFHandle := OpenFileMapping(FILE_MAP_READ, False, PChar(MMFName));
   if MMFHandle = 0 then Exit;
   try
     Data := MapViewOfFile(MMFHandle, FILE_MAP_READ, 0, 0, 0);
