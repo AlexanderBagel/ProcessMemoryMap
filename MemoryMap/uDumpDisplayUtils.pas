@@ -1829,7 +1829,6 @@ const
 var
   Buff: array of Byte;
   Size, RegionSize, Cursor: NativeUInt;
-  ValueBuff: DWORD;
   I: Integer;
 begin
   Result := '';
@@ -1910,7 +1909,6 @@ const
 var
   Buff: array of Byte;
   Size, RegionSize, Cursor: NativeUInt;
-  ValueBuff: DWORD;
   I: Integer;
 begin
   Result := '';

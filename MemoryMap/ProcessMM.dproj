@@ -286,7 +286,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
     <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
     <PropertyGroup Condition="'$(Config)'=='Debug' And '$(Platform)'=='Win32'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64debug.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64debug.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
@@ -294,7 +294,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win32'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64release.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64release.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
