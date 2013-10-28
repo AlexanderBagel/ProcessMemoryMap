@@ -167,6 +167,14 @@ begin
         Exit;
       end;
 
+      {$IFDEF WIN64}
+      if Value = MemoryMapCore.PebWow64BaseAddress then
+      begin
+        Add(DumpPEB32(Process, Value));
+        Exit;
+      end;
+      {$ENDIF}
+
       if Value = MemoryMapCore.PebBaseAddress then
       begin
         {$IFDEF WIN32}
@@ -176,14 +184,6 @@ begin
         {$ENDIF}
         Exit;
       end;
-
-      {$IFDEF WIN64}
-      if Value = MemoryMapCore.PebWow64BaseAddress then
-      begin
-        Add(DumpPEB32(Process, Value));
-        Exit;
-      end;
-      {$ENDIF}
 
       if CheckPEImage(Process, Value) then
       begin
@@ -207,6 +207,24 @@ begin
           {$ENDIF}
           Exit;
         end;
+      end;
+
+      {$IFDEF WIN64}
+      if Value = Pointer(MemoryMapCore.PEBWow64.ProcessParameters) then
+      begin
+        Add(DumpProcessParameters32(Process, Value));
+        Exit;
+      end;
+      {$ENDIF}
+
+      if Value = MemoryMapCore.PEB.ProcessParameters then
+      begin
+        {$IFDEF WIN32}
+        Add(DumpProcessParameters32(Process, Value));
+        {$ELSE}
+        Add(DumpProcessParameters64(Process, Value));
+        {$ENDIF}
+        Exit;
       end;
 
       Add(DumpMemory(Process, Value));

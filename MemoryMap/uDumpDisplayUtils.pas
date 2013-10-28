@@ -15,6 +15,8 @@ uses
   function DumpThread64(Process: THandle; Address: Pointer): string;
   function DumpThread32(Process: THandle; Address: Pointer): string;
   function DumpKUserSharedData(Process: THandle; Address: Pointer): string;
+  function DumpProcessParameters32(Process: THandle; Address: Pointer): string;
+  function DumpProcessParameters64(Process: THandle; Address: Pointer): string;
 
 implementation
 
@@ -57,6 +59,10 @@ const
     '----------------------------------------------------------------------------------------------------------';
   KUSER =
     '------------------------------------------ KUSER_SHARED_DATA ---------------------------------------------';
+  PROCESSPARAMS32 =
+    '--------------------------------------- Process Parameters (32) ------------------------------------------';
+  PROCESSPARAMS64 =
+    '--------------------------------------- Process Parameters (64) ------------------------------------------';
 type
   TDataType = (dtByte, dtWord, dtDword,
     dtInt64, dtGUID, dtString, dtAnsiString, dtBuff, dtUnicodeString32,
@@ -1798,6 +1804,172 @@ begin
   AddString(Result, 'AppCompatFlag', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'SystemDllNativeRelocation', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'SystemDllWowRelocation', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, MemoryDumpHeader);
+  AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
+end;
+
+procedure DumpRTL_DRIVE_LETTER_CURDIR32(var OutValue: string; const Description: string;
+  Address: Pointer; var Cursor: NativeUInt; Process: THandle);
+begin
+  AddString(OutValue, Description + '.Flags', Address, dtWord, Cursor);
+  Address := PByte(Address) + 2;
+  AddString(OutValue, Description + '.Length', Address, dtWord, Cursor);
+  Address := PByte(Address) + 2;
+  AddString(OutValue, Description + '.TimeStamp', Address, dtDword, Cursor);
+  Address := PByte(Address) + 4;
+  AddString(OutValue, Description + '.DosPath = ' +
+    ExtractUnicodeString32(Process, Address),
+    Address, dtUnicodeString32, Cursor);
+  AddString(OutValue, EmptyHeader);
+end;
+
+function DumpProcessParameters32(Process: THandle; Address: Pointer): string;
+const
+  RTL_MAX_DRIVE_LETTERS = 32;
+var
+  Buff: array of Byte;
+  Size, RegionSize, Cursor: NativeUInt;
+  ValueBuff: DWORD;
+  I: Integer;
+begin
+  Result := '';
+  CurerntAddr := Address;
+  Size := 4096;
+  SetLength(Buff, Size);
+  if not ReadProcessData(Process, Address, @Buff[0],
+    Size, RegionSize, rcReadAllwais) then Exit;
+  Cursor := 0;
+  AddString(Result, PROCESSPARAMS32);
+  AddString(Result, 'MaximumLength', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Length', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Flags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'DebugFlags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ConsoleHandle', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ConsoleFlags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StandartInput', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StandartOutput', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StandartError', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CurrentDirectory.DosPath = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+  AddString(Result, 'CurrentDirectory.Handle', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'DllPath = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+  AddString(Result, 'ImagePathName = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+  AddString(Result, 'CommandLine = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+  AddString(Result, 'Environmment', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StartingX', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StartingY', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountX', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountY', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountCharsX', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountCharsY', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'FillAttribute', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'WindowFlags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ShowWindowFlags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'WindowTitle = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+  AddString(Result, 'DesktopInfo = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+  AddString(Result, 'ShellInfo = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+  AddString(Result, 'RuntimeData = ' + ExtractUnicodeString32(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString32, Cursor);
+
+  AddString(Result, EmptyHeader);
+  for I := 0 to RTL_MAX_DRIVE_LETTERS - 1 do
+    DumpRTL_DRIVE_LETTER_CURDIR32(Result,
+      'DLCurrentDirectory' + IntToStr(I + 1), @Buff[Cursor], Cursor, Process);
+
+  AddString(Result, 'EnvironmentSize', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'EnvironmentVersion', @Buff[Cursor], dtDword, Cursor);
+
+  AddString(Result, MemoryDumpHeader);
+  AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
+end;
+
+procedure DumpRTL_DRIVE_LETTER_CURDIR64(var OutValue: string; const Description: string;
+  Address: Pointer; var Cursor: NativeUInt; Process: THandle);
+begin
+  AddString(OutValue, Description + '.Flags', Address, dtWord, Cursor);
+  Address := PByte(Address) + 2;
+  AddString(OutValue, Description + '.Length', Address, dtWord, Cursor);
+  Address := PByte(Address) + 2;
+  AddString(OutValue, Description + '.TimeStamp', Address, dtDword, Cursor);
+  Address := PByte(Address) + 4;
+  AddString(OutValue, Description + '.DosPath = ' +
+    ExtractUnicodeString64(Process, Address),
+    Address, dtUnicodeString64, Cursor);
+  AddString(OutValue, EmptyHeader);
+end;
+
+function DumpProcessParameters64(Process: THandle; Address: Pointer): string;
+const
+  RTL_MAX_DRIVE_LETTERS = 32;
+var
+  Buff: array of Byte;
+  Size, RegionSize, Cursor: NativeUInt;
+  ValueBuff: DWORD;
+  I: Integer;
+begin
+  Result := '';
+  CurerntAddr := Address;
+  Size := 4096;
+  SetLength(Buff, Size);
+  if not ReadProcessData(Process, Address, @Buff[0],
+    Size, RegionSize, rcReadAllwais) then Exit;
+  Cursor := 0;
+  AddString(Result, PROCESSPARAMS64);
+  AddString(Result, 'MaximumLength', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Length', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Flags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'DebugFlags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ConsoleHandle', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'ConsoleFlags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+
+  AddString(Result, 'StandartInput', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'StandartOutput', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'StandartError', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'CurrentDirectory.DosPath = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+  AddString(Result, 'CurrentDirectory.Handle', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'DllPath = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+  AddString(Result, 'ImagePathName = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+  AddString(Result, 'CommandLine = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+  AddString(Result, 'Environmment', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'StartingX', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'StartingY', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountX', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountY', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountCharsX', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'CountCharsY', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'FillAttribute', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'WindowFlags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'ShowWindowFlags', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
+
+  AddString(Result, 'WindowTitle = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+  AddString(Result, 'DesktopInfo = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+  AddString(Result, 'ShellInfo = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+  AddString(Result, 'RuntimeData = ' + ExtractUnicodeString64(Process, @Buff[Cursor]),
+    @Buff[Cursor], dtUnicodeString64, Cursor);
+
+  AddString(Result, EmptyHeader);
+  for I := 0 to RTL_MAX_DRIVE_LETTERS - 1 do
+    DumpRTL_DRIVE_LETTER_CURDIR64(Result,
+      'DLCurrentDirectory' + IntToStr(I + 1), @Buff[Cursor], Cursor, Process);
+
+  AddString(Result, 'EnvironmentSize', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'EnvironmentVersion', @Buff[Cursor], dtInt64, Cursor);
+
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
