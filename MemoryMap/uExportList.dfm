@@ -15,6 +15,7 @@ object dlgExportList: TdlgExportList
   Position = poMainFormCenter
   OnClose = FormClose
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
   OnShow = FormShow
   PixelsPerInch = 96
@@ -55,7 +56,7 @@ object dlgExportList: TdlgExportList
       item
         Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAutoSpring, coAllowFocus]
         Position = 2
-        Width = 385
+        Width = 381
         WideText = 'Function'
       end>
   end

@@ -38,6 +38,7 @@ type
     procedure mnuCopyLineClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure FormDestroy(Sender: TObject);
   private
     SearchString: string;
     SearchPosition: Integer;
@@ -62,7 +63,6 @@ const
 
 procedure TdlgExportList.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  List.Free;
   Action := caFree;
   dlgExportList := nil;
 end;
@@ -70,6 +70,11 @@ end;
 procedure TdlgExportList.FormCreate(Sender: TObject);
 begin
   List := TList<TExportData>.Create;
+end;
+
+procedure TdlgExportList.FormDestroy(Sender: TObject);
+begin
+  List.Free;
 end;
 
 procedure TdlgExportList.FormKeyPress(Sender: TObject; var Key: Char);

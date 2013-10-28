@@ -233,7 +233,7 @@ begin
     Result := pTmp^ = pSearch^;
     if Result then
     begin
-      dlgRegionProps := TdlgRegionProps.Create(nil);
+      dlgRegionProps := TdlgRegionProps.Create(Application);
       dlgRegionProps.ShowPropertyAtAddr(Pointer(NativeInt(SearchPos) + I));
       SearchPos := Pointer(NativeInt(SearchPos) + I + Length(SerchBuff));
       Exit;

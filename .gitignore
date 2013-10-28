@@ -8,3 +8,6 @@ __history
 *.exe
 *.dll
 bin/*
+*.skincfg
+*.rsm
+*.~*

@@ -346,7 +346,7 @@ begin
     dlgSelectAddress.Release;
   end;
   if QueryAddr = nil then Exit;
-  dlgRegionProps := TdlgRegionProps.Create(nil);
+  dlgRegionProps := TdlgRegionProps.Create(Application);
   dlgRegionProps.ShowPropertyAtAddr(QueryAddr);
 end;
 
@@ -387,7 +387,7 @@ begin
   Data := GetSelectedNodeData;
   if Data <> nil then
   begin
-    dlgRegionProps := TdlgRegionProps.Create(nil);
+    dlgRegionProps := TdlgRegionProps.Create(Application);
     dlgRegionProps.ShowPropertyAtAddr(Pointer(Data^.Address));
   end;
 end;
@@ -447,7 +447,7 @@ procedure TdlgProcessMM.acSearchDataExecute(Sender: TObject);
 var
   Data: PNodeData;
 begin
-  dlgFindData := TdlgFindData.Create(nil);
+  dlgFindData := TdlgFindData.Create(Application);
   Data := GetSelectedNodeData;
   if Data <> nil then
     dlgFindData.edStartAddr.Text := UInt64ToStr(Data^.Address);
@@ -503,7 +503,7 @@ begin
     dlgExportList.BringToFront;
     Exit;
   end;
-  dlgExportList := TdlgExportList.Create(nil);
+  dlgExportList := TdlgExportList.Create(Application);
   dlgExportList.Show;
 end;
 
