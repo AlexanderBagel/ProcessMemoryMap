@@ -1,3 +1,19 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+//  ****************************************************************************
+//  * Project   : ProcessMM
+//  * Unit Name : ProcessMM.dpr
+//  * Author    : јлександр (Rouse_) Ѕагель
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
+//  * Version   : 1.0
+//  * Home Page : http://rouse.drkb.ru
+//  * Home Blog : http://alexander-bagel.blogspot.ru
+//  ****************************************************************************
+//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//
+
 program ProcessMM;
 
 uses
@@ -27,7 +43,8 @@ uses
   MemoryMap.Symbols in 'MemoryMap\MemoryMap.Symbols.pas',
   MemoryMap.Threads in 'MemoryMap\MemoryMap.Threads.pas',
   MemoryMap.Utils in 'MemoryMap\MemoryMap.Utils.pas',
-  MemoryMap.Workset in 'MemoryMap\MemoryMap.Workset.pas';
+  MemoryMap.Workset in 'MemoryMap\MemoryMap.Workset.pas',
+  uAbout in 'uAbout.pas' {dlgAbout};
 
 {$R *.res}
 
@@ -61,8 +78,7 @@ begin
   if Is64OS then
   begin
     // ≈сли OS 64-битна€, то запускаем соответствующее приложение,
-    // а сами остаемс€ висеть чтобы отдавать ему данные о 32-битных
-    // нит€х и кучах.
+    // а сами остаемс€ висеть чтобы отдавать ему данные о 32-битных кучах.
     // ѕравда если 64-битное приложение перезапуститс€ из под админа
     // то доступа к нему мы уже иметь не будем, придетс€ закрыватьс€.
     // ѕотом этот механизм пересмотрю как нибудь по нормальному.

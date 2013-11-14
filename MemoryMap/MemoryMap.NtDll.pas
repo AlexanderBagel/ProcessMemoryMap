@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.NtDll
+//  * Unit Name : MemoryMap.NtDll.pas
 //  * Purpose   : Декларации необходимых функций и типов из NTDLL.DLL
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.

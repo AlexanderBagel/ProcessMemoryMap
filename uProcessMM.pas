@@ -1,3 +1,20 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+//  ****************************************************************************
+//  * Project   : ProcessMM
+//  * Unit Name : uProcessMM.pas
+//  * Purpose   : Главная форма проекта
+//  * Author    : Александр (Rouse_) Багель
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
+//  * Version   : 1.0
+//  * Home Page : http://rouse.drkb.ru
+//  * Home Blog : http://alexander-bagel.blogspot.ru
+//  ****************************************************************************
+//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//
+
 unit uProcessMM;
 
 interface
@@ -176,7 +193,8 @@ uses
   uFindData,
   uSettings,
   uUtils,
-  uDump;
+  uDump,
+  uAbout;
 
 const
   RootCaption = 'Process Memory Map';
@@ -187,7 +205,12 @@ const
 
 procedure TdlgProcessMM.acAboutExecute(Sender: TObject);
 begin
-//
+  dlgAbout := TdlgAbout.Create(Self);
+  try
+    dlgAbout.ShowModal;
+  finally
+    dlgAbout.Release;
+  end;
 end;
 
 procedure TdlgProcessMM.acCollapseAllExecute(Sender: TObject);
@@ -353,28 +376,33 @@ procedure TdlgProcessMM.acRefreshExecute(Sender: TObject);
 var
   M: TMemoryMap;
 begin
-  if Settings.SearchDifferences then
-  begin
-    M := TMemoryMap.Create;
-    try
-      M.OnGetWow64Heaps := OnGetWow64Heaps;
-      M.InitFromProcess(MemoryMapCore.PID,
-        MemoryMapCore.ProcessName);
-      dlgComparator := TdlgComparator.Create(nil);
+  try
+    if Settings.SearchDifferences then
+    begin
+      M := TMemoryMap.Create;
       try
-        if dlgComparator.CompareMemoryMaps(MemoryMapCore, M) then
-          Application.MessageBox('No changes found.',
-            PChar(Application.Title), MB_ICONINFORMATION);
+        M.OnGetWow64Heaps := OnGetWow64Heaps;
+        M.InitFromProcess(MemoryMapCore.PID,
+          MemoryMapCore.ProcessName);
+        dlgComparator := TdlgComparator.Create(nil);
+        try
+          if dlgComparator.CompareMemoryMaps(MemoryMapCore, M) then
+            Application.MessageBox('No changes found.',
+              PChar(Application.Title), MB_ICONINFORMATION);
+        finally
+          dlgComparator.Release;
+        end;
       finally
-        dlgComparator.Release;
+        ReplaceMemoryMap(M);
       end;
-    finally
-      ReplaceMemoryMap(M);
-    end;
-  end
-  else
-    MemoryMapCore.InitFromProcess(MemoryMapCore.PID,
-      MemoryMapCore.ProcessName);
+    end
+    else
+      MemoryMapCore.InitFromProcess(MemoryMapCore.PID,
+        MemoryMapCore.ProcessName);
+  except
+    acSelectProcess.Execute;
+    Exit;
+  end;
   FillTreeView;
 end;
 

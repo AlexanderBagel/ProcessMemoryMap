@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.Workset
+//  * Unit Name : MemoryMap.Workset.pas
 //  * Purpose   : Класс собирает данные о Workset процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.

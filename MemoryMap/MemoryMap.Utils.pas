@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.Utils
+//  * Unit Name : MemoryMap.Utils.pas
 //  * Purpose   : Различные вспомогательные процедуры и функции
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.

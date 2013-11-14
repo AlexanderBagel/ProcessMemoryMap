@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.RegionData
+//  * Unit Name : MemoryMap.RegionData.pas
 //  * Purpose   : Класс хранит информацию о регионе
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.

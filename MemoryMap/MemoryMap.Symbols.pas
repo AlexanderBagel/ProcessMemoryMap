@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.Symbols
+//  * Unit Name : MemoryMap.Symbols.pas
 //  * Purpose   : Класс для работы с символами.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
@@ -171,7 +171,9 @@ begin
     FreeMem(Symbol);
   end;
   if Result = '' then
-    Result := ExtractFileName(ModuleName) + ' + 0x' + IntToHex(Address - BaseAddress, 1);
+    Result := ExtractFileName(ModuleName) + ' + 0x' + IntToHex(Address - BaseAddress, 1)
+  else
+    Result := ExtractFileName(ModuleName) + '!' + Result;
 end;
 
 end.

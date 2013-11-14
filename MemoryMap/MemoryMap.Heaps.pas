@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.Heaps
+//  * Unit Name : MemoryMap.Heaps.pas
 //  * Purpose   : Класс собирает данные о кучах процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.

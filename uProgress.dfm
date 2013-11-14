@@ -22,10 +22,6 @@ object dlgProgress: TdlgProgress
     Height = 67
     Align = alClient
     TabOrder = 0
-    ExplicitLeft = 216
-    ExplicitTop = 40
-    ExplicitWidth = 185
-    ExplicitHeight = 41
     object lblProgress: TLabel
       Left = 16
       Top = 16

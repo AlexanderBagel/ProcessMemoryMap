@@ -1,3 +1,20 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+//  ****************************************************************************
+//  * Project   : ProcessMM
+//  * Unit Name : uIPC.pas
+//  * Purpose   : Модуль для обмена данными о кучах между процессами
+//  * Author    : Александр (Rouse_) Багель
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
+//  * Version   : 1.0
+//  * Home Page : http://rouse.drkb.ru
+//  * Home Blog : http://alexander-bagel.blogspot.ru
+//  ****************************************************************************
+//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//
+
 unit uIPC;
 
 interface

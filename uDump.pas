@@ -1,3 +1,20 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+//  ****************************************************************************
+//  * Project   : ProcessMM
+//  * Unit Name : uDump.pas
+//  * Purpose   : Вспомогательный модуль для дампа памяти процесса
+//  * Author    : Александр (Rouse_) Багель
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
+//  * Version   : 1.0
+//  * Home Page : http://rouse.drkb.ru
+//  * Home Blog : http://alexander-bagel.blogspot.ru
+//  ****************************************************************************
+//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//
+
 unit uDump;
 
 interface

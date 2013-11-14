@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.Threads
+//  * Unit Name : MemoryMap.Threads.pas
 //  * Purpose   : Класс собирает данные о потоках процесса.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.

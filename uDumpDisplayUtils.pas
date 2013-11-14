@@ -1,3 +1,21 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+//  ****************************************************************************
+//  * Project   : ProcessMM
+//  * Unit Name : uDumpDisplayUtils.pas
+//  * Purpose   : Вспомогательный модуль для отображения содержимого
+//  *           : памяти в свойствах региона и размапленных структур
+//  * Author    : Александр (Rouse_) Багель
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
+//  * Version   : 1.0
+//  * Home Page : http://rouse.drkb.ru
+//  * Home Blog : http://alexander-bagel.blogspot.ru
+//  ****************************************************************************
+//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//
+
 unit uDumpDisplayUtils;
 
 interface

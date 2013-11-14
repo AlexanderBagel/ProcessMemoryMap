@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.PEImage
+//  * Unit Name : MemoryMap.PEImage.pas
 //  * Purpose   : Класс собирает данные по секциям и директориям PE файла
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.

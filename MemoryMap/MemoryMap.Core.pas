@@ -2,7 +2,7 @@
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
-//  * Unit Name : MemoryMap.Core
+//  * Unit Name : MemoryMap.Core.pas
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
