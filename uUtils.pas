@@ -276,6 +276,16 @@ begin
   RegionSize := 0;
   if VirtualQueryEx(Process,
     Address, MBI, dwLength) <> dwLength then Exit;
+  // Rouse_ 16.10.2015
+  // Если на регион в котором расположена KUSER_SHARED_DATA
+  // и который имеет атрибуты защиты PAGE_READONLY
+  // принудительно выставить еще раз PAGE_READONLY
+  // то в Windows 7 64 бита отключается обновление этой структуры
+  // и как следствие перестает работать GetTickCount и прочее
+  // поэтому отключаем лишние телодвижения
+  if ReadCondition = rcReadAllwais then
+    if MBI.Protect = PAGE_READONLY then
+      ReadCondition := rcReadIfReadAccessPresent;
   RegionSize := MBI.RegionSize -
     (NativeUInt(Address) - NativeUInt(MBI.BaseAddress));
   case ReadCondition of

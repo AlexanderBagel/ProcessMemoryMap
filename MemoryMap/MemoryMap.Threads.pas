@@ -293,6 +293,8 @@ var
   MachineType: DWORD;
   ThreadShackEntry: TThreadStackEntry;
 begin
+  ZeroMemory(@ThreadShackEntry, SizeOf(TThreadStackEntry));
+
   // ThreadContext должен быть выравнен, поэтому используем VirtualAlloc
   // которая автоматически выделит память выровненую по началу страницы
   // в противном случае получим ERROR_NOACCESS (998)
@@ -357,6 +359,8 @@ var
   ThreadContext: PWow64Context;
   ThreadShackEntry: TThreadStackEntry;
 begin
+  ZeroMemory(@ThreadShackEntry, SizeOf(TThreadStackEntry));
+
   // ThreadContext должен быть выравнен, поэтому используем VirtualAlloc
   // которая автоматически выделит память выровненую по началу страницы
   // в противном случае получим ERROR_NOACCESS (998)

@@ -524,7 +524,10 @@ begin
     AddString(Result, 'FlsListHead.BLink', @Buff[Cursor], dtDword, Cursor);
     AddString(Result, 'FlsBitmap', @Buff[Cursor], dtDword, Cursor);
     AddString(Result, EmptyHeader);
-    AddString(Result, 'FlsBitmapBits', @Buff[Cursor], dtBuff, 256, Cursor);
+    AddString(Result, 'FlsBitmapBits[0]', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'FlsBitmapBits[1]', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'FlsBitmapBits[2]', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'FlsBitmapBits[3]', @Buff[Cursor], dtDword, Cursor);
     AddString(Result, EmptyHeader);
     AddString(Result, 'FlsHighIndex', @Buff[Cursor], dtDword, Cursor);
   end;
@@ -536,6 +539,7 @@ begin
     AddString(Result, 'pContextData', @Buff[Cursor], dtDword, Cursor);
     AddString(Result, 'pImageHeaderHash', @Buff[Cursor], dtDword, Cursor);
     AddString(Result, PebTracingFlagsToStr(Buff[Cursor]), @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
     AddString(Result, 'CsrServerReadOnlySharedMemoryBase', @Buff[Cursor], dtInt64, Cursor);
   end;
 
@@ -678,7 +682,10 @@ begin
     AddString(Result, 'FlsListHead.BLink', @Buff[Cursor], dtInt64, Cursor);
     AddString(Result, 'FlsBitmap', @Buff[Cursor], dtInt64, Cursor);
     AddString(Result, EmptyHeader);
-    AddString(Result, 'FlsBitmapBits', @Buff[Cursor], dtBuff, 256, Cursor);
+    AddString(Result, 'FlsBitmapBits[0]', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'FlsBitmapBits[1]', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'FlsBitmapBits[2]', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'FlsBitmapBits[3]', @Buff[Cursor], dtDword, Cursor);
     AddString(Result, EmptyHeader);
     AddString(Result, 'FlsHighIndex', @Buff[Cursor], dtDword, Cursor);
   end;
@@ -1303,12 +1310,11 @@ begin
     AddString(Result, 'PreferredLanguages', @Buff[Cursor], dtInt64, Cursor);
     AddString(Result, 'UserPrefLanguages', @Buff[Cursor], dtInt64, Cursor);
     AddString(Result, 'MergedPrefLanguages', @Buff[Cursor], dtInt64, Cursor);
-    AddString(Result, 'MuiImpersonation', @Buff[Cursor], dtInt64, Cursor);
+    AddString(Result, 'MuiImpersonation', @Buff[Cursor], dtDword, Cursor);
     AddString(Result, 'CrossTebFlags', @Buff[Cursor], dtWord, Cursor);
     ValueBuff := PDWORD(@Buff[Cursor])^;
     AddString(Result, 'SameTebFlags', @Buff[Cursor], dtWord, Cursor,
       SameTebFlagsToStr(ValueBuff));
-    AddString(Result, 'Spare', @Buff[Cursor], dtBuff, 4, Cursor);
     AddString(Result, 'TxnScopeEnterCallback', @Buff[Cursor], dtInt64, Cursor);
     AddString(Result, 'TxnScopeExitCallback', @Buff[Cursor], dtInt64, Cursor);
     AddString(Result, 'TxnScopeContext', @Buff[Cursor], dtInt64, Cursor);
