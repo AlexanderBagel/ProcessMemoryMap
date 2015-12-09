@@ -5,8 +5,8 @@
 //  * Unit Name : uRegionProperties.pas
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2015.
+//  * Version   : 1.01
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,14 +38,18 @@ type
     mnuCopy: TMenuItem;
     N1: TMenuItem;
     mnuRefresh: TMenuItem;
+    N2: TMenuItem;
+    mnuShowAsDisassembly: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuCopyClick(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure mnuRefreshClick(Sender: TObject);
+    procedure mnuShowAsDisassemblyClick(Sender: TObject);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
     CurerntAddr: Pointer;
+    ShowAsDisassembly: Boolean;
     procedure Add(const Value: string);
     procedure StartQuery(Value: Pointer);
     procedure ShowInfoFromMBI(MBI: TMemoryBasicInformation;
@@ -100,6 +104,18 @@ begin
     edProperties.Lines.Clear;
     StartQuery(CurerntAddr);
     SendMessage(edProperties.Handle, EM_LINESCROLL, 0, ThumbPos);
+  finally
+    edProperties.Lines.EndUpdate;;
+  end;
+end;
+
+procedure TdlgRegionProps.mnuShowAsDisassemblyClick(Sender: TObject);
+begin
+  ShowAsDisassembly := mnuShowAsDisassembly.Checked;
+  edProperties.Lines.BeginUpdate;
+  try
+    edProperties.Lines.Clear;
+    StartQuery(CurerntAddr);
   finally
     edProperties.Lines.EndUpdate;;
   end;
@@ -177,6 +193,12 @@ begin
          Pointer(Value), MBI, dwLength) <> dwLength then
          RaiseLastOSError;
       ShowInfoFromMBI(MBI, Value);
+
+      if ShowAsDisassembly then
+      begin
+        Add(Disassembly(Process, Value, MemoryMapCore.Process64));
+        Exit;
+      end;
 
       if Value = KUSER_SHARED_DATA_ADDR then
       begin

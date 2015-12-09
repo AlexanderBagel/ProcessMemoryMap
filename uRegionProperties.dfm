@@ -50,5 +50,14 @@ object dlgRegionProps: TdlgRegionProps
       ShortCut = 116
       OnClick = mnuRefreshClick
     end
+    object N2: TMenuItem
+      Caption = '-'
+    end
+    object mnuShowAsDisassembly: TMenuItem
+      AutoCheck = True
+      Caption = 'Show as disassembly'
+      ShortCut = 16452
+      OnClick = mnuShowAsDisassemblyClick
+    end
   end
 end

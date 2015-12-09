@@ -6,8 +6,8 @@
 //  * Purpose   : Вспомогательный модуль для отображения содержимого
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2015.
+//  * Version   : 1.01
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -24,7 +24,12 @@ uses
   Winapi.Windows,
   System.SysUtils,
   System.DateUtils,
-  System.StrUtils;
+  System.StrUtils,
+  {$IFDEF WIN64}
+  BeaEngineDelphi64;
+  {$ELSE}
+  BeaEngineDelphi32;
+  {$ENDIF}
 
   function DumpMemory(Process: THandle; Address: Pointer): string;
   function DumpPEB32(Process: THandle; Address: Pointer): string;
@@ -35,6 +40,7 @@ uses
   function DumpKUserSharedData(Process: THandle; Address: Pointer): string;
   function DumpProcessParameters32(Process: THandle; Address: Pointer): string;
   function DumpProcessParameters64(Process: THandle; Address: Pointer): string;
+  function Disassembly(Process: THandle; Address: Pointer; Is64: Boolean): string;
 
 implementation
 
@@ -81,6 +87,8 @@ const
     '--------------------------------------- Process Parameters (32) ------------------------------------------';
   PROCESSPARAMS64 =
     '--------------------------------------- Process Parameters (64) ------------------------------------------';
+  DisasmDumpHeader =
+    '------------------------------------------ Disassemby dump -----------------------------------------------';
 type
   TDataType = (dtByte, dtWord, dtDword,
     dtInt64, dtGUID, dtString, dtAnsiString, dtBuff, dtUnicodeString32,
@@ -169,6 +177,17 @@ begin
     else
       Result := Result + StringOfChar(' ', PartOctets) + DumpData;
   end;
+end;
+
+function AsmToHexStr(Base: NativeUInt; Data: Pointer;
+  Len: Integer): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 0 to Len - 1 do
+    Result := Result + IntToHex(TByteArray(Data^)[I], 2) + ' ';
+  Result := Result + StringOfChar(' ', (14 - Len) * 3);
 end;
 
 procedure AddString(var OutValue: string; const NewString, SubComment: string); overload;
@@ -1994,6 +2013,55 @@ begin
 
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
+end;
+
+function Disassembly(Process: THandle; Address: Pointer; Is64: Boolean): string;
+var
+  Buff: array of Byte;
+  Size, RegionSize, Cursor: NativeUInt;
+  Len: Integer;
+  ADisasm: TDISASM;
+begin
+  Result := '';
+  Size := 4096;
+  SetLength(Buff, Size);
+  if not ReadProcessData(Process, Address, @Buff[0],
+    Size, RegionSize, rcReadAllwais) then Exit;
+  Cursor := 0;
+  AddString(Result, DisasmDumpHeader);
+  {$IFDEF WIN32}
+  ADisasm.EIP := LongInt(@Buff[0]);
+  ADisasm.VirtualAddr := Int64(Address);
+  {$ELSE}
+  ADisasm.EIP := Int64(@Buff[0]);
+  ADisasm.VirtualAddr := Int64(Address);
+  {$ENDIF}
+  if Is64 then
+    ADisasm.Archi := 64
+  else
+    ADisasm.Archi := 32;
+  ADisasm.Options := NoTabulation + MasmSyntax;
+  while Cursor < Size do
+  begin
+    Len := Disasm(ADisasm);
+    if Len < 0 then
+    begin
+      Len := 1;
+      AddString(Result,
+        IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
+        AsmToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Len) +
+        'DB ' + IntToHex(Buff[Cursor], 2));
+    end
+    else
+      AddString(Result,
+        IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
+        AsmToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Len) +
+        string(PAnsiChar(@ADisasm.CompleteInstr[0])));
+    Inc(Cursor, Len);
+    Inc(ADisasm.EIP, Len);
+    if ADisasm.Instruction.Opcode in [$C2, $C3, $CA, $CB, $CF] then
+      AddString(Result, '');
+  end;
 end;
 
 
