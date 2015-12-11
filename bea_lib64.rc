@@ -1,1 +1,1 @@
-BEA64_IMAGE RCDATA ".\bea_engine\BeaEngine64.dll"
+BEA64_IMAGE RCDATA ".\bea_engine\BeaEngine64.dllres"
