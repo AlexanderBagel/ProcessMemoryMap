@@ -29,7 +29,8 @@ uses
   MemoryMap.RegionData,
   MemoryMap.Symbols,
   MemoryMap.Threads,
-  MemoryMap.NtDll;
+  MemoryMap.NtDll,
+  MemoryMap.Workset;
 
 type
   TdlgRegionProps = class(TForm)
@@ -52,8 +53,8 @@ type
     ShowAsDisassembly: Boolean;
     procedure Add(const Value: string);
     procedure StartQuery(Value: Pointer);
-    procedure ShowInfoFromMBI(MBI: TMemoryBasicInformation;
-      Address: Pointer);
+    procedure ShowInfoFromMBI(Process: THandle;
+      MBI: TMemoryBasicInformation; Address: Pointer);
   public
     procedure ShowModalPropertyAtAddr(Value: Pointer);
     procedure ShowPropertyAtAddr(Value: Pointer);
@@ -121,18 +122,30 @@ begin
   end;
 end;
 
-procedure TdlgRegionProps.ShowInfoFromMBI(MBI: TMemoryBasicInformation;
-  Address: Pointer);
+procedure TdlgRegionProps.ShowInfoFromMBI(Process: THandle;
+  MBI: TMemoryBasicInformation; Address: Pointer);
 var
   OwnerName: array [0..MAX_PATH - 1] of Char;
   Path, DescriptionAtAddr: string;
   Symbols: TSymbols;
+  Workset: TWorkset;
+  Shared: Boolean;
+  SharedCount: Byte;
 begin
   Add('AllocationBase: ' + UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
   Add('RegionSize: ' + SizeToStr(MBI.RegionSize));
   Add('Type: ' + ExtractRegionTypeString(MBI));
   Add('Access: ' + ExtractAccessString(MBI.Protect));
   Add('Initail Access: ' + ExtractInitialAccessString(MBI.AllocationProtect));
+  Workset := TWorkset.Create(Process);
+  try
+    Workset.GetPageSharedInfo(Pointer(ULONG_PTR(Address) and
+     {$IFDEF WIN32}$FFFFF000{$ELSE}$FFFFFFFFFFFFF000{$ENDIF}), Shared, SharedCount);
+  finally
+    Workset.Free;
+  end;
+  Add('Shared: ' + BoolToStr(Shared, True));
+  Add('Shared count: ' + IntToStr(SharedCount));
   if GetMappedFileName(Process, MBI.AllocationBase,
     @OwnerName[0], MAX_PATH) > 0 then
   begin
@@ -192,7 +205,8 @@ begin
       if VirtualQueryEx(Process,
          Pointer(Value), MBI, dwLength) <> dwLength then
          RaiseLastOSError;
-      ShowInfoFromMBI(MBI, Value);
+
+      ShowInfoFromMBI(Process, MBI, Value);
 
       if ShowAsDisassembly then
       begin
