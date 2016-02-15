@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Core.pas
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
+//  * Version   : 1.0.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -543,7 +543,7 @@ begin
     try
       FSymbols := TSymbols.Create(FProcess);
       try
-        FPEImage := TPEImage.Create;
+        FPEImage := TPEImage.Create(FProcess, FProcess64);
         try
           FWorkset := TWorkset.Create(FProcess);;
           try
@@ -926,7 +926,8 @@ var
   SectionSize: NativeInt;
   Directory: TDirectoryArray;
   pEntryPoint: Pointer;
-  EntryPoint: TDirectory;
+  EntryPoint, TLSCallback: TDirectory;
+  pTLSCallback: TTLSCallback;
 begin
   // все известные точки входа добавляем в параметр с директориями
   for pEntryPoint in FPEImage.EntryPoints do
@@ -936,6 +937,15 @@ begin
     EntryPoint.Address := NativeInt(pEntryPoint);
     EntryPoint.Size := 0;
     RegionData.Directory.Add(EntryPoint);
+  end;
+  // все известные калбэки нитей добавляем в параметр с директориями
+  for pTLSCallback in FPEImage.TLSCallbacks do
+  begin
+    RegionData := GetRegionAtAddr(pTLSCallback.Address);
+    TLSCallback.Caption := pTLSCallback.Caption;
+    TLSCallback.Address := NativeInt(pTLSCallback.Address);
+    TLSCallback.Size := 0;
+    RegionData.Directory.Add(TLSCallback);
   end;
   // теперь добавляем сами директории
   for Directory in FPEImage.Directoryes do
@@ -947,7 +957,7 @@ begin
       RegionData.Directory.Add(Directory.Data[I]);
     end;
   end;
-  // ну и в конце секции инполняемого файла
+  // ну и в конце секции исполняемого файла
   for Section in FPEImage.Sections do
   begin
     // сначала добавляем регионы с которых начинаются инвестные нам секции

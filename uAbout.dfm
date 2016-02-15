@@ -4680,9 +4680,9 @@ object dlgAbout: TdlgAbout
   object Label1: TLabel
     Left = 56
     Top = 8
-    Width = 163
+    Width = 166
     Height = 13
-    Caption = 'Process Memory Map 1.0 (alpha5)'
+    Caption = 'Process Memory Map 1.0 (alpha 6)'
   end
   object Label2: TLabel
     Left = 56
