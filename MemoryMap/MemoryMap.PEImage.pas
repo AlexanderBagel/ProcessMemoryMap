@@ -6,7 +6,7 @@
 //  * Purpose   : Класс собирает данные по секциям и директориям PE файла
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0.2
+//  * Version   : 1.0.3
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -175,7 +175,7 @@ begin
           NativeUint(DirAddr) - NativeUint(FImageInfo.MappedAddress));
         // читаем начало TLS таблицы
         if not ReadProcessMemory(FProcessHandle, pTLSCursor,
-          @pTLSTable[0], SizeOf(pTLSTable), NumberOfBytesWritten) then Exit;
+          @pTLSTable[0], SizeOf(pTLSTable), NumberOfBytesWritten) then Continue;
 
         // читаем саму таблицу каллбэков
         SetLength(TLSCallbackTable, 256);
@@ -185,7 +185,7 @@ begin
           pTLSCursor := Pointer(PLSTable32(@pTLSTable[0])^.AddressOfCallBacks);
         if not ReadProcessMemory(FProcessHandle,
           pTLSCursor, @TLSCallbackTable[0], Length(TLSCallbackTable),
-          NumberOfBytesWritten) then Exit;
+          NumberOfBytesWritten) then Continue;
 
         // читаем их последовательно (по 4 или 8 байт в зависимости от битности)
         A := 0;
