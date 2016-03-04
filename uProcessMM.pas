@@ -5,8 +5,8 @@
 //  * Unit Name : uProcessMM.pas
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -141,7 +141,6 @@ type
     procedure acShowExportsExecute(Sender: TObject);
     // Other...
     procedure FormCreate(Sender: TObject);
-    procedure FormActivate(Sender: TObject);
     procedure stMemoryMapGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
     procedure stMemoryMapBeforeItemErase(Sender: TBaseVirtualTree;
@@ -161,8 +160,11 @@ type
     procedure acDumpRegionExecute(Sender: TObject);
     procedure acDumpRegionUpdate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure stMemoryMapNodeDblClick(Sender: TBaseVirtualTree;
+      const HitInfo: THitInfo);
   private
-    FirstRun, ProcessOpen, MapPresent: Boolean;
+    FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
     NodeDataArray: array of TNodeData;
     SearchString: string;
@@ -482,10 +484,18 @@ end;
 
 procedure TdlgProcessMM.acSelectProcessExecute(Sender: TObject);
 var
+  dlgSelectProcess: TdlgSelectProcess;
   Ico: TIcon;
 begin
   dlgSelectProcess := TdlgSelectProcess.Create(Self);
   try
+    if FirstSelectProcess then
+    begin
+      FirstSelectProcess := False;
+      dlgSelectProcess.Position := poScreenCenter;
+    end
+    else
+      dlgSelectProcess.Position := poMainFormCenter;
     case dlgSelectProcess.ShowModal of
       mrOk:
       begin
@@ -716,13 +726,6 @@ begin
   lvSummary.RootNodeCount := 9;
 end;
 
-procedure TdlgProcessMM.FormActivate(Sender: TObject);
-begin
-  if FirstRun then
-    acSelectProcess.Execute;
-  FirstRun := False;
-end;
-
 procedure TdlgProcessMM.FormCreate(Sender: TObject);
 begin
   ReportMemoryLeaksOnShutdown := True;
@@ -742,6 +745,7 @@ begin
   MemoryMapCore.OnGetWow64Heaps := OnGetWow64Heaps;
   Application.Title := Caption;
   FirstRun := True;
+  FirstSelectProcess := True;
 end;
 
 procedure TdlgProcessMM.FormDestroy(Sender: TObject);
@@ -800,6 +804,13 @@ begin
   TmpString := SearchString + AnsiUpperCase(Key);
   if Search(TmpString) then
     SearchString := TmpString;
+end;
+
+procedure TdlgProcessMM.FormShow(Sender: TObject);
+begin
+  if FirstRun then
+    acSelectProcess.Execute;
+  FirstRun := False;
 end;
 
 function TdlgProcessMM.GetSelectedNodeData: PNodeData;
@@ -957,6 +968,11 @@ begin
   end;
 end;
 
-
+procedure TdlgProcessMM.stMemoryMapNodeDblClick(Sender: TBaseVirtualTree;
+  const HitInfo: THitInfo);
+begin
+  if not (vsHasChildren in HitInfo.HitNode^.States) then
+    acRegionPropsExecute(nil);
+end;
 
 end.

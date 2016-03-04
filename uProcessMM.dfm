@@ -14,10 +14,10 @@ object dlgProcessMM: TdlgProcessMM
   Menu = MainMenu
   OldCreateOrder = False
   Position = poScreenCenter
-  OnActivate = FormActivate
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
+  OnShow = FormShow
   DesignSize = (
     1007
     589)
@@ -129,6 +129,7 @@ object dlgProcessMM: TdlgProcessMM
     TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect]
     OnBeforeItemErase = stMemoryMapBeforeItemErase
     OnGetText = stMemoryMapGetText
+    OnNodeDblClick = stMemoryMapNodeDblClick
     Columns = <
       item
         Position = 0
@@ -341,6 +342,7 @@ object dlgProcessMM: TdlgProcessMM
     end
     object Regionproperties1: TMenuItem
       Action = acRegionProps
+      Default = True
     end
   end
   object ActionManager: TActionManager

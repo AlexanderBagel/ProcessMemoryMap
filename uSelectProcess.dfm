@@ -11,7 +11,7 @@ object dlgSelectProcess: TdlgSelectProcess
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
-  Position = poMainFormCenter
+  Position = poScreenCenter
   OnCreate = FormCreate
   DesignSize = (
     481

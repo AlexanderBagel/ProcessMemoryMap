@@ -29,7 +29,7 @@ object dlgSelectAddress: TdlgSelectAddress
     Height = 13
     Caption = 'INT'
   end
-  object Label3: TLabel
+  object lblHex: TLabel
     Left = 26
     Top = 67
     Width = 19
@@ -70,7 +70,6 @@ object dlgSelectAddress: TdlgSelectAddress
     TabOrder = 0
     Text = '0'
     OnChange = edHexChange
-    OnKeyPress = edHexKeyPress
   end
   object btnCancel: TButton
     Left = 232

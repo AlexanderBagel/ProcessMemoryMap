@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectProcess.pas
 //  * Purpose   : Диалог выбора процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -60,9 +60,6 @@ type
     Pid: Cardinal;
     ProcessName: string;
   end;
-
-var
-  dlgSelectProcess: TdlgSelectProcess;
 
 implementation
 

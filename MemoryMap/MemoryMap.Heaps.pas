@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Heaps.pas
 //  * Purpose   : Класс собирает данные о кучах процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -163,7 +163,7 @@ begin
             // проверка выхода за границы блоков
             if A + hit_seg_count >=
               Integer(pHeapInformation^.NumberOfEntries - 1) then
-              Continue;
+              Break;
           end;
 
           // Если блок не самый первый в сегменте, то текущий адрес блока равен,
