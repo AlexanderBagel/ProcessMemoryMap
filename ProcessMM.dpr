@@ -46,7 +46,9 @@ uses
   MemoryMap.Workset in 'MemoryMap\MemoryMap.Workset.pas',
   uAbout in 'uAbout.pas' {dlgAbout},
   BeaEngineDelphi32 in 'bea_engine\BeaEngineDelphi32.pas',
-  BeaEngineDelphi64 in 'bea_engine\BeaEngineDelphi64.pas';
+  BeaEngineDelphi64 in 'bea_engine\BeaEngineDelphi64.pas',
+  uMemoryMapListInfo in 'uMemoryMapListInfo.pas' {dlgMemoryMapListInfo},
+  uMemoryMapListInfoSettings in 'uMemoryMapListInfoSettings.pas' {dlgMemoryMapListInfoSettings};
 
 {$R *.res}
 

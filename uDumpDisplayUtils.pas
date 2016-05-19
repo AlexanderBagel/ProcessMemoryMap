@@ -25,13 +25,15 @@ uses
   System.SysUtils,
   System.DateUtils,
   System.StrUtils,
+  uUtils,
   {$IFDEF WIN64}
   BeaEngineDelphi64;
   {$ELSE}
   BeaEngineDelphi32;
   {$ENDIF}
 
-  function DumpMemory(Process: THandle; Address: Pointer): string;
+  function DumpMemory(Process: THandle; Address: Pointer; nSize: Integer = 0): string;
+  function DumpMemoryFromBuff(RawBuff: TMemoryDump; Address: Pointer; nSize: Integer): string;
   function DumpPEB32(Process: THandle; Address: Pointer): string;
   function DumpPEB64(Process: THandle; Address: Pointer): string;
   function DumpPEHeader(Process: THandle; Address: Pointer): string;
@@ -40,15 +42,15 @@ uses
   function DumpKUserSharedData(Process: THandle; Address: Pointer): string;
   function DumpProcessParameters32(Process: THandle; Address: Pointer): string;
   function DumpProcessParameters64(Process: THandle; Address: Pointer): string;
-  function Disassembly(Process: THandle; Address: Pointer; Is64: Boolean): string;
+  function Disassembly(Process: THandle; Address: Pointer;
+    Is64: Boolean; nSize: Integer = 0): string;
+  function DisassemblyFromBuff(RawBuff: TMemoryDump; Address: Pointer;
+    Is64: Boolean; nSize: NativeUInt): string;
 
 implementation
 
 // Добавить гиперссылки
 // {\field{\*\fldinst HYPERLINK "http://www.microsoft.com"}{\fldrslt Microsoft}}
-
-uses
-  uUtils;
 
 const
   MemoryDumpHeader =
@@ -274,18 +276,26 @@ begin
   end;
 end;
 
-function DumpMemory(Process: THandle; Address: Pointer): string;
+function DumpMemory(Process: THandle; Address: Pointer; nSize: Integer): string;
 var
-  Buff: array of Byte;
+  Buff: TMemoryDump;
   Size, RegionSize: NativeUInt;
 begin
   Result := '';
-  Size := 4096;
+  if nSize = 0 then
+    Size := 4096
+  else
+    Size := nSize;
   SetLength(Buff, Size);
   if not ReadProcessData(Process, Address, @Buff[0],
     Size, RegionSize, rcReadAllwais) then Exit;
+  Result := DumpMemoryFromBuff(Buff, Address, Size);
+end;
+
+function DumpMemoryFromBuff(RawBuff: TMemoryDump; Address: Pointer; nSize: Integer): string;
+begin
   AddString(Result, MemoryDumpHeader);
-  AddString(Result, ByteToHexStr(ULONG_PTR(Address), @Buff[0], Size));
+  AddString(Result, ByteToHexStr(ULONG_PTR(Address), @RawBuff[0], nSize));
 end;
 
 function PebBitFieldToStr(Value: Byte): string;
@@ -2015,25 +2025,38 @@ begin
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
 
-function Disassembly(Process: THandle; Address: Pointer; Is64: Boolean): string;
+function Disassembly(Process: THandle; Address: Pointer;
+  Is64: Boolean; nSize: Integer): string;
 var
-  Buff: array of Byte;
-  Size, RegionSize, Cursor: NativeUInt;
+  Buff: TMemoryDump;
+  Size, RegionSize: NativeUInt;
+begin
+  Result := '';
+  if nSize = 0 then
+    Size := 4096
+  else
+    Size := nSize;
+  SetLength(Buff, Size);
+  if not ReadProcessData(Process, Address, @Buff[0],
+    Size, RegionSize, rcReadAllwais) then Exit;
+  Result := DisassemblyFromBuff(Buff, Address, Is64, Size);
+end;
+
+function DisassemblyFromBuff(RawBuff: TMemoryDump; Address: Pointer;
+  Is64: Boolean; nSize: NativeUInt): string;
+var
+  Cursor: NativeUInt;
   Len: Integer;
   ADisasm: TDISASM;
 begin
   Result := '';
-  Size := 4096;
-  SetLength(Buff, Size);
-  if not ReadProcessData(Process, Address, @Buff[0],
-    Size, RegionSize, rcReadAllwais) then Exit;
   Cursor := 0;
   AddString(Result, DisasmDumpHeader);
   {$IFDEF WIN32}
-  ADisasm.EIP := LongInt(@Buff[0]);
+  ADisasm.EIP := LongInt(RawBuff);
   ADisasm.VirtualAddr := Int64(Address);
   {$ELSE}
-  ADisasm.EIP := Int64(@Buff[0]);
+  ADisasm.EIP := Int64(RawBuff);
   ADisasm.VirtualAddr := Int64(Address);
   {$ENDIF}
   if Is64 then
@@ -2041,7 +2064,7 @@ begin
   else
     ADisasm.Archi := 32;
   ADisasm.Options := NoTabulation + MasmSyntax;
-  while Cursor < Size do
+  while Cursor < nSize do
   begin
     Len := Disasm(ADisasm);
     if Len < 0 then
@@ -2049,13 +2072,13 @@ begin
       Len := 1;
       AddString(Result,
         IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
-        AsmToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Len) +
-        'DB ' + IntToHex(Buff[Cursor], 2));
+        AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], Len) +
+        'DB ' + IntToHex(RawBuff[Cursor], 2));
     end
     else
       AddString(Result,
         IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
-        AsmToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Len) +
+        AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], Len) +
         string(PAnsiChar(@ADisasm.CompleteInstr[0])));
     Inc(Cursor, Len);
     Inc(ADisasm.EIP, Len);

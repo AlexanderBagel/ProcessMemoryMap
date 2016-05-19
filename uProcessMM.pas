@@ -25,7 +25,7 @@ uses
   Vcl.Menus, VirtualTrees, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.ImgList, Winapi.TlHelp32, Winapi.ShellAPI, Winapi.CommCtrl,
   Vcl.Clipbrd, System.Actions, Vcl.ActnList, Vcl.PlatformDefaultStyleActnCtrls,
-  Vcl.ActnMan,
+  Vcl.ActnMan, System.ImageList,
 
   MemoryMap.Core,
   MemoryMap.RegionData,
@@ -118,6 +118,9 @@ type
     DumpRegion2: TMenuItem;
     N11: TMenuItem;
     SaveDMPDialog: TSaveDialog;
+    acFillMMList: TAction;
+    N12: TMenuItem;
+    FillAddrListInfo1: TMenuItem;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -163,6 +166,8 @@ type
     procedure FormShow(Sender: TObject);
     procedure stMemoryMapNodeDblClick(Sender: TBaseVirtualTree;
       const HitInfo: THitInfo);
+    procedure acFillMMListUpdate(Sender: TObject);
+    procedure acFillMMListExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -196,7 +201,8 @@ uses
   uSettings,
   uUtils,
   uDump,
-  uAbout;
+  uAbout,
+  uMemoryMapListInfo;
 
 const
   RootCaption = 'Process Memory Map';
@@ -343,6 +349,17 @@ end;
 procedure TdlgProcessMM.acExpandAllExecute(Sender: TObject);
 begin
   stMemoryMap.FullExpand;
+end;
+
+procedure TdlgProcessMM.acFillMMListExecute(Sender: TObject);
+begin
+  dlgMemoryMapListInfo := TdlgMemoryMapListInfo.Create(Application);
+  dlgMemoryMapListInfo.ShowMemoryMapInfo;
+end;
+
+procedure TdlgProcessMM.acFillMMListUpdate(Sender: TObject);
+begin
+  (Sender as TAction).Enabled := ProcessOpen;
 end;
 
 procedure TdlgProcessMM.acOpenExecute(Sender: TObject);

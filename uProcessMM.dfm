@@ -263,6 +263,12 @@ object dlgProcessMM: TdlgProcessMM
       object DumpRegion2: TMenuItem
         Action = acDumpRegion
       end
+      object N12: TMenuItem
+        Caption = '-'
+      end
+      object FillAddrListInfo1: TMenuItem
+        Action = acFillMMList
+      end
     end
     object mnuOptions: TMenuItem
       Caption = 'Options'
@@ -469,6 +475,13 @@ object dlgProcessMM: TdlgProcessMM
       Category = 'Help'
       Caption = 'About'
       OnExecute = acAboutExecute
+    end
+    object acFillMMList: TAction
+      Category = 'Utils'
+      Caption = 'Fill AddrList Info...'
+      ShortCut = 24657
+      OnExecute = acFillMMListExecute
+      OnUpdate = acFillMMListUpdate
     end
   end
   object SaveDMPDialog: TSaveDialog
