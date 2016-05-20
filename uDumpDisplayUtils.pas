@@ -25,7 +25,10 @@ uses
   System.SysUtils,
   System.DateUtils,
   System.StrUtils,
+  PsAPI,
   uUtils,
+  MemoryMap.Symbols,
+  MemoryMap.Utils,
   {$IFDEF WIN64}
   BeaEngineDelphi64;
   {$ELSE}
@@ -44,8 +47,13 @@ uses
   function DumpProcessParameters64(Process: THandle; Address: Pointer): string;
   function Disassembly(Process: THandle; Address: Pointer;
     Is64: Boolean; nSize: Integer = 0): string;
-  function DisassemblyFromBuff(RawBuff: TMemoryDump; Address: Pointer;
+  function DisassemblyFromBuff(RawBuff: TMemoryDump; Symbols: TSymbols;
+    Address, AllocationBase: Pointer; const ModuleName: string;
     Is64: Boolean; nSize: NativeUInt): string;
+
+const
+  EmptyHeader =
+    '----------------------------------------------------------------------------------------------------------';
 
 implementation
 
@@ -81,8 +89,6 @@ const
     '----------------------------------------- IMAGE_DATA_DIRECTORY -------------------------------------------';
   SECTION_HEADERS =
     '---------------------------------------- IMAGE_SECTION_HEADERS -------------------------------------------';
-  EmptyHeader =
-    '----------------------------------------------------------------------------------------------------------';
   KUSER =
     '------------------------------------------ KUSER_SHARED_DATA ---------------------------------------------';
   PROCESSPARAMS32 =
@@ -2030,6 +2036,11 @@ function Disassembly(Process: THandle; Address: Pointer;
 var
   Buff: TMemoryDump;
   Size, RegionSize: NativeUInt;
+  Symbols: TSymbols;
+  dwLength: DWORD;
+  MBI: TMemoryBasicInformation;
+  OwnerName: array [0..MAX_PATH - 1] of Char;
+  Path: string;
 begin
   Result := '';
   if nSize = 0 then
@@ -2039,15 +2050,36 @@ begin
   SetLength(Buff, Size);
   if not ReadProcessData(Process, Address, @Buff[0],
     Size, RegionSize, rcReadAllwais) then Exit;
-  Result := DisassemblyFromBuff(Buff, Address, Is64, Size);
+
+  dwLength := SizeOf(TMemoryBasicInformation);
+  if VirtualQueryEx(Process,
+     Address, MBI, dwLength) <> dwLength then Exit;
+
+  if GetMappedFileName(Process, MBI.AllocationBase,
+    @OwnerName[0], MAX_PATH) > 0 then
+  begin
+    Path := NormalizePath(string(OwnerName));
+    Symbols := TSymbols.Create(Process);
+    try
+      Result := DisassemblyFromBuff(Buff, Symbols,
+        Address, MBI.AllocationBase, Path, Is64, Size);
+    finally
+      Symbols.Free;
+    end;
+  end
+  else
+    Result := DisassemblyFromBuff(Buff, nil,
+      Address, nil, '', Is64, Size);
 end;
 
-function DisassemblyFromBuff(RawBuff: TMemoryDump; Address: Pointer;
+function DisassemblyFromBuff(RawBuff: TMemoryDump; Symbols: TSymbols;
+  Address, AllocationBase: Pointer; const ModuleName: string;
   Is64: Boolean; nSize: NativeUInt): string;
 var
   Cursor: NativeUInt;
   Len: Integer;
   ADisasm: TDISASM;
+  Line: string;
 begin
   Result := '';
   Cursor := 0;
@@ -2064,26 +2096,39 @@ begin
   else
     ADisasm.Archi := 32;
   ADisasm.Options := NoTabulation + MasmSyntax;
-  while Cursor < nSize do
-  begin
-    Len := Disasm(ADisasm);
-    if Len < 0 then
+  if Symbols <> nil then
+    Symbols.Init(ULONG_PTR(AllocationBase), ModuleName);
+  try
+    while Cursor < nSize do
     begin
-      Len := 1;
-      AddString(Result,
-        IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
-        AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], Len) +
-        'DB ' + IntToHex(RawBuff[Cursor], 2));
-    end
-    else
-      AddString(Result,
-        IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
-        AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], Len) +
-        string(PAnsiChar(@ADisasm.CompleteInstr[0])));
-    Inc(Cursor, Len);
-    Inc(ADisasm.EIP, Len);
-    if ADisasm.Instruction.Opcode in [$C2, $C3, $CA, $CB, $CF] then
-      AddString(Result, '');
+      if Symbols <> nil then
+      begin
+        Line := Symbols.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
+        if Line <> '' then
+          AddString(Result, Line);
+      end;
+      Len := Disasm(ADisasm);
+      if Len < 0 then
+      begin
+        Len := 1;
+        AddString(Result,
+          IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
+          AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], Len) +
+          'DB ' + IntToHex(RawBuff[Cursor], 2));
+      end
+      else
+        AddString(Result,
+          IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
+          AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], Len) +
+          string(PAnsiChar(@ADisasm.CompleteInstr[0])));
+      Inc(Cursor, Len);
+      Inc(ADisasm.EIP, Len);
+      if ADisasm.Instruction.Opcode in [$C2, $C3, $CA, $CB, $CF] then
+        AddString(Result, '');
+    end;
+  finally
+    if Symbols <> nil then
+      Symbols.Release;
   end;
 end;
 

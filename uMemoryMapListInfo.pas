@@ -22,12 +22,13 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls,
-  Generics.Collections,
+  Generics.Collections, PsAPI,
 
   uUtils,
   MemoryMap.Core,
   MemoryMap.Utils,
   MemoryMap.WorkSet,
+  MemoryMap.Symbols,
   uDumpDisplayUtils;
 
 type
@@ -57,7 +58,8 @@ type
     Process: THandle;
     Workset: TWorkset;
     DumpList: TStringList;
-    NotSharedCount, WrongCRCCount: Integer;
+    Symbols: TSymbols;
+    NotSharedCount, WrongCRCCount, DumpFailed: Integer;
     procedure LoadMMLData;
     function ReadMMLRecord(Data: TStringList; Index: Integer): Integer;
     procedure SaveMMLData;
@@ -116,13 +118,19 @@ var
   SharedCount: Byte;
   RawBuff: TMemoryDump;
   Size, RegionSize: NativeUInt;
+  OwnerName: array [0..MAX_PATH - 1] of Char;
+  Path: string;
 begin
   MMLRecord := MMLData[Index];
   dlgProgress.ProgressBar.Position := Index + 1;
   dlgProgress.lblProgress.Caption :=
     'Process address: ' + IntToHex(UINT_PTR(MMLRecord.Addr), 1);
   Application.ProcessMessages;
+
+  Add(EmptyHeader);
   Add(dlgProgress.lblProgress.Caption);
+  Add(EmptyHeader);
+  Add('');
 
   Add(MMLRecord.Comment);
 
@@ -145,6 +153,7 @@ begin
   if not ReadProcessData(Process, MMLRecord.Addr, @RawBuff[0],
     Size, RegionSize, rcReadAllwais) then
   begin
+    Inc(DumpFailed);
     Add('Dump failed.');
     Exit;
   end;
@@ -187,7 +196,18 @@ begin
     Add(DumpMemoryFromBuff(RawBuff, MMLRecord.Addr, ScanSettings.DumpSize));
 
   if ScanSettings.ShowDisasm then
-    Add(DisassemblyFromBuff(RawBuff, MMLRecord.Addr, MemoryMapCore.Process64, ScanSettings.DumpSize));
+  begin
+    if GetMappedFileName(Process, MBI.AllocationBase,
+      @OwnerName[0], MAX_PATH) > 0 then
+    begin
+      Path := NormalizePath(string(OwnerName));
+      Add(DisassemblyFromBuff(RawBuff, Symbols, MMLRecord.Addr,
+        MBI.AllocationBase, Path, MemoryMapCore.Process64, ScanSettings.DumpSize));
+    end
+    else
+      Add(DisassemblyFromBuff(RawBuff, nil, MMLRecord.Addr,
+        nil, '', MemoryMapCore.Process64, ScanSettings.DumpSize));
+  end;
 end;
 
 function TdlgMemoryMapListInfo.ReadMMLRecord(
@@ -309,6 +329,15 @@ var
   ProcessLock: TProcessLockHandleList;
   I: Integer;
   Hint: string;
+
+  procedure UpdateHint(Value: Integer; const HintMsg: string);
+  begin
+    if Value = 0 then Exit;
+    if Hint <> '' then
+      Hint := Hint + ', ';
+    Hint := Hint + HintMsg + IntToStr(Value);
+  end;
+
 begin
   ProcessLock := nil;
   MMLData := TList<TMMLRecord>.Create;
@@ -336,8 +365,14 @@ begin
             try
               NotSharedCount := 0;
               WrongCRCCount := 0;
-              for I := 0 to MMLData.Count - 1 do
-                ProcessMMLRecord(I);
+              DumpFailed := 0;
+              Symbols := TSymbols.Create(Process);
+              try
+                for I := 0 to MMLData.Count - 1 do
+                  ProcessMMLRecord(I);
+              finally
+                Symbols.Free;
+              end;
             finally
               Workset.Free;
             end;
@@ -361,14 +396,9 @@ begin
     MMLData.Free;
   end;
   Hint := '';
-  if NotSharedCount > 0 then
-    Hint := 'Not Shared: ' + IntToStr(NotSharedCount);
-  if WrongCRCCount > 0 then
-  begin
-    if Hint <> '' then
-      Hint := Hint + ', ';
-    Hint := Hint + 'Wrong CRC: ' + IntToStr(WrongCRCCount);
-  end;
+  UpdateHint(DumpFailed, 'Dump Failed: ');
+  UpdateHint(NotSharedCount, 'Not Shared: ');
+  UpdateHint(WrongCRCCount, 'Wrong CRC: ');
   if Hint <> '' then
     Caption := Caption + ' [' + Hint + ']';
   ShowModal;
