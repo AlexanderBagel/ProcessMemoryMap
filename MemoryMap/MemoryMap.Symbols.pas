@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Symbols.pas
 //  * Purpose   : Класс для работы с символами.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -30,11 +30,16 @@ type
   private
     FInited: Boolean;
     FProcess: THandle;
+    FModuleName: string;
+    FBaseAddress: ULONG_PTR;
   public
     constructor Create(hProcess: THandle);
     destructor Destroy; override;
+    procedure Init(BaseAddress: ULONG_PTR; const ModuleName: string);
+    procedure Release;
     function GetDescriptionAtAddr(Address, BaseAddress: ULONG_PTR;
-      const ModuleName: string): string;
+      const ModuleName: string): string; overload;
+    function GetDescriptionAtAddr(Address: ULONG_PTR): string; overload;
     procedure GetExportFuncList(const ModuleName: string;
       BaseAddress: ULONG_PTR; Value: TStringList);
   end;
@@ -43,6 +48,9 @@ implementation
 
 const
   ImagehlpLib = 'IMAGEHLP.DLL';
+
+const
+  BuffSize = $7FF;
 
 type
   PImagehlpSymbol64 = ^TImagehlpSymbol64;
@@ -108,29 +116,53 @@ begin
   Result := True;
 end;
 
-procedure TSymbols.GetExportFuncList(const ModuleName: string;
-  BaseAddress: ULONG_PTR; Value: TStringList);
+function TSymbols.GetDescriptionAtAddr(Address: ULONG_PTR): string;
+const
+{$IFDEF WIN64}
+  SizeOfStruct = SizeOf(TImagehlpSymbol64);
+  MaxNameLength = BuffSize - SizeOfStruct;
+var
+  Symbol: PImagehlpSymbol64;
+  Displacement: DWORD64;
+{$ELSE}
+  SizeOfStruct = SizeOf(TImagehlpSymbol);
+  MaxNameLength = BuffSize - SizeOfStruct;
+var
+  Symbol: PImagehlpSymbol;
+  Displacement: DWORD;
+{$ENDIF}
 begin
-  SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)),
-    nil, BaseAddress, 0);
+  Result := '';
+  GetMem(Symbol, BuffSize);
   try
-    if not SymEnumerateSymbols(FProcess, BaseAddress,
-      @SymEnumsymbolsCallback, Value) then
+    Symbol^.SizeOfStruct := SizeOfStruct;
+    Symbol^.MaxNameLength := MaxNameLength;
+    Symbol^.Size := 0;
+    if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
     begin
-      SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)),
-        nil, BaseAddress, 0);
-      SymEnumerateSymbols(FProcess, BaseAddress,
-        @SymEnumsymbolsCallback, Value)
+      if Displacement = 0 then
+        Result := string(PAnsiChar(@(Symbol^).Name[0]));
+    end
+    else
+    begin
+      // с первой попытки может и не получиться
+      SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(FModuleName)), nil, FBaseAddress, 0);
+      if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
+      begin
+        if Displacement = 0 then
+          Result := string(PAnsiChar(@(Symbol^).Name[0]));
+      end;
     end;
   finally
-    SymUnloadModule(FProcess, BaseAddress);
+    FreeMem(Symbol);
   end;
+  if Result <> '' then
+    Result := ExtractFileName(FModuleName) + '!' + Result;
 end;
 
 function TSymbols.GetDescriptionAtAddr(Address, BaseAddress: ULONG_PTR;
   const ModuleName: string): string;
 const
-  BuffSize = $7FF;
 {$IFDEF WIN64}
   SizeOfStruct = SizeOf(TImagehlpSymbol64);
   MaxNameLength = BuffSize - SizeOfStruct;
@@ -174,6 +206,38 @@ begin
     Result := ExtractFileName(ModuleName) + ' + 0x' + IntToHex(Address - BaseAddress, 1)
   else
     Result := ExtractFileName(ModuleName) + '!' + Result;
+end;
+
+procedure TSymbols.GetExportFuncList(const ModuleName: string;
+  BaseAddress: ULONG_PTR; Value: TStringList);
+begin
+  SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)),
+    nil, BaseAddress, 0);
+  try
+    if not SymEnumerateSymbols(FProcess, BaseAddress,
+      @SymEnumsymbolsCallback, Value) then
+    begin
+      SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)),
+        nil, BaseAddress, 0);
+      SymEnumerateSymbols(FProcess, BaseAddress,
+        @SymEnumsymbolsCallback, Value)
+    end;
+  finally
+    SymUnloadModule(FProcess, BaseAddress);
+  end;
+end;
+
+procedure TSymbols.Init(BaseAddress: ULONG_PTR; const ModuleName: string);
+begin
+  FModuleName := ModuleName;
+  FBaseAddress := BaseAddress;
+  SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)),
+    nil, BaseAddress, 0);
+end;
+
+procedure TSymbols.Release;
+begin
+  SymUnloadModule(FProcess, FBaseAddress);
 end;
 
 end.
