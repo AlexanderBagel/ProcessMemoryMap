@@ -25,7 +25,7 @@ uses
   Vcl.Menus, VirtualTrees, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.ImgList, Winapi.TlHelp32, Winapi.ShellAPI, Winapi.CommCtrl,
   Vcl.Clipbrd, System.Actions, Vcl.ActnList, Vcl.PlatformDefaultStyleActnCtrls,
-  Vcl.ActnMan, System.ImageList,
+  Vcl.ActnMan,
 
   MemoryMap.Core,
   MemoryMap.RegionData,

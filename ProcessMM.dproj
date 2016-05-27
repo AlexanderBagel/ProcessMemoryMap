@@ -96,9 +96,6 @@
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
-        <PreBuildEvent><![CDATA[call rsvars.bat
-brcc32 $(PROJECTDIR)\bea_lib64.rc
-$(PreBuildEvent)]]></PreBuildEvent>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
         <VerInfo_Locale>1033</VerInfo_Locale>
@@ -116,7 +113,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <PreBuildEvent><![CDATA[call rsvars.bat
-brcc32 $(PROJECTDIR)\bea_lib64.rc
+brcc32 $(PROJECTDIR)\distorm_lib32.rc
 msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64
 brcc32 $(PROJECTDIR)\win64debug.rc
 $(PreBuildEvent)]]></PreBuildEvent>
@@ -125,6 +122,9 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
+        <PreBuildEvent><![CDATA[call rsvars.bat
+brcc32 $(PROJECTDIR)\distorm_lib64.rc
+$(PreBuildEvent)]]></PreBuildEvent>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
@@ -139,12 +139,15 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <PreBuildEvent><![CDATA[call rsvars.bat
-brcc32 $(PROJECTDIR)\bea_lib64.rc
+brcc32 $(PROJECTDIR)\distorm_lib32.rc
 msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64
 brcc32 $(PROJECTDIR)\win64release.rc
 $(PreBuildEvent)]]></PreBuildEvent>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
+        <PreBuildEvent><![CDATA[call rsvars.bat
+brcc32 $(PROJECTDIR)\distorm_lib64.rc
+$(PreBuildEvent)]]></PreBuildEvent>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
@@ -153,12 +156,18 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_3_Win32)'!=''">
+        <PreBuildEvent><![CDATA[call rsvars.bat
+brcc32 $(PROJECTDIR)\distorm_lib32.rc
+$(PreBuildEvent)]]></PreBuildEvent>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <DCC_Define>SINGLE_INSTANCE;$(DCC_Define)</DCC_Define>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_3_Win64)'!=''">
+        <PreBuildEvent><![CDATA[call rsvars.bat
+brcc32 $(PROJECTDIR)\distorm_lib64.rc
+$(PreBuildEvent)]]></PreBuildEvent>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
@@ -213,8 +222,14 @@ $(PreBuildEvent)]]></PreBuildEvent>
             <Form>dlgAbout</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="bea_engine\BeaEngineDelphi32.pas"/>
-        <DCCReference Include="bea_engine\BeaEngineDelphi64.pas"/>
+        <DCCReference Include="uMemoryMapListInfo.pas">
+            <Form>dlgMemoryMapListInfo</Form>
+        </DCCReference>
+        <DCCReference Include="uMemoryMapListInfoSettings.pas">
+            <Form>dlgMemoryMapListInfoSettings</Form>
+        </DCCReference>
+        <DCCReference Include="distorm\distorm.pas"/>
+        <DCCReference Include="distorm\mnemonics.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -296,7 +311,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
     <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
     <PropertyGroup Condition="'$(Config)'=='Debug' And '$(Platform)'=='Win32'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\bea_lib64.rc&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64debug.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\distorm_lib32.rc&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64debug.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
@@ -304,7 +319,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Debug' And '$(Platform)'=='Win64'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\bea_lib64.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\distorm_lib64.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
@@ -312,7 +327,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win32'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\bea_lib64.rc&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64release.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\distorm_lib32.rc&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64release.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
@@ -320,7 +335,15 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win64'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\bea_lib64.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\distorm_lib64.rc</PreBuildEvent>
+        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
+        <PreLinkEvent/>
+        <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
+        <PostBuildEvent/>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='SingleInstance' And '$(Platform)'=='Win32'">
+        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\distorm_lib32.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
@@ -328,7 +351,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='SingleInstance' And '$(Platform)'=='Win64'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\bea_lib64.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;brcc32 $(PROJECTDIR)\distorm_lib64.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>

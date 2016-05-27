@@ -29,6 +29,5 @@ object dlgMemoryMapListInfo: TdlgMemoryMapListInfo
     ReadOnly = True
     ScrollBars = ssBoth
     TabOrder = 0
-    Zoom = 100
   end
 end

@@ -29,11 +29,7 @@ uses
   uUtils,
   MemoryMap.Symbols,
   MemoryMap.Utils,
-  {$IFDEF WIN64}
-  BeaEngineDelphi64;
-  {$ELSE}
-  BeaEngineDelphi32;
-  {$ENDIF}
+  distorm;
 
   function DumpMemory(Process: THandle; Address: Pointer; nSize: Integer = 0): string;
   function DumpMemoryFromBuff(RawBuff: TMemoryDump; Address: Pointer; nSize: Integer): string;
@@ -2075,56 +2071,88 @@ end;
 function DisassemblyFromBuff(RawBuff: TMemoryDump; Symbols: TSymbols;
   Address, AllocationBase: Pointer; const ModuleName: string;
   Is64: Boolean; nSize: NativeUInt): string;
+
+  function HexUpperCase(const Value: string): string;
+  begin
+    Result := UpperCase(Value);
+    Result := StringReplace(Result, '0X', '0x', []);
+  end;
+
+type
+  TInsructionType = (itOther, itNop, itInt, itRet);
+
+  function GetInstructionType(const Value: string): TInsructionType;
+  begin
+    Result := itOther;
+    if Length(Value) < 3 then Exit;
+    if (Value[1] = 'N') and (Value[2] = 'O') and (Value[3] = 'P') then
+      Result := itNop;
+    if (Value[1] = 'I') and (Value[2] = 'N') and (Value[3] = 'T') then
+      Result := itInt;
+    if (Value = 'RET') or (Value = 'IRET') or (Value = 'RETF') then
+      Result := itRet;
+  end;
+
 var
   Cursor: NativeUInt;
-  Len: Integer;
-  ADisasm: TDISASM;
-  Line: string;
+  I: Integer;
+  DecodedInst: array [0..14] of TDecodedInst;
+  usedInstructionsCount: UInt32;
+  DecodeType: _DecodeType;
+  Line, mnemonic: string;
+  LastInsruction, CurrentInstruction: TInsructionType;
 begin
   Result := '';
   Cursor := 0;
+  LastInsruction := itOther;
   AddString(Result, DisasmDumpHeader);
-  {$IFDEF WIN32}
-  ADisasm.EIP := LongInt(RawBuff);
-  ADisasm.VirtualAddr := Int64(Address);
-  {$ELSE}
-  ADisasm.EIP := Int64(RawBuff);
-  ADisasm.VirtualAddr := Int64(Address);
-  {$ENDIF}
   if Is64 then
-    ADisasm.Archi := 64
+    DecodeType := Decode64Bits
   else
-    ADisasm.Archi := 32;
-  ADisasm.Options := NoTabulation + MasmSyntax;
+    DecodeType := Decode32Bits;
   if Symbols <> nil then
     Symbols.Init(ULONG_PTR(AllocationBase), ModuleName);
   try
     while Cursor < nSize do
     begin
-      if Symbols <> nil then
+      if distorm_decode(UInt64(Address) + Cursor, @RawBuff[Cursor], nSize - Cursor,
+        DecodeType, @DecodedInst[0], 15, @usedInstructionsCount) <> DECRES_NONE then
       begin
-        Line := Symbols.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
-        if Line <> '' then
-          AddString(Result, Line);
+        for I := 0 to usedInstructionsCount - 1 do
+        begin
+
+          mnemonic := HexUpperCase(GET_WString(DecodedInst[I].mnemonic));
+          CurrentInstruction := GetInstructionType(mnemonic);
+          case CurrentInstruction of
+            itOther:
+              if LastInsruction in [itNop, itInt, itRet] then
+                AddString(Result, '');
+            itNop:
+               if LastInsruction in [itOther, itInt, itRet] then
+                AddString(Result, '');
+            itInt:
+               if LastInsruction in [itOther, itNop, itRet] then
+                AddString(Result, '');
+          end;
+          LastInsruction := CurrentInstruction;
+
+          if Symbols <> nil then
+          begin
+            Line := Symbols.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
+            if Line <> '' then
+              AddString(Result, Line);
+          end;
+
+          AddString(Result,
+            Format('%s: %s %s %s', [
+              IntToHex(DecodedInst[I].offset, 8),
+              AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], DecodedInst[I].size),
+              mnemonic,
+              HexUpperCase(GET_WString(DecodedInst[I].operands))
+            ]));
+          Inc(Cursor, DecodedInst[I].size);
+        end;
       end;
-      Len := Disasm(ADisasm);
-      if Len < 0 then
-      begin
-        Len := 1;
-        AddString(Result,
-          IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
-          AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], Len) +
-          'DB ' + IntToHex(RawBuff[Cursor], 2));
-      end
-      else
-        AddString(Result,
-          IntToHex(ULONG_PTR(Address) + Cursor, 8) + ': ' +
-          AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], Len) +
-          string(PAnsiChar(@ADisasm.CompleteInstr[0])));
-      Inc(Cursor, Len);
-      Inc(ADisasm.EIP, Len);
-      if ADisasm.Instruction.Opcode in [$C2, $C3, $CA, $CB, $CF] then
-        AddString(Result, '');
     end;
   finally
     if Symbols <> nil then

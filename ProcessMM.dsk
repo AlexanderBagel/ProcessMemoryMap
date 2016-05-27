@@ -1,30 +1,72 @@
 ﻿[Closed Files]
-File_0=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap\MemoryMap\MemoryMap.PEImage.pas',0,1,134,34,153,0,0,,
-File_1=TSourceModule,'S:\Grand2010\Lib\ZIP\FWZipWriter.pas',0,1,189,3,213,0,0,,
-File_2=TSourceModule,'c:\program files (x86)\embarcadero\studio\17.0\SOURCE\RTL\SYS\System.SysUtils.pas',0,1,1262,21,1285,0,0,,
-File_3=TSourceModule,'S:\Grand2010\ThirdSide\VirtualTreeView\Source\VirtualTrees.pas',0,1,1,1,1,0,0,{{1997,0},{2022,13},{'TVclStyleScrollBarWindow'}},
-File_4=TSourceModule,'S:\Grand2010\Lib\GSS\GSS.Crc32.pas',0,1,115,1,126,0,0,,
-File_5=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap\uDisplayUtils.pas',0,1,379,1,1,0,0,,
-File_6=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap\uAbout.pas',0,1,1,1,1,0,0,,
-File_7=TSourceModule,'c:\program files (x86)\embarcadero\studio\17.0\source\rtl\win\Winapi.Windows.pas',0,1,1549,1,1573,0,0,,
+File_0=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap\uIPC.pas',0,1,125,1,147,0,0,,
+File_1=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap\MemoryMap\MemoryMap.PEImage.pas',0,1,134,34,153,0,0,,
+File_2=TSourceModule,'S:\Grand2010\Lib\ZIP\FWZipWriter.pas',0,1,189,3,213,0,0,,
+File_3=TSourceModule,'c:\program files (x86)\embarcadero\studio\17.0\SOURCE\RTL\SYS\System.SysUtils.pas',0,1,1262,21,1285,0,0,,
+File_4=TSourceModule,'S:\Grand2010\ThirdSide\VirtualTreeView\Source\VirtualTrees.pas',0,1,1,1,1,0,0,{{1997,0}
+File_5=TSourceModule,'S:\Grand2010\Lib\GSS\GSS.Crc32.pas',0,1,115,1,126,0,0,,
+File_6=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap\uDisplayUtils.pas',0,1,379,1,1,0,0,,
+File_7=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap\uAbout.pas',0,1,1,1,1,0,0,,
 File_8=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap\uMemoryMapListInfoSettings.pas',0,1,58,33,20,0,0,,
-File_9=TSourceModule,'c:\program files (x86)\embarcadero\studio\17.0\SOURCE\RTL\SYS\System.pas',0,1,1,1,11,0,0,,
-File_10=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap-master\MemoryMap\MemoryMap.Utils.pas',0,1,239,28,250,0,0,,
-File_11=TSourceModule,'S:\Grand2010\Lib\GSS\GSS.AntiDebug.HashTable.inc',0,1,1,1,1,0,0,,
-File_12=TSourceModule,'c:\program files (x86)\embarcadero\rad studio\11.0\source\rtl\win\Winapi.Windows.pas',0,1,21020,3,21034,0,0,,
-File_13=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap-master\bea_engine\BeaEngineDelphi64.pas',0,1,376,20,377,0,0,,
-File_14=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap-master\bea_engine\BeaEngineDelphi32.pas',0,1,310,57,339,0,0,,
+File_9=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap-master\MemoryMap\MemoryMap.Utils.pas',0,1,239,28,250,0,0,,
+File_10=TSourceModule,'S:\Grand2010\Lib\GSS\GSS.AntiDebug.HashTable.inc',0,1,1,1,1,0,0,,
+File_11=TSourceModule,'c:\program files (x86)\embarcadero\rad studio\11.0\source\rtl\win\Winapi.Windows.pas',0,1,21020,3,21034,0,0,,
+File_12=TSourceModule,'I:\NewDemo\GIT\ProcessMemoryMap-master\bea_engine\BeaEngineDelphi64.pas',0,1,376,20,377,0,0,,
 
 [Modules]
-Module0=I:\NewDemo\GIT\ProcessMemoryMap\uDumpDisplayUtils.pas
-Module1=I:\NewDemo\GIT\ProcessMemoryMap\MemoryMap\MemoryMap.Symbols.pas
-Module2=I:\NewDemo\GIT\ProcessMemoryMap\uMemoryMapListInfo.pas
-Module3=I:\NewDemo\GIT\ProcessMemoryMap\uRegionProperties.pas
-Module4=default.htm
-Count=5
+Module0=I:\NewDemo\GIT\ProcessMemoryMap\uMemoryMapListInfo.pas
+Module1=c:\program files (x86)\embarcadero\studio\17.0\SOURCE\RTL\SYS\System.pas
+Module2=I:\NewDemo\GIT\ProcessMemoryMap\uDumpDisplayUtils.pas
+Module3=c:\program files (x86)\embarcadero\studio\17.0\source\rtl\win\Winapi.Windows.pas
+Module4=I:\NewDemo\GIT\ProcessMemoryMap\uUtils.pas
+Module5=I:\NewDemo\GIT\ProcessMemoryMap\distorm\distorm.pas
+Module6=I:\NewDemo\GIT\ProcessMemoryMap\uRegionProperties.pas
+Module7=I:\NewDemo\GIT\ProcessMemoryMap\ProcessMM.dproj
+Module8=I:\NewDemo\GIT\ProcessMemoryMap\distorm\mnemonics.pas
+Module9=I:\NewDemo\GIT\ProcessMemoryMap\MemoryMap\MemoryMap.Symbols.pas
+Module10=default.htm
+Count=11
 EditWindowCount=1
 
+[I:\NewDemo\GIT\ProcessMemoryMap\uMemoryMapListInfo.pas]
+ModuleType=TSourceModule
+FormState=1
+FormOnTop=0
+
+[c:\program files (x86)\embarcadero\studio\17.0\SOURCE\RTL\SYS\System.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
 [I:\NewDemo\GIT\ProcessMemoryMap\uDumpDisplayUtils.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
+[c:\program files (x86)\embarcadero\studio\17.0\source\rtl\win\Winapi.Windows.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
+[I:\NewDemo\GIT\ProcessMemoryMap\uUtils.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
+[I:\NewDemo\GIT\ProcessMemoryMap\distorm\distorm.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
+[I:\NewDemo\GIT\ProcessMemoryMap\uRegionProperties.pas]
+ModuleType=TSourceModule
+FormState=1
+FormOnTop=0
+
+[I:\NewDemo\GIT\ProcessMemoryMap\ProcessMM.dproj]
+ModuleType=TBaseProject
+
+[I:\NewDemo\GIT\ProcessMemoryMap\distorm\mnemonics.pas]
 ModuleType=TSourceModule
 FormState=0
 FormOnTop=0
@@ -34,27 +76,23 @@ ModuleType=TSourceModule
 FormState=0
 FormOnTop=0
 
-[I:\NewDemo\GIT\ProcessMemoryMap\uMemoryMapListInfo.pas]
-ModuleType=TSourceModule
-FormState=1
-FormOnTop=0
-
-[I:\NewDemo\GIT\ProcessMemoryMap\uRegionProperties.pas]
-ModuleType=TSourceModule
-FormState=1
-FormOnTop=0
-
 [default.htm]
 ModuleType=TURLModule
 
 [EditWindow0]
-ViewCount=5
-CurrentEditView=I:\NewDemo\GIT\ProcessMemoryMap\uDumpDisplayUtils.pas
+ViewCount=11
+CurrentEditView=I:\NewDemo\GIT\ProcessMemoryMap\uMemoryMapListInfo.pas
 View0=0
 View1=1
 View2=2
 View3=3
 View4=4
+View5=5
+View6=6
+View7=7
+View8=8
+View9=9
+View10=10
 PercentageSizes=1
 Create=1
 Visible=1
@@ -91,46 +129,112 @@ WelcomePageURL=bds:/default.htm
 [View1]
 CustomEditViewType=TEditView
 Module=I:\NewDemo\GIT\ProcessMemoryMap\uMemoryMapListInfo.pas
-CursorX=41
-CursorY=182
-TopLine=176
+CursorX=46
+CursorY=338
+TopLine=311
 LeftCol=1
 Elisions=
-Bookmarks={1,199,31}
+Bookmarks={1,200,31}
 EditViewName=I:\NewDemo\GIT\ProcessMemoryMap\uMemoryMapListInfo.pas
 
 [View2]
 CustomEditViewType=TEditView
 Module=I:\NewDemo\GIT\ProcessMemoryMap\uDumpDisplayUtils.pas
-CursorX=1
-CursorY=2045
-TopLine=2023
+CursorX=29
+CursorY=2078
+TopLine=2070
 LeftCol=1
 Elisions=
-Bookmarks={1,2072,24}
+Bookmarks={1,2068,24}
 EditViewName=I:\NewDemo\GIT\ProcessMemoryMap\uDumpDisplayUtils.pas
 
 [View3]
 CustomEditViewType=TEditView
+Module=c:\program files (x86)\embarcadero\studio\17.0\SOURCE\RTL\SYS\System.pas
+CursorX=1
+CursorY=339
+TopLine=315
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=c:\program files (x86)\embarcadero\studio\17.0\SOURCE\RTL\SYS\System.pas
+
+[View4]
+CustomEditViewType=TEditView
+Module=c:\program files (x86)\embarcadero\studio\17.0\source\rtl\win\Winapi.Windows.pas
+CursorX=1
+CursorY=212
+TopLine=197
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=c:\program files (x86)\embarcadero\studio\17.0\source\rtl\win\Winapi.Windows.pas
+
+[View5]
+CustomEditViewType=TEditView
+Module=I:\NewDemo\GIT\ProcessMemoryMap\uUtils.pas
+CursorX=3
+CursorY=32
+TopLine=1
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=I:\NewDemo\GIT\ProcessMemoryMap\uUtils.pas
+
+[View6]
+CustomEditViewType=TEditView
+Module=I:\NewDemo\GIT\ProcessMemoryMap\distorm\distorm.pas
+CursorX=1
+CursorY=463
+TopLine=449
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=I:\NewDemo\GIT\ProcessMemoryMap\distorm\distorm.pas
+
+[View7]
+CustomEditViewType=TEditView
 Module=I:\NewDemo\GIT\ProcessMemoryMap\uRegionProperties.pas
-CursorX=37
-CursorY=150
-TopLine=121
+CursorX=1
+CursorY=121
+TopLine=99
 LeftCol=1
 Elisions=
 Bookmarks=
 EditViewName=I:\NewDemo\GIT\ProcessMemoryMap\uRegionProperties.pas
 
-[View4]
+[View8]
 CustomEditViewType=TEditView
 Module=I:\NewDemo\GIT\ProcessMemoryMap\MemoryMap\MemoryMap.Symbols.pas
 CursorX=1
-CursorY=161
-TopLine=133
+CursorY=1
+TopLine=1
 LeftCol=1
 Elisions=
 Bookmarks={1,235,26}{2,180,1}
 EditViewName=I:\NewDemo\GIT\ProcessMemoryMap\MemoryMap\MemoryMap.Symbols.pas
+
+[View9]
+CustomEditViewType=TEditView
+Module=I:\NewDemo\GIT\ProcessMemoryMap\ProcessMM.dpr
+CursorX=3
+CursorY=123
+TopLine=52
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=I:\NewDemo\GIT\ProcessMemoryMap\ProcessMM.dpr
+
+[View10]
+CustomEditViewType=TEditView
+Module=I:\NewDemo\GIT\ProcessMemoryMap\distorm\mnemonics.pas
+CursorX=54
+CursorY=22
+TopLine=301
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=I:\NewDemo\GIT\ProcessMemoryMap\distorm\mnemonics.pas
 
 [Watches]
 Count=1
@@ -158,8 +262,11 @@ Dockable=1
 StayOnTop=0
 
 [Breakpoints]
-Count=1
-Breakpoint0='I:\NewDemo\GIT\ProcessMemoryMap-master\uMemoryMapListInfo.pas',159,'',0,1,'',1,0,0,'',1,'','','',0,''
+Count=4
+Breakpoint0='I:\NewDemo\GIT\ProcessMemoryMap-master\uMemoryMapListInfo.pas',160,'',0,1,'',1,0,0,'',1,'','','',0,''
+Breakpoint1='I:\NewDemo\GIT\ProcessMemoryMap\uDumpDisplayUtils.pas',2125,'',0,1,'',1,0,0,'',1,'','','',0,''
+Breakpoint2='I:\NewDemo\GIT\ProcessMemoryMap\distorm\distorm.pas',459,'',0,1,'',1,0,0,'',1,'','','',0,''
+Breakpoint3='I:\NewDemo\GIT\ProcessMemoryMap\uDumpDisplayUtils.pas',2103,'',0,1,'',1,0,0,'',1,'','','',0,''
 
 [EmbarcaderoWin32Debugger_AddressBreakpoints]
 Count=0
