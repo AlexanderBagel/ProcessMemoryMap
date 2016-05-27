@@ -47,15 +47,17 @@ ProcessMemoryMap
 Если не известно что за структура мапится на текущий адрес памяти, то данные отобрадаются в RAW режиме.
 Например вот так выглядит код на точке входа kernel32.dll
 
-![5](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/5.png?raw=true "Entry Point RAW")
+![5.1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/5.png?raw=true "Entry Point RAW")
 
 Он же, но в виде дизассемблированного кода (переключение между видами в меню по правой клавише мышки "Show as disassembly" или по горячей клавише Ctrl+D):
 
-![6.1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/6.png?raw=true "Entry Point Disassembled")
+![5.2](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/6.png?raw=true "Entry Point Disassembled")
 
-Либо вот так (уже на основе нового движка)
+Для нагрядности дизассемблерный выхлоп форматирован.
+Код известных экспортируемых функций предваряется описанием. 
+Выхлоп форматируется дабы не мозолили глаза NOP и INT3 инструкции, выделяется окончание функций (RET/IRET/RETF).
 
-![6.2](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/9.png?raw=true "NTDLL Export")
+![5.3](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/9.png?raw=true "NTDLL Export")
 
 Присутствует список всех импортируемых/экспортируемых функций (Ctrl+E).
 К нему добавлен поиск как по адресу, так и по имени функции (поиск по наименованию библиотеки не производится)
