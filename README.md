@@ -53,11 +53,9 @@ ProcessMemoryMap
 
 ![5.2](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/6.png?raw=true "Entry Point Disassembled")
 
-Для нагрядности дизассемблерный выхлоп форматирован.
-
-Код известных экспортируемых функций предваряется описанием. 
-
-Выхлоп форматируется дабы не мозолили глаза NOP и INT3 инструкции, выделяется окончание функций (RET/IRET/RETF).
+* Для нагрядности дизассемблерный выхлоп форматирован.
+* Код известных экспортируемых функций предваряется описанием. 
+* Выхлоп форматируется дабы не мозолили глаза NOP и INT3 инструкции, выделяется окончание функций (RET/IRET/RETF).
 
 ![5.3](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/9.png?raw=true "NTDLL Export")
 
