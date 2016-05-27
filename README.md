@@ -20,6 +20,7 @@ ProcessMemoryMap
 
 Для самостоятельной сборки потребуется:
 1. установленный пакет компонентов Virtual TreeView версии 5 и выше: http://www.soft-gems.net/ 
+
 2. установленный набор классов для работы с ZIP архивами FWZip версии 1.0.9 и выше: https://github.com/AlexanderBagel/FWZip
 
 Сборка осуществляется с использованием Delphi XE4 и выше в режиме "Win32/Release", при этом автоматически будет собрана и подключена (в виде ресурса) 64-битная версия данной утилиты.
@@ -50,7 +51,11 @@ ProcessMemoryMap
 
 Он же, но в виде дизассемблированного кода (переключение между видами в меню по правой клавише мышки "Show as disassembly" или по горячей клавише Ctrl+D):
 
-![6](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/6.png?raw=true "Entry Point Disassembled")
+![6.1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/6.png?raw=true "Entry Point Disassembled")
+
+Либо вот так (уже на основе нового движка)
+
+![6.2](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/9.png?raw=true "NTDLL Export")
 
 Присутствует список всех импортируемых/экспортируемых функций (Ctrl+E).
 К нему добавлен поиск как по адресу, так и по имени функции (поиск по наименованию библиотеки не производится)
