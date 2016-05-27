@@ -34,6 +34,7 @@ type
     LinkLabel3: TLinkLabel;
     Button1: TButton;
     Label3: TLabel;
+    LinkLabel4: TLinkLabel;
     procedure LinkLabel1LinkClick(Sender: TObject; const Link: string;
       LinkType: TSysLinkType);
   private

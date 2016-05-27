@@ -4,7 +4,7 @@ object dlgAbout: TdlgAbout
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'About Process Memory Map'
-  ClientHeight = 134
+  ClientHeight = 154
   ClientWidth = 470
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -4744,5 +4744,17 @@ object dlgAbout: TdlgAbout
     Default = True
     ModalResult = 1
     TabOrder = 3
+  end
+  object LinkLabel4: TLinkLabel
+    Left = 56
+    Top = 130
+    Width = 188
+    Height = 19
+    Caption = 
+      'Disasm engine: <a href="http://ragestorm.net/distorm/">diStorm v' +
+      'ersion 3.3</a>'
+    TabOrder = 4
+    UseVisualStyle = True
+    OnLinkClick = LinkLabel1LinkClick
   end
 end
