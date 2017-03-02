@@ -41,7 +41,6 @@ type
     procedure edHexChange(Sender: TObject);
   private
     InChange: Boolean;
-    function HexValueToString(out HexValue: Int64): Boolean;
   public
     function ShowDlg(ShowSize: Boolean): TModalResult;
   end;
@@ -86,7 +85,7 @@ begin
       btnOk.Enabled := True;
       Exit;
     end;
-    if HexValueToString(I) then
+    if HexValueToInt64(TmpValue, I) then
       lblHex.Font.Color := clWindowText
     else
       lblHex.Font.Color := clRed;
@@ -129,24 +128,6 @@ begin
     Key := #0;
     ShowErrorHint((Sender as TEdit).Handle);
   end;
-end;
-
-function TdlgSelectAddress.HexValueToString(out HexValue: Int64): Boolean;
-var
-  TmpValue: string;
-begin
-  HexValue := 0;
-  TmpValue := edHex.Text;
-  if Copy(TmpValue, 1, 2) = '0x' then
-    Delete(TmpValue, 1, 2);
-  if TmpValue = '' then Exit(True);
-  if LowerCase(TmpValue[Length(TmpValue)]) = 'h' then
-    SetLength(TmpValue, Length(TmpValue) - 1);
-  if TmpValue = '' then Exit(True);
-  if TmpValue[1] = '$' then
-    Result := TryStrToInt64(TmpValue, HexValue)
-  else
-    Result := TryStrToInt64('$' + TmpValue, HexValue);
 end;
 
 function TdlgSelectAddress.ShowDlg(ShowSize: Boolean): TModalResult;

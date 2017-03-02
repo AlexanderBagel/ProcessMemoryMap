@@ -4682,14 +4682,14 @@ object dlgAbout: TdlgAbout
     Top = 8
     Width = 172
     Height = 13
-    Caption = 'Process Memory Map 1.0 (alpha 10)'
+    Caption = 'Process Memory Map 1.0 (alpha 11)'
   end
   object Label2: TLabel
     Left = 56
     Top = 27
     Width = 247
     Height = 13
-    Caption = 'Copyright: '#169' 2013-2016 Alexander (Rouse_) Bagel'
+    Caption = 'Copyright: '#169' 2013-2017 Alexander (Rouse_) Bagel'
   end
   object Label3: TLabel
     Left = 56

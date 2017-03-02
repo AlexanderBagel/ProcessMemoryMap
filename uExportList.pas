@@ -5,8 +5,8 @@
 //  * Unit Name : uExportList.pas
 //  * Purpose   : Диалог для отображения списка экспорта функций
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -27,11 +27,13 @@ uses
 
   MemoryMap.Core,
   MemoryMap.Symbols,
-  MemoryMap.Utils;
+  MemoryMap.Utils,
+  MemoryMap.DebugMapData;
 
 type
   TExportData = record
     dwAddress: NativeUInt;
+    AType,
     Address,
     Module,
     FunctionName,
@@ -44,6 +46,10 @@ type
     mnuCopyAddress: TMenuItem;
     mnuCopyFunctionName: TMenuItem;
     mnuCopyLine: TMenuItem;
+    mnuGotoAddress: TMenuItem;
+    mnuSeparator1: TMenuItem;
+    mnuSeparator2: TMenuItem;
+    mnuNextMatch: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure lvExportsGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
@@ -56,11 +62,16 @@ type
     procedure FormShow(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure FormDestroy(Sender: TObject);
+    procedure lvExportsDblClick(Sender: TObject);
+    procedure mnuGotoAddressClick(Sender: TObject);
+    procedure mnuNextMatchClick(Sender: TObject);
   private
     SearchString: string;
     SearchPosition: Integer;
     List: TList<TExportData>;
     function Search(const Value: string): Boolean;
+  public
+    procedure ShowExport;
   end;
 
 var
@@ -71,7 +82,8 @@ implementation
 uses
   uUtils,
   uProgress,
-  uSettings;
+  uSettings,
+  uRegionProperties;
 
 const
   RootCaption = 'Process Memory Map - Exports';
@@ -134,15 +146,6 @@ begin
     SearchPosition := 0;
     Exit;
   end;
-  if Key = #13 then
-  begin
-    if SearchString <> '' then
-    begin
-      Inc(SearchPosition);
-      Search(SearchString);
-    end;
-    Exit;
-  end;
   if Key <= #32 then Exit;
   TmpString := SearchString + AnsiUpperCase(Key);
   if Search(TmpString) then
@@ -185,6 +188,18 @@ begin
               dlgProgress.ProgressBar.Position := I;
               Application.ProcessMessages;
               ExportData.Module := ExtractFileName(Module.Path);
+              ExportData.AType := 'DEBUG';
+              MemoryMapCore.DebugMapData.GetExportFuncList(ExportData.Module, S);
+              for A := 0 to S.Count - 1 do
+              begin
+                ExportData.dwAddress := NativeUInt(S.Objects[A]);
+                ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                ExportData.FunctionName := S[A];
+                ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
+                List.Add(ExportData);
+              end;
+              S.Clear;
+              ExportData.AType := 'EXPORT';
               Symbols.GetExportFuncList(Module.Path, Module.BaseAddr, S);
               for A := 0 to S.Count - 1 do
               begin
@@ -218,14 +233,27 @@ begin
   end;
 end;
 
+procedure TdlgExportList.lvExportsDblClick(Sender: TObject);
+var
+  E: TVTVirtualNodeEnumerator;
+  Address: Int64;
+begin
+  E := lvExports.SelectedNodes.GetEnumerator;
+  if not E.MoveNext then Exit;
+  TryStrToInt64('$' + List[E.Current^.Index].Address, Address);
+  dlgRegionProps := TdlgRegionProps.Create(Application);
+  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address));
+end;
+
 procedure TdlgExportList.lvExportsGetText(Sender: TBaseVirtualTree;
   Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
   var CellText: string);
 begin
   case Column of
-    0: CellText := List[Node.Index].Address;
-    1: CellText := List[Node.Index].Module;
-    2: CellText := List[Node.Index].FunctionName;
+    0: CellText := List[Node.Index].AType;
+    1: CellText := List[Node.Index].Address;
+    2: CellText := List[Node.Index].Module;
+    3: CellText := List[Node.Index].FunctionName;
   end;
 end;
 
@@ -299,6 +327,20 @@ begin
     List[E.Current^.Index].FunctionName;
 end;
 
+procedure TdlgExportList.mnuGotoAddressClick(Sender: TObject);
+begin
+  lvExportsDblClick(nil);
+end;
+
+procedure TdlgExportList.mnuNextMatchClick(Sender: TObject);
+begin
+  if SearchString <> '' then
+  begin
+    Inc(SearchPosition);
+    Search(SearchString);
+  end;
+end;
+
 function TdlgExportList.Search(const Value: string): Boolean;
 var
   I: Integer;
@@ -328,7 +370,15 @@ begin
       Break;
     end;
   end;
-  if not Result then Exit;
+  if not Result then
+  begin
+    if SearchPosition > 0 then
+    begin
+      SearchPosition := 0;
+      Result := Search(Value);
+    end;
+    Exit;
+  end;
   E := lvExports.Nodes.GetEnumerator;
   repeat
     if not E.MoveNext then Break;
@@ -336,6 +386,11 @@ begin
   if E.Current = nil then Exit;  
   lvExports.Selected[E.Current] := True;
   lvExports.ScrollIntoView(E.Current, True);
+end;
+
+procedure TdlgExportList.ShowExport;
+begin
+  Show;
 end;
 
 end.

@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Utils.pas
 //  * Purpose   : Различные вспомогательные процедуры и функции
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.01
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,7 +35,9 @@ uses
   function CheckAddr(Value: Pointer): Boolean; overload;
   function IsExecute(const Value: DWORD): Boolean;
   function IsWrite(const Value: DWORD): Boolean;
-  function CheckPEImage(hProcess: THandle; ImageBase: Pointer): Boolean;
+  function CheckPEImage(hProcess: THandle; ImageBase: Pointer): Boolean; overload;
+  function CheckPEImage(hProcess: THandle; ImageBase: Pointer;
+    out RealImageBase: ULONG_PTR): Boolean; overload;
 
 type
   TProcessLockHandleList = TList<THandle>;
@@ -215,11 +217,22 @@ end;
 
 function CheckPEImage(hProcess: THandle; ImageBase: Pointer): Boolean;
 var
+  RealImageBase: ULONG_PTR;
+begin
+  Result := CheckPEImage(hProcess, ImageBase, RealImageBase);
+end;
+
+function CheckPEImage(hProcess: THandle; ImageBase: Pointer;
+  out RealImageBase: ULONG_PTR): Boolean;
+var
   ReturnLength: NativeUInt;
   IDH: TImageDosHeader;
   NT: TImageNtHeaders;
+  Header32: TImageNtHeaders32;
+  Header64: TImageNtHeaders64;
 begin
   Result := False;
+  RealImageBase := 0;
   if not ReadProcessMemory(hProcess, ImageBase,
     @IDH, SizeOf(TImageDosHeader), ReturnLength) then Exit;
   if IDH.e_magic <> IMAGE_DOS_SIGNATURE then Exit;
@@ -227,6 +240,21 @@ begin
   if not ReadProcessMemory(hProcess, ImageBase,
     @NT, SizeOf(TImageNtHeaders), ReturnLength) then Exit;
   Result := NT.Signature = IMAGE_NT_SIGNATURE;
+  if Result then
+  begin
+    if NT.FileHeader.Machine = IMAGE_FILE_MACHINE_I386 then
+    begin
+      if not ReadProcessMemory(hProcess, ImageBase,
+        @Header32, SizeOf(TImageNtHeaders32), ReturnLength) then Exit;
+      RealImageBase := Header32.OptionalHeader.ImageBase;
+    end
+    else
+    begin
+      if not ReadProcessMemory(hProcess, ImageBase,
+        @Header64, SizeOf(TImageNtHeaders64), ReturnLength) then Exit;
+      RealImageBase := Header64.OptionalHeader.ImageBase;
+    end;
+  end;
 end;
 
 function SuspendProcess(PID: DWORD): TProcessLockHandleList;

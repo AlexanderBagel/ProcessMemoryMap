@@ -201,12 +201,12 @@ begin
       @OwnerName[0], MAX_PATH) > 0 then
     begin
       Path := NormalizePath(string(OwnerName));
-      Add(DisassemblyFromBuff(RawBuff, Symbols, MMLRecord.Addr,
+      Add(DisassemblyFromBuff(RawBuff, Symbols,  MMLRecord.Addr,
         MBI.AllocationBase, Path, MemoryMapCore.Process64, ScanSettings.DumpSize));
     end
     else
-      Add(DisassemblyFromBuff(RawBuff, nil, MMLRecord.Addr,
-        nil, '', MemoryMapCore.Process64, ScanSettings.DumpSize));
+      Add(DisassemblyFromBuff(RawBuff, nil, nil, MMLRecord.Addr,
+        '', MemoryMapCore.Process64, ScanSettings.DumpSize));
   end;
 end;
 

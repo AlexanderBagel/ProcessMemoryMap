@@ -34,7 +34,7 @@ uses
   MemoryMap.Heaps,
 
   uDisplayUtils,
-  uIPC;
+  uIPC, System.ImageList;
 
 type
   TdlgProcessMM = class(TForm)
@@ -557,7 +557,7 @@ begin
     Exit;
   end;
   dlgExportList := TdlgExportList.Create(Application);
-  dlgExportList.Show;
+  dlgExportList.ShowExport;
 end;
 
 procedure TdlgProcessMM.AddShieldIconToMenu;

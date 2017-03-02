@@ -61,9 +61,13 @@ ProcessMemoryMap
 ![5.3](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/9.png?raw=true "NTDLL Export")
 
 Присутствует список всех импортируемых/экспортируемых функций (Ctrl+E).
+В него же добавляются данные из отладочного МАР файла (если присутствует - поддерживаются MAP файлы начиная с Delphi 2010 и выше)
 К нему добавлен поиск как по адресу, так и по имени функции (поиск по наименованию библиотеки не производится)
 
 ![7](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/7.png?raw=true "Export list")
+
+При наличии информации известные вызовы в дизассемблере коментируются.
+![7.1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/10.png?raw=true "CALL hint")
 
 Ну и вот так выглядит список изменений в выделенных блоках с последней проверки (F5)
 

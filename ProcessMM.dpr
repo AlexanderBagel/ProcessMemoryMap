@@ -48,7 +48,8 @@ uses
   uMemoryMapListInfo in 'uMemoryMapListInfo.pas' {dlgMemoryMapListInfo},
   uMemoryMapListInfoSettings in 'uMemoryMapListInfoSettings.pas' {dlgMemoryMapListInfoSettings},
   distorm in 'distorm\distorm.pas',
-  mnemonics in 'distorm\mnemonics.pas';
+  mnemonics in 'distorm\mnemonics.pas',
+  MemoryMap.DebugMapData in 'MemoryMap\MemoryMap.DebugMapData.pas';
 
 {$R *.res}
 

@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.PEImage.pas
 //  * Purpose   : Класс собирает данные по секциям и директориям PE файла
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0.3
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.0.4
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************

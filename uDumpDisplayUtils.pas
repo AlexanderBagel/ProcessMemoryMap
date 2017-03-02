@@ -6,8 +6,8 @@
 //  * Purpose   : Вспомогательный модуль для отображения содержимого
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2015.
-//  * Version   : 1.01
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.02
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -27,6 +27,7 @@ uses
   System.StrUtils,
   PsAPI,
   uUtils,
+  MemoryMap.Core,
   MemoryMap.Symbols,
   MemoryMap.Utils,
   distorm;
@@ -2064,13 +2065,12 @@ begin
     end;
   end
   else
-    Result := DisassemblyFromBuff(Buff, nil,
-      Address, nil, '', Is64, Size);
+    Result := DisassemblyFromBuff(Buff, nil, nil, Address, '', Is64, Size);
 end;
 
 function DisassemblyFromBuff(RawBuff: TMemoryDump; Symbols: TSymbols;
-  Address, AllocationBase: Pointer; const ModuleName: string;
-  Is64: Boolean; nSize: NativeUInt): string;
+  Address, AllocationBase: Pointer; const ModuleName: string; Is64: Boolean;
+  nSize: NativeUInt): string;
 
   function HexUpperCase(const Value: string): string;
   begin
@@ -2079,7 +2079,7 @@ function DisassemblyFromBuff(RawBuff: TMemoryDump; Symbols: TSymbols;
   end;
 
 type
-  TInsructionType = (itOther, itNop, itInt, itRet);
+  TInsructionType = (itOther, itNop, itInt, itRet, itCall);
 
   function GetInstructionType(const Value: string): TInsructionType;
   begin
@@ -2091,6 +2091,8 @@ type
       Result := itInt;
     if (Value = 'RET') or (Value = 'IRET') or (Value = 'RETF') then
       Result := itRet;
+    if Value = 'CALL' then
+      Result := itCall;
   end;
 
 var
@@ -2099,8 +2101,9 @@ var
   DecodedInst: array [0..14] of TDecodedInst;
   usedInstructionsCount: UInt32;
   DecodeType: _DecodeType;
-  Line, mnemonic: string;
+  Line, mnemonic, HintStr: string;
   LastInsruction, CurrentInstruction: TInsructionType;
+  CallAddr: Int64;
 begin
   Result := '';
   Cursor := 0;
@@ -2123,6 +2126,7 @@ begin
 
           mnemonic := HexUpperCase(GET_WString(DecodedInst[I].mnemonic));
           CurrentInstruction := GetInstructionType(mnemonic);
+          HintStr := '';
           case CurrentInstruction of
             itOther:
               if LastInsruction in [itNop, itInt, itRet] then
@@ -2133,22 +2137,48 @@ begin
             itInt:
                if LastInsruction in [itOther, itNop, itRet] then
                 AddString(Result, '');
+            itCall:
+            begin
+              if HexValueToInt64(GET_WString(DecodedInst[I].operands), CallAddr) then
+                if CallAddr <> 0 then
+                begin
+                  HintStr := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(CallAddr);
+                  if HintStr <> '' then
+                    HintStr := ' // ' + HintStr
+                  else
+                  begin
+                    if Symbols <> nil then
+                    begin
+                      HintStr := Symbols.GetDescriptionAtAddr(CallAddr);
+                      if HintStr <> '' then
+                        HintStr := ' // ' + HintStr;
+                    end;
+                  end;
+                end;
+            end;
           end;
           LastInsruction := CurrentInstruction;
 
-          if Symbols <> nil then
+          Line := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
+          if Line <> '' then
+            AddString(Result, Line)
+          else
           begin
-            Line := Symbols.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
-            if Line <> '' then
-              AddString(Result, Line);
+            if Symbols <> nil then
+            begin
+              Line := Symbols.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
+              if Line <> '' then
+                AddString(Result, Line);
+            end;
           end;
 
           AddString(Result,
-            Format('%s: %s %s %s', [
+            Format('%s: %s %s %s %s', [
               IntToHex(DecodedInst[I].offset, 8),
               AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], DecodedInst[I].size),
               mnemonic,
-              HexUpperCase(GET_WString(DecodedInst[I].operands))
+              HexUpperCase(GET_WString(DecodedInst[I].operands)),
+              HintStr
             ]));
           Inc(Cursor, DecodedInst[I].size);
         end;

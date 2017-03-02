@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Core.pas
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0.2
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.0.3
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -32,7 +32,8 @@ uses
   MemoryMap.Threads,
   MemoryMap.NtDll,
   MemoryMap.PEImage,
-  MemoryMap.Symbols;
+  MemoryMap.Symbols,
+  MemoryMap.DebugMapData;
 
 type
   // Типы фильтров
@@ -104,6 +105,7 @@ type
     FDetailedHeapData: Boolean;
     FSuspendProcess: Boolean;
     FGetWow64Heaps: TOnGetWow64HeapsEvent;
+    FDebugMapData: TDebugMap;
     function GetItem(Index: Integer): TRegionData;
     procedure SetShowEmpty(const Value: Boolean);
     procedure SetFilter(const Value: TFilters);
@@ -138,6 +140,7 @@ type
     procedure SaveToStream(AStream: TStream);
     procedure LoadFromStream(AStream: TStream);
     function Count: Integer;
+    property DebugMapData: TDebugMap read FDebugMapData;
     function InitFromProcess(PID: Cardinal; const ProcessName: string): Boolean;
     function GetHiddenRegion(RootIndex, SubIndex: Integer): TRegionData;
     function GetRegionAtUnfilteredIndex(Index: Integer): TRegionData;
@@ -287,6 +290,7 @@ begin
   FRegions := TObjectList<TRegionData>.Create(True);
   FRegionFilters := TList<Integer>.Create;
   FModules := TList<TModule>.Create;
+  FDebugMapData := TDebugMap.Create;
 end;
 
 //
@@ -294,6 +298,7 @@ end;
 // =============================================================================
 destructor TMemoryMap.Destroy;
 begin
+  FDebugMapData.Free;
   FModules.Free;
   FRegionFilters.Free;
   FRegions.Free;
@@ -312,6 +317,7 @@ var
   Shared: Boolean;
   SharedCount: Byte;
   Module: TModule;
+  OriginalImageBase: ULONG_PTR;
 begin
   FRegions.Clear;
   FRegionFilters.Clear;
@@ -362,7 +368,7 @@ begin
         // Если да, запоминаем его путь
         RegionData.SetDetails(Module.Path);
         // Проверяем, является ли файл исполняемым?
-        if CheckPEImage(FProcess, MBI.BaseAddress) then
+        if CheckPEImage(FProcess, MBI.BaseAddress, OriginalImageBase) then
         begin
           // Если является - запоминаем его в списке модулей
           Module.BaseAddr := ULONG_PTR(MBI.BaseAddress);
@@ -371,6 +377,10 @@ begin
           RegionData.SetRegionType(rtExecutableImage);
           // до кучи получаем информаию по самому PE файлу
           PEImage.GetInfoFromImage(Module.Path, MBI.BaseAddress, MBI.RegionSize);
+          // и пробуем подтянуть его отладочную инфомацию, если есть MAP файл
+          if FileExists(ChangeFileExt(Module.Path, '.map')) then
+            DebugMapData.Init(ULONG_PTR(MBI.BaseAddress),
+              OriginalImageBase, Module.Path);
         end;
       end;
 
@@ -513,6 +523,7 @@ begin
   Result := False;
   FRegions.Clear;
   FModules.Clear;
+  FDebugMapData.Clear;
   FFilter := fiNone;
   ProcessLock := nil;
   // Открываем процесс на чтение

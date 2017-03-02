@@ -5,8 +5,8 @@
 //  * Unit Name : uUtils.pas
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.01
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -43,6 +43,7 @@ type
   function UInt64ToStr(Value: Pointer): string; overload;
   procedure ShowErrorHint(AHandle: THandle);
   function CRC32(RawBuff: TMemoryDump): DWORD;
+  function HexValueToInt64(Value: string; out HexValue: Int64): Boolean;
 
 type
   TReadCondition = (
@@ -363,6 +364,22 @@ begin
     Result := ((Result shr 8) and $00FFFFFF) xor
       CRC32Table[(Result xor RawBuff[I]) and $FF];
   Result := Result xor $FFFFFFFF;
+end;
+
+function HexValueToInt64(Value: string; out HexValue: Int64): Boolean;
+begin
+  HexValue := 0;
+  Value := Trim(Value);
+  if Copy(Value, 1, 2) = '0x' then
+    Delete(Value, 1, 2);
+  if Value = '' then Exit(True);
+  if LowerCase(Value[Length(Value)]) = 'h' then
+    SetLength(Value, Length(Value) - 1);
+  if Value = '' then Exit(True);
+  if Value[1] = '$' then
+    Result := TryStrToInt64(Value, HexValue)
+  else
+    Result := TryStrToInt64('$' + Value, HexValue);
 end;
 
 end.

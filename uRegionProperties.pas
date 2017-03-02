@@ -5,8 +5,8 @@
 //  * Unit Name : uRegionProperties.pas
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2015.
-//  * Version   : 1.01
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.02
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,17 +35,21 @@ uses
 type
   TdlgRegionProps = class(TForm)
     edProperties: TRichEdit;
-    PopupMenu1: TPopupMenu;
+    mnuPopup: TPopupMenu;
     mnuCopy: TMenuItem;
     N1: TMenuItem;
     mnuRefresh: TMenuItem;
     N2: TMenuItem;
     mnuShowAsDisassembly: TMenuItem;
+    mnuGotoAddress: TMenuItem;
+    N3: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuCopyClick(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure mnuRefreshClick(Sender: TObject);
     procedure mnuShowAsDisassemblyClick(Sender: TObject);
+    procedure mnuGotoAddressClick(Sender: TObject);
+    procedure mnuPopupPopup(Sender: TObject);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
@@ -93,6 +97,27 @@ end;
 procedure TdlgRegionProps.mnuCopyClick(Sender: TObject);
 begin
   edProperties.CopyToClipboard;
+end;
+
+procedure TdlgRegionProps.mnuGotoAddressClick(Sender: TObject);
+var
+  SelectAddr: Int64;
+begin
+  if HexValueToInt64(edProperties.SelText, SelectAddr) then
+    if SelectAddr <> 0 then
+    begin
+      dlgRegionProps := TdlgRegionProps.Create(Application);
+      dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectAddr));
+    end;
+end;
+
+procedure TdlgRegionProps.mnuPopupPopup(Sender: TObject);
+var
+  SelectAddr: Int64;
+begin
+  mnuGotoAddress.Enabled := False;
+  if HexValueToInt64(edProperties.SelText, SelectAddr) then
+    mnuGotoAddress.Enabled := SelectAddr <> 0;
 end;
 
 procedure TdlgRegionProps.mnuRefreshClick(Sender: TObject);
@@ -153,14 +178,22 @@ begin
     Add('Mapped file: ' + Path);
     if CheckPEImage(Process, MBI.AllocationBase) then
       Add('    Executable');
-    Symbols := TSymbols.Create(Process);
-    try
-      DescriptionAtAddr := Symbols.GetDescriptionAtAddr(
-        ULONG_PTR(Address), ULONG_PTR(MBI.AllocationBase), Path);
-      if DescriptionAtAddr <> '' then
-        Add('Function: ' + DescriptionAtAddr);
-    finally
-      Symbols.Free;
+
+    DescriptionAtAddr :=
+      MemoryMapCore.DebugMapData.GetDescriptionAtAddrWithOffset(ULONG_PTR(Address));
+    if DescriptionAtAddr <> '' then
+      Add('Function: ' + DescriptionAtAddr)
+    else
+    begin
+      Symbols := TSymbols.Create(Process);
+      try
+        DescriptionAtAddr := Symbols.GetDescriptionAtAddr(
+          ULONG_PTR(Address), ULONG_PTR(MBI.AllocationBase), Path);
+        if DescriptionAtAddr <> '' then
+          Add('Function: ' + DescriptionAtAddr);
+      finally
+        Symbols.Free;
+      end;
     end;
   end;
 end;

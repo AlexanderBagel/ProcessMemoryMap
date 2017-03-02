@@ -29,14 +29,25 @@ object dlgRegionProps: TdlgRegionProps
     Font.Name = 'Courier New'
     Font.Style = []
     ParentFont = False
-    PopupMenu = PopupMenu1
+    PopupMenu = mnuPopup
     ReadOnly = True
     ScrollBars = ssBoth
     TabOrder = 0
+    Zoom = 100
   end
-  object PopupMenu1: TPopupMenu
+  object mnuPopup: TPopupMenu
+    OnPopup = mnuPopupPopup
     Left = 376
     Top = 248
+    object mnuGotoAddress: TMenuItem
+      Caption = 'Go to Address...'
+      Default = True
+      ShortCut = 13
+      OnClick = mnuGotoAddressClick
+    end
+    object N3: TMenuItem
+      Caption = '-'
+    end
     object mnuCopy: TMenuItem
       Caption = 'Copy'
       ShortCut = 16451
