@@ -242,7 +242,7 @@ begin
   if not E.MoveNext then Exit;
   TryStrToInt64('$' + List[E.Current^.Index].Address, Address);
   dlgRegionProps := TdlgRegionProps.Create(Application);
-  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address));
+  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address), True);
 end;
 
 procedure TdlgExportList.lvExportsGetText(Sender: TBaseVirtualTree;

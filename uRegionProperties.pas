@@ -60,8 +60,7 @@ type
     procedure ShowInfoFromMBI(Process: THandle;
       MBI: TMemoryBasicInformation; Address: Pointer);
   public
-    procedure ShowModalPropertyAtAddr(Value: Pointer);
-    procedure ShowPropertyAtAddr(Value: Pointer);
+    procedure ShowPropertyAtAddr(Value: Pointer; AsDisassembly: Boolean);
   end;
 
 var
@@ -107,7 +106,7 @@ begin
     if SelectAddr <> 0 then
     begin
       dlgRegionProps := TdlgRegionProps.Create(Application);
-      dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectAddr));
+      dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectAddr), ShowAsDisassembly);
     end;
 end;
 
@@ -198,16 +197,10 @@ begin
   end;
 end;
 
-procedure TdlgRegionProps.ShowModalPropertyAtAddr(Value: Pointer);
+procedure TdlgRegionProps.ShowPropertyAtAddr(Value: Pointer; AsDisassembly: Boolean);
 begin
-  ACloseAction := caHide;
-  StartQuery(Value);
-  ShowModal;
-  Close;
-end;
-
-procedure TdlgRegionProps.ShowPropertyAtAddr(Value: Pointer);
-begin
+  ShowAsDisassembly := AsDisassembly;
+  mnuShowAsDisassembly.Checked := AsDisassembly;
   ACloseAction := caFree;
   StartQuery(Value);
   Show;

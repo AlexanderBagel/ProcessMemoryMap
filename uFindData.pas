@@ -251,7 +251,7 @@ begin
     if Result then
     begin
       dlgRegionProps := TdlgRegionProps.Create(Application);
-      dlgRegionProps.ShowPropertyAtAddr(Pointer(NativeInt(SearchPos) + I));
+      dlgRegionProps.ShowPropertyAtAddr(Pointer(NativeInt(SearchPos) + I), False);
       SearchPos := Pointer(NativeInt(SearchPos) + I + Length(SerchBuff));
       Exit;
     end

@@ -388,7 +388,7 @@ begin
   end;
   if QueryAddr = nil then Exit;
   dlgRegionProps := TdlgRegionProps.Create(Application);
-  dlgRegionProps.ShowPropertyAtAddr(QueryAddr);
+  dlgRegionProps.ShowPropertyAtAddr(QueryAddr, False);
 end;
 
 procedure TdlgProcessMM.acRefreshExecute(Sender: TObject);
@@ -433,7 +433,7 @@ begin
   if Data <> nil then
   begin
     dlgRegionProps := TdlgRegionProps.Create(Application);
-    dlgRegionProps.ShowPropertyAtAddr(Pointer(Data^.Address));
+    dlgRegionProps.ShowPropertyAtAddr(Pointer(Data^.Address), False);
   end;
 end;
 
