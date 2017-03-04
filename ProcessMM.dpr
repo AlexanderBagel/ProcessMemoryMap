@@ -49,7 +49,8 @@ uses
   uMemoryMapListInfoSettings in 'uMemoryMapListInfoSettings.pas' {dlgMemoryMapListInfoSettings},
   distorm in 'distorm\distorm.pas',
   mnemonics in 'distorm\mnemonics.pas',
-  MemoryMap.DebugMapData in 'MemoryMap\MemoryMap.DebugMapData.pas';
+  MemoryMap.DebugMapData in 'MemoryMap\MemoryMap.DebugMapData.pas',
+  uProcessReconnect in 'uProcessReconnect.pas';
 
 {$R *.res}
 

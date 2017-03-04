@@ -13,6 +13,7 @@ object dlgSelectProcess: TdlgSelectProcess
   OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
   DesignSize = (
     481
     350)
@@ -89,8 +90,8 @@ object dlgSelectProcess: TdlgSelectProcess
     Anchors = [akRight, akBottom]
     Caption = 'OK'
     Default = True
-    ModalResult = 1
     TabOrder = 4
+    OnClick = btnDefaultClick
   end
   object il16: TImageList
     ColorDepth = cd32Bit

@@ -218,10 +218,7 @@ var
 begin
   CurerntAddr := Value;
   ProcessLock := nil;
-  Process := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ or
-    PROCESS_VM_OPERATION, False, MemoryMapCore.PID);
-  if Process = 0 then
-    RaiseLastOSError;
+  Process := OpenProcessWithReconnect;
   try
     edProperties.Lines.Add('Info at address: ' + UInt64ToStr(ULONG_PTR(Value)));
     if Settings.SuspendProcess then

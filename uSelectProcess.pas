@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectProcess.pas
 //  * Purpose   : Диалог выбора процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0.1
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.0.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -25,7 +25,7 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ImgList, Winapi.CommCtrl,
   Winapi.TlHelp32, Winapi.ShellAPI, Vcl.Themes,
 
-  MemoryMap.Utils;
+  MemoryMap.Utils, System.ImageList;
 
 type
   PSortData = ^TSortData;
@@ -51,9 +51,12 @@ type
     procedure lvProcessDblClick(Sender: TObject);
     procedure lvProcessMouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
+    procedure btnDefaultClick(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
   private
     SortData: TSortData;
     DblClicked: Boolean;
+    ProcessList: TStringList;
     procedure Refresh;
     procedure UpdateSort;
   public
@@ -64,9 +67,16 @@ type
 implementation
 
 uses
-  uUtils;
+  uUtils,
+  uProcessReconnect;
 
 {$R *.dfm}
+
+procedure TdlgSelectProcess.btnDefaultClick(Sender: TObject);
+begin
+  ProcessReconnect.SetKnownProcessList(ProcessList);
+  ModalResult := mrOk;
+end;
 
 procedure TdlgSelectProcess.btnRefreshClick(Sender: TObject);
 begin
@@ -88,7 +98,13 @@ procedure TdlgSelectProcess.FormCreate(Sender: TObject);
 begin
   btnShowAll.Visible := not CheckIsAdmin;
   SortData.SortDirectionUp := True;
+  ProcessList := TStringList.Create;
   btnRefreshClick(nil);
+end;
+
+procedure TdlgSelectProcess.FormDestroy(Sender: TObject);
+begin
+  ProcessList.Free;
 end;
 
 procedure TdlgSelectProcess.lvProcessColumnClick(Sender: TObject;
@@ -120,7 +136,10 @@ begin
   // и при двойном клике на текущем диалоге сразу вызывается фильтрация,
   // а это нам не надо.
   if DblClicked then
+  begin
+    ProcessReconnect.SetKnownProcessList(ProcessList);
     ModalResult := mrOk;
+  end;
 end;
 
 procedure TdlgSelectProcess.lvProcessSelectItem(Sender: TObject;
@@ -201,6 +220,7 @@ var
   UserName, Domain: string;
   IsWow: Boolean;
 begin
+  ProcessList.Clear;
   hProcessSnap := CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
   if (hProcessSnap = INVALID_HANDLE_VALUE) then Exit;
   try
@@ -223,6 +243,9 @@ begin
           Item.SubItems.Add(Domain + '/' + UserName);
           Item.Data := Pointer(ProcessEntry.th32ProcessID);
           Item.ImageIndex := GetProcessImageIndex(ProcessEntry.th32ProcessID);
+          ProcessList.AddObject(
+            GetProcessFullPath(ProcessEntry.th32ProcessID),
+            Pointer(ProcessEntry.th32ProcessID));
       until not Process32Next(hProcessSnap, ProcessEntry);
       UpdateSort;
     finally

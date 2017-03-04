@@ -3,7 +3,7 @@ object dlgSettings: TdlgSettings
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Process Memory Map - Settings'
-  ClientHeight = 412
+  ClientHeight = 437
   ClientWidth = 318
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -18,7 +18,7 @@ object dlgSettings: TdlgSettings
   TextHeight = 13
   object cbShowFreeRegions: TCheckBox
     Left = 16
-    Top = 31
+    Top = 55
     Width = 185
     Height = 17
     Caption = 'Show free regions'
@@ -26,7 +26,7 @@ object dlgSettings: TdlgSettings
   end
   object cbShowColors: TCheckBox
     Left = 16
-    Top = 100
+    Top = 124
     Width = 185
     Height = 17
     Caption = 'Show colors'
@@ -34,7 +34,7 @@ object dlgSettings: TdlgSettings
   end
   object GroupBox1: TGroupBox
     Left = 16
-    Top = 123
+    Top = 147
     Width = 289
     Height = 249
     Caption = 'Color scheme:'
@@ -193,7 +193,7 @@ object dlgSettings: TdlgSettings
   end
   object Button1: TButton
     Left = 230
-    Top = 378
+    Top = 402
     Width = 75
     Height = 25
     Cancel = True
@@ -203,7 +203,7 @@ object dlgSettings: TdlgSettings
   end
   object btnOk: TButton
     Left = 149
-    Top = 378
+    Top = 402
     Width = 75
     Height = 25
     Caption = 'OK'
@@ -212,7 +212,7 @@ object dlgSettings: TdlgSettings
   end
   object btnReset: TButton
     Left = 16
-    Top = 378
+    Top = 402
     Width = 75
     Height = 25
     Caption = 'Reset'
@@ -221,7 +221,7 @@ object dlgSettings: TdlgSettings
   end
   object cbSearchDiff: TCheckBox
     Left = 16
-    Top = 77
+    Top = 101
     Width = 185
     Height = 17
     Caption = 'Search differences after refresh'
@@ -229,7 +229,7 @@ object dlgSettings: TdlgSettings
   end
   object cbShowDetailedHeapData: TCheckBox
     Left = 16
-    Top = 54
+    Top = 78
     Width = 185
     Height = 17
     Caption = 'Show detailed heap'
@@ -242,6 +242,14 @@ object dlgSettings: TdlgSettings
     Height = 17
     Caption = 'Suspend process before scan'
     TabOrder = 8
+  end
+  object cbReconnect: TCheckBox
+    Left = 17
+    Top = 31
+    Width = 185
+    Height = 17
+    Caption = 'Auto Reconnect'
+    TabOrder = 9
   end
   object ColorDialog: TColorDialog
     Left = 232

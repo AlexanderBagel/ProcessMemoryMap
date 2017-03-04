@@ -35,6 +35,7 @@ type
   function RestartAsAdmin: Boolean;
   function Run64App(const FilePath, Param: string): THandle;
   function SetDebugPriv: Boolean;
+  function GetProcessFullPath(APid: Cardinal): string;
   function GetProcessIco(APid: Cardinal): HICON;
   procedure ConcatenateStrings(var A: string; const B: string);
   function SizeToStr(Value: NativeUInt): string;
@@ -55,9 +56,12 @@ type
     var Size: NativeUInt; out RegionSize: NativeUInt;
     ReadCondition: TReadCondition): Boolean;
 
+  function OpenProcessWithReconnect: THandle;
+
 implementation
 
 uses
+  uProcessMM,
   uSettings;
 
 var
@@ -380,6 +384,20 @@ begin
     Result := TryStrToInt64(Value, HexValue)
   else
     Result := TryStrToInt64('$' + Value, HexValue);
+end;
+
+function OpenProcessWithReconnect: THandle;
+begin
+  Result := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
+    False, MemoryMapCore.PID);
+  if Result = 0 then
+  begin
+    if dlgProcessMM.Reconnect then
+      Result := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
+        False, MemoryMapCore.PID)
+    else
+      RaiseLastOSError;
+  end;
 end;
 
 end.

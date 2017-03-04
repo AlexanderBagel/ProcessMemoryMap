@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectProcess.pas
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Version   : 1.01
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -52,6 +52,7 @@ type
     cbSearchDiff: TCheckBox;
     cbShowDetailedHeapData: TCheckBox;
     cbSuspendProcess: TCheckBox;
+    cbReconnect: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -74,6 +75,7 @@ type
     FShowDetailedHeap: Boolean;
     FShowFreeRegions: Boolean;
     FSuspendProcess: Boolean;
+    FReconnect: Boolean;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -81,6 +83,7 @@ type
     procedure LoadSettings;
     procedure SaveSettings;
     procedure LoadDefault;
+    property AutoReconnect: Boolean read FReconnect write FReconnect;
     property ImageColor: TColorRef index 0 read GetColor write SetColor;
     property ImagePartColor: TColorRef index 1 read GetColor write SetColor;
     property PrivateColor: TColorRef index 2 read GetColor write SetColor;
@@ -137,6 +140,7 @@ begin
   HeapColor := RGB(255, 150, 100);
   ThreadColor := RGB(255, 192, 128);
   SystemColor := RGB(180, 150, 149);
+  AutoReconnect := True;
   SearchDifferences := True;
   ShowColors := True;
   ShowDetailedHeap := False;
@@ -158,6 +162,9 @@ begin
       Exit;
     end;
     try
+      AutoReconnect := True;
+      if R.ValueExists('AutoReconnect') then
+        AutoReconnect := R.ReadBool('AutoReconnect');
       SearchDifferences := R.ReadBool('SearchDifferences');
       ShowColors := R.ReadBool('ShowColors');
       ShowDetailedHeap := R.ReadBool('ShowDetailedHeap');
@@ -183,6 +190,7 @@ begin
     R.RootKey := HKEY_CURRENT_USER;
     if not R.OpenKey(RegRootKey, True) then
       RaiseLastOSError;
+    R.WriteBool('AutoReconnect', AutoReconnect);
     R.WriteBool('SearchDifferences', SearchDifferences);
     R.WriteBool('ShowColors', ShowColors);
     R.WriteBool('ShowDetailedHeap', ShowDetailedHeap);
@@ -212,6 +220,7 @@ procedure TdlgSettings.btnOkClick(Sender: TObject);
 var
   I: Integer;
 begin
+  Settings.AutoReconnect := cbReconnect.Checked;
   Settings.SearchDifferences := cbSearchDiff.Checked;
   Settings.ShowFreeRegions := cbShowFreeRegions.Checked;
   Settings.ShowColors := cbShowColors.Checked;
@@ -243,6 +252,7 @@ var
   I: Integer;
   P: TPanel;
 begin
+  cbReconnect.Checked := Settings.AutoReconnect;
   cbSearchDiff.Checked := Settings.SearchDifferences;
   cbShowFreeRegions.Checked := Settings.ShowFreeRegions;
   cbShowColors.Checked := Settings.ShowColors;

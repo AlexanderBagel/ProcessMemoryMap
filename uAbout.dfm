@@ -4,7 +4,7 @@ object dlgAbout: TdlgAbout
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'About Process Memory Map'
-  ClientHeight = 154
+  ClientHeight = 173
   ClientWidth = 470
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -4682,7 +4682,7 @@ object dlgAbout: TdlgAbout
     Top = 8
     Width = 182
     Height = 13
-    Caption = 'Process Memory Map 1.0 (alpha 11.1)'
+    Caption = 'Process Memory Map 1.0 (alpha 11.2)'
   end
   object Label2: TLabel
     Left = 56
@@ -4748,12 +4748,24 @@ object dlgAbout: TdlgAbout
   object LinkLabel4: TLinkLabel
     Left = 56
     Top = 130
+    Width = 298
+    Height = 19
+    Caption = 
+      'Virtual Treeview component: <a href="http://www.soft-gems.net/in' +
+      'dex.php/controls/virtual-treeview">http://www.soft-gems.net</a>'
+    TabOrder = 4
+    UseVisualStyle = True
+    OnLinkClick = LinkLabel1LinkClick
+  end
+  object LinkLabel5: TLinkLabel
+    Left = 56
+    Top = 149
     Width = 188
     Height = 19
     Caption = 
       'Disasm engine: <a href="http://ragestorm.net/distorm/">diStorm v' +
       'ersion 3.3</a>'
-    TabOrder = 4
+    TabOrder = 5
     UseVisualStyle = True
     OnLinkClick = LinkLabel1LinkClick
   end

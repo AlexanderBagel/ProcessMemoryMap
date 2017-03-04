@@ -49,10 +49,7 @@ var
   F: TFileStream;
 begin
   ProcessLock := nil;
-  Process := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ or
-    PROCESS_VM_OPERATION, False, MemoryMapCore.PID);
-  if Process = 0 then
-    RaiseLastOSError;
+  Process := OpenProcessWithReconnect;
   try
     if Settings.SuspendProcess then
       ProcessLock := SuspendProcess(MemoryMapCore.PID);

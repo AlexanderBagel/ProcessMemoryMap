@@ -57,7 +57,7 @@ object dlgExportList: TdlgExportList
       end
       item
         Position = 2
-        Width = 119
+        Width = 123
         WideText = 'Module'
       end
       item

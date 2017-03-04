@@ -215,10 +215,7 @@ end;
 
 procedure TdlgFindData.FormCreate(Sender: TObject);
 begin
-  Process := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
-    False, MemoryMapCore.PID);
-  if Process = 0 then
-    RaiseLastOSError;
+  Process := OpenProcessWithReconnect;
   ProgressDelta := MemoryMapCore.HighAddress div 100;
 end;
 

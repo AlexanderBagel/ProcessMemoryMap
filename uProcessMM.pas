@@ -184,6 +184,8 @@ type
     function Search(const Value: string): Boolean;
     function GetSelectedNodeData: PNodeData;
     procedure OnGetWow64Heaps(Value: THeap);
+  public
+    function Reconnect: Boolean;
   end;
 
 var
@@ -202,7 +204,8 @@ uses
   uUtils,
   uDump,
   uAbout,
-  uMemoryMapListInfo;
+  uMemoryMapListInfo,
+  uProcessReconnect;
 
 const
   RootCaption = 'Process Memory Map';
@@ -401,6 +404,7 @@ begin
       M := TMemoryMap.Create;
       try
         M.OnGetWow64Heaps := OnGetWow64Heaps;
+        Reconnect;
         M.InitFromProcess(MemoryMapCore.PID,
           MemoryMapCore.ProcessName);
         dlgComparator := TdlgComparator.Create(nil);
@@ -916,6 +920,23 @@ begin
       LoadHeaps(Value, M);
   finally
     M.Free;
+  end;
+end;
+
+function TdlgProcessMM.Reconnect: Boolean;
+var
+  NewPID: DWORD;
+begin
+  Result := Settings.AutoReconnect;
+  if not Result then Exit;
+  try
+    NewPID := ProcessReconnect.GetNewPID(MemoryMapCore.PID);
+    if NewPID = 0 then Exit(False);
+    MemoryMapCore.InitFromProcess(NewPID, MemoryMapCore.ProcessName);
+    lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
+    FillTreeView;
+  except
+    Result := False;
   end;
 end;
 
