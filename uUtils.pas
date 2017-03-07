@@ -370,10 +370,29 @@ begin
   Result := Result xor $FFFFFFFF;
 end;
 
+function ByteValueToInt64(Value: string; out HexValue: Int64): Boolean;
+var
+  I: Integer;
+  Tmp: string;
+begin
+  if Pos(' ', Value) = 0 then Exit(False);
+  HexValue := 0;
+  Tmp := '';
+  for I := 0 to 7 do
+  begin
+    Tmp := Copy(Value, 1, 2) + Tmp;
+    Delete(Value, 1, 3);
+    if Value = '' then Break;
+  end;
+  Result := TryStrToInt64('$' + Tmp, HexValue);
+end;
+
 function HexValueToInt64(Value: string; out HexValue: Int64): Boolean;
 begin
   HexValue := 0;
   Value := Trim(Value);
+  Result := ByteValueToInt64(Value, HexValue);
+  if Result then Exit;
   if Copy(Value, 1, 2) = '0x' then
     Delete(Value, 1, 2);
   if Value = '' then Exit(True);
