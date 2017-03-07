@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для работы с отладочным MAP файлом.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0.0
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -46,13 +46,16 @@ type
     constructor Create;
     destructor Destroy; override;
     procedure Clear;
-    procedure Init(BaseAddress, InstanceAddress: ULONG_PTR; const ModulePath: string);
+    procedure Init(BaseAddress: ULONG_PTR; const ModulePath: string);
     function GetDescriptionAtAddr(Address: ULONG_PTR): string;
     function GetDescriptionAtAddrWithOffset(Address: ULONG_PTR): string;
     procedure GetExportFuncList(const ModuleName: string; Value: TStringList);
   end;
 
 implementation
+
+uses
+  MemoryMap.PEImage;
 
 { TDebugMap }
 
@@ -117,12 +120,13 @@ begin
       Value.AddObject(FItems[I].FunctionName, Pointer(FItems[I].Address));
 end;
 
-procedure TDebugMap.Init(BaseAddress, InstanceAddress: ULONG_PTR; const ModulePath: string);
+procedure TDebugMap.Init(BaseAddress: ULONG_PTR; const ModulePath: string);
 var
+  PEImage: TPEImage;
   MapFile: TStringList;
   SectionDataList: TList<TSectionData>;
   I, A, Count, StartPosition, SpacePos, SectionIndex: Integer;
-  Line: string;
+  Line, SectionName, SectionClass: string;
   Section: TSectionData;
   FoundTable: Boolean;
   SectionAddress: DWORD;
@@ -136,31 +140,63 @@ begin
       DebugMapItem.ModuleName := ExtractFileName(ModulePath);
       SectionDataList := TList<TSectionData>.Create;
       try
-        I := 0;
-        Count := MapFile.Count;
+        PEImage := TPEImage.Create(0, False);
+        try
+          PEImage.GetInfoFromImage(ModulePath, nil, 0);
 
-        // ищем начало таблицы секций
-        while Copy(Trim(MapFile[I]), 1, 5) <> 'Start' do
-        begin
-          Inc(I);
-          if I = Count then Exit;
-        end;
+          I := 0;
+          Count := MapFile.Count;
 
-        // заполняем таблицу секций
-        Inc(I);
-        if I = Count then Exit;
-        Line := Trim(MapFile[I]);
-        while Line <> '' do
-        begin
-          Section.Index := StrToInt(Copy(Line, 1, 4));
-          Delete(Line, 1, 5);
-          Section.StartAddr := ULONG_PTR(StrToInt('$' + Copy(Line, 1, 8))) - InstanceAddress + BaseAddress;
-          Delete(Line, 1, 9);
-          Section.Length := StrToInt('$' + Copy(Line, 1, 8));
-          SectionDataList.Add(Section);
+          // ищем начало таблицы секций
+          while Copy(Trim(MapFile[I]), 1, 5) <> 'Start' do
+          begin
+            Inc(I);
+            if I = Count then Exit;
+          end;
+
+          // получаем номер секции и ее имя
           Inc(I);
           if I = Count then Exit;
           Line := Trim(MapFile[I]);
+          while Line <> '' do
+          begin
+            Section.Index := StrToInt(Copy(Line, 1, 4));
+            Delete(Line, 1, 24);
+            Line := TrimLeft(Line);
+            SpacePos := Pos(' ', Line);
+            if SpacePos = 0 then Continue;
+            SectionName := Copy(Line, 1, SpacePos - 1);
+            Delete(Line, 1, SpacePos);
+
+            // в старых версиях дельфи в РЕ файле имя секции называлось по имени ее класса
+            // поэтому будем искать правильную секцию опираясь на этот момент
+            SectionClass := TrimLeft(Line);
+
+            // убираем декорирование (MS VC++ Debug MAP)
+            SpacePos := Pos('$', SectionName);
+            if SpacePos > 0 then
+              SectionName := Copy(SectionName, 1, SpacePos - 1);
+
+            // если секция содержит код, заносим ее в список
+            for A := 0 to PEImage.Sections.Count - 1 do
+              if (PEImage.Sections[A].Caption = ShortString(SectionName)) or
+                (PEImage.Sections[A].Caption = ShortString(SectionClass)) then
+              begin
+                if PEImage.Sections[A].IsCode then
+                begin
+                  Section.StartAddr := PEImage.Sections[A].Address + BaseAddress;
+                  Section.Length := PEImage.Sections[A].Size;
+                  SectionDataList.Add(Section);
+                end;
+                Break;
+              end;
+
+            Inc(I);
+            if I = Count then Exit;
+            Line := Trim(MapFile[I]);
+          end;
+        finally
+          PEImage.Free;
         end;
 
         // ищем начало таблицы "Publics by Value"

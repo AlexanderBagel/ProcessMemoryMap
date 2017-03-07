@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0.3
+//  * Version   : 1.0.4
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -317,7 +317,6 @@ var
   Shared: Boolean;
   SharedCount: Byte;
   Module: TModule;
-  OriginalImageBase: ULONG_PTR;
 begin
   FRegions.Clear;
   FRegionFilters.Clear;
@@ -368,7 +367,7 @@ begin
         // Если да, запоминаем его путь
         RegionData.SetDetails(Module.Path);
         // Проверяем, является ли файл исполняемым?
-        if CheckPEImage(FProcess, MBI.BaseAddress, OriginalImageBase) then
+        if CheckPEImage(FProcess, MBI.BaseAddress) then
         begin
           // Если является - запоминаем его в списке модулей
           Module.BaseAddr := ULONG_PTR(MBI.BaseAddress);
@@ -379,8 +378,7 @@ begin
           PEImage.GetInfoFromImage(Module.Path, MBI.BaseAddress, MBI.RegionSize);
           // и пробуем подтянуть его отладочную инфомацию, если есть MAP файл
           if FileExists(ChangeFileExt(Module.Path, '.map')) then
-            DebugMapData.Init(ULONG_PTR(MBI.BaseAddress),
-              OriginalImageBase, Module.Path);
+            DebugMapData.Init(ULONG_PTR(MBI.BaseAddress), Module.Path);
         end;
       end;
 

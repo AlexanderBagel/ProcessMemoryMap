@@ -276,7 +276,8 @@ begin
     begin
       Result := 0;
       case lvExports.Header.SortColumn of
-        0:
+        0: Result := AnsiCompareStr(A.AType, B.AType);
+        1:
         begin
           if A.dwAddress > B.dwAddress then
             Result := 1
@@ -286,8 +287,8 @@ begin
             else
               Result := -1;
         end;
-        1: Result := AnsiCompareStr(A.Module, B.Module);
-        2: Result := AnsiCompareStr(A.FunctionName, B.FunctionName);
+        2: Result := AnsiCompareStr(A.Module, B.Module);
+        3: Result := AnsiCompareStr(A.FunctionName, B.FunctionName);
       end;
       if lvExports.Header.SortDirection = sdDescending then
         Result := -Result;

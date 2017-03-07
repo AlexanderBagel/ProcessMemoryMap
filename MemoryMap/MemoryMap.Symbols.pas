@@ -40,6 +40,8 @@ type
     function GetDescriptionAtAddr(Address, BaseAddress: ULONG_PTR;
       const ModuleName: string): string; overload;
     function GetDescriptionAtAddr(Address: ULONG_PTR): string; overload;
+    function GetDescriptionAtAddr2(Address, BaseAddress: ULONG_PTR;
+      const ModuleName: string): string;
     procedure GetExportFuncList(const ModuleName: string;
       BaseAddress: ULONG_PTR; Value: TStringList);
   end;
@@ -160,6 +162,56 @@ begin
     Result := ExtractFileName(FModuleName) + '!' + Result;
 end;
 
+function TSymbols.GetDescriptionAtAddr2(Address, BaseAddress: ULONG_PTR;
+  const ModuleName: string): string;
+const
+{$IFDEF WIN64}
+  SizeOfStruct = SizeOf(TImagehlpSymbol64);
+  MaxNameLength = BuffSize - SizeOfStruct;
+var
+  Symbol: PImagehlpSymbol64;
+  Displacement: DWORD64;
+{$ELSE}
+  SizeOfStruct = SizeOf(TImagehlpSymbol);
+  MaxNameLength = BuffSize - SizeOfStruct;
+var
+  Symbol: PImagehlpSymbol;
+  Displacement: DWORD;
+{$ENDIF}
+begin
+  Result := '';
+  if not FInited then Exit;
+  GetMem(Symbol, BuffSize);
+  try
+    Symbol^.SizeOfStruct := SizeOfStruct;
+    Symbol^.MaxNameLength := MaxNameLength;
+    Symbol^.Size := 0;
+    SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)),
+      nil, BaseAddress, 0);
+    try
+      if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
+      begin
+        if Displacement = 0 then
+          Result := string(PAnsiChar(@(Symbol^).Name[0]));
+      end
+      else
+      begin
+        // с первой попытки может и не получиться
+        SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)), nil, BaseAddress, 0);
+        if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
+          if Displacement = 0 then
+            Result := string(PAnsiChar(@(Symbol^).Name[0]));
+      end;
+    finally
+      SymUnloadModule(FProcess, BaseAddress);
+    end;
+  finally
+    FreeMem(Symbol);
+  end;
+  if Result <> '' then
+    Result := ExtractFileName(ModuleName) + '!' + Result;
+end;
+
 function TSymbols.GetDescriptionAtAddr(Address, BaseAddress: ULONG_PTR;
   const ModuleName: string): string;
 const
@@ -188,13 +240,21 @@ begin
       nil, BaseAddress, 0);
     try
       if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
-        Result := string(PAnsiChar(@(Symbol^).Name[0])) + ' + 0x' + IntToHex(Displacement, 4)
+      begin
+        if Displacement = 0 then
+          Result := string(PAnsiChar(@(Symbol^).Name[0]))
+        else
+          Result := string(PAnsiChar(@(Symbol^).Name[0])) + ' + 0x' + IntToHex(Displacement, 4);
+      end
       else
       begin
         // с первой попытки может и не получиться
         SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)), nil, BaseAddress, 0);
         if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
-          Result := string(PAnsiChar(@(Symbol^).Name[0])) + ' + 0x' + IntToHex(Displacement, 4);
+          if Displacement = 0 then
+            Result := string(PAnsiChar(@(Symbol^).Name[0]))
+          else
+            Result := string(PAnsiChar(@(Symbol^).Name[0])) + ' + 0x' + IntToHex(Displacement, 4);
       end;
     finally
       SymUnloadModule(FProcess, BaseAddress);

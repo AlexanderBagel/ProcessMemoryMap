@@ -44,9 +44,9 @@ uses
   function DumpProcessParameters64(Process: THandle; Address: Pointer): string;
   function Disassembly(Process: THandle; Address: Pointer;
     Is64: Boolean; nSize: Integer = 0): string;
-  function DisassemblyFromBuff(RawBuff: TMemoryDump; Symbols: TSymbols;
-    Address, AllocationBase: Pointer; const ModuleName: string;
-    Is64: Boolean; nSize: NativeUInt): string;
+  function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
+    Symbols: TSymbols; Address, AllocationBase: Pointer;
+    const ModuleName: string; Is64: Boolean; nSize: NativeUInt): string;
 
 const
   EmptyHeader =
@@ -2058,19 +2058,20 @@ begin
     Path := NormalizePath(string(OwnerName));
     Symbols := TSymbols.Create(Process);
     try
-      Result := DisassemblyFromBuff(Buff, Symbols,
+      Result := DisassemblyFromBuff(Process, Buff, Symbols,
         Address, MBI.AllocationBase, Path, Is64, Size);
     finally
       Symbols.Free;
     end;
   end
   else
-    Result := DisassemblyFromBuff(Buff, nil, nil, Address, '', Is64, Size);
+    Result :=
+      DisassemblyFromBuff(Process, Buff, nil, nil, Address, '', Is64, Size);
 end;
 
-function DisassemblyFromBuff(RawBuff: TMemoryDump; Symbols: TSymbols;
-  Address, AllocationBase: Pointer; const ModuleName: string; Is64: Boolean;
-  nSize: NativeUInt): string;
+function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
+  Symbols: TSymbols; Address, AllocationBase: Pointer;
+  const ModuleName: string; Is64: Boolean; nSize: NativeUInt): string;
 
   function HexUpperCase(const Value: string): string;
   begin
@@ -2080,6 +2081,7 @@ function DisassemblyFromBuff(RawBuff: TMemoryDump; Symbols: TSymbols;
 
 type
   TInsructionType = (itOther, itNop, itInt, itRet, itCall);
+  TCallType = (ctUnknown, ctAddress, ctRipOffset, ctPointer4, ctPointer8);
 
   function GetInstructionType(const Value: string): TInsructionType;
   begin
@@ -2095,6 +2097,106 @@ type
       Result := itCall;
   end;
 
+  function GetCallType(const Value: string; out Address: Int64): TCallType;
+  var
+    Decrement: Boolean;
+    Tmp: string;
+  begin
+    Result := ctUnknown;
+    if HexValueToInt64(Value, Address) then Exit(ctAddress);
+
+    Tmp := Value;
+    if Length(Tmp) > 14 then // QWORD [RIP+0x0]
+    begin
+      if Copy(Tmp, 1, 10) = 'QWORD [RIP' then
+      begin
+        Delete(Tmp, 1, 10);
+        Decrement := Tmp[1] = '-';
+        Tmp[1] := ' ';
+        Tmp[Length(Tmp)] := ' ';
+        if HexValueToInt64(Tmp, Address) then
+        begin
+          if Decrement then
+            Address := -Address;
+          Exit(ctRipOffset);
+        end;
+      end;
+    end;
+
+    Tmp := Value;
+    if Length(Tmp) > 10 then // QWORD [0x0]
+    begin
+      if Copy(Tmp, 1, 7) = 'QWORD [' then
+      begin
+        Delete(Tmp, 1, 7);
+        Tmp[Length(Tmp)] := ' ';
+        if HexValueToInt64(Tmp, Address) then Exit(ctPointer8);
+      end;
+    end;
+
+    Tmp := Value;
+    if Length(Tmp) > 10 then // DWORD [0x0]
+    begin
+      if Copy(Tmp, 1, 7) = 'DWORD [' then
+      begin
+        Delete(Tmp, 1, 7);
+        Tmp[Length(Tmp)] := ' ';
+        if HexValueToInt64(Tmp, Address) then Exit(ctPointer4);
+      end;
+    end;
+
+    Tmp := Value;
+    // Теоретически такого дизасм выдавать не должен, но подстрахуемся
+    if Length(Tmp) > 4 then // [0x0]
+    begin
+      if Tmp[1] = '[' then
+      begin
+        Tmp[1] := ' ';
+        Tmp[Length(Tmp)] := ' ';
+        if HexValueToInt64(Tmp, Address) then
+          if MemoryMapCore.Process64 then
+            Result := ctPointer8
+          else
+            Result := ctPointer4;
+      end;
+    end;
+  end;
+
+  function GetCallHint(CallAddr: Int64): string;
+  var
+    MBI: TMemoryBasicInformation;
+    dwLength: Cardinal;
+    OwnerName: array [0..MAX_PATH - 1] of Char;
+    Path: string;
+  begin
+    Result := '';
+    if CallAddr <> 0 then
+    begin
+      Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(CallAddr);
+      if Result <> '' then
+        Result := ' // ' + Result;
+
+      if Result = '' then
+      begin
+        if Symbols <> nil then
+        begin
+          dwLength := SizeOf(TMemoryBasicInformation);
+          if VirtualQueryEx(Process,
+             Pointer(CallAddr), MBI, dwLength) <> dwLength then Exit;
+          if not CheckPEImage(Process, MBI.AllocationBase) then Exit;
+          if GetMappedFileName(Process, MBI.AllocationBase,
+            @OwnerName[0], MAX_PATH) = 0 then Exit;
+          Path := NormalizePath(string(OwnerName));
+          Result := Symbols.GetDescriptionAtAddr2(
+            ULONG_PTR(CallAddr), ULONG_PTR(MBI.AllocationBase), Path);
+          if Result <> '' then
+            Result := ' // ' + Result;
+        end;
+      end;
+
+    end;
+  end;
+
 var
   Cursor: NativeUInt;
   I: Integer;
@@ -2103,7 +2205,10 @@ var
   DecodeType: _DecodeType;
   Line, mnemonic, HintStr: string;
   LastInsruction, CurrentInstruction: TInsructionType;
+  CallType: TCallType;
   CallAddr: Int64;
+  OffsetAddr: Uint64;
+  Size, RegionSize: NativeUInt;
 begin
   Result := '';
   Cursor := 0;
@@ -2139,22 +2244,30 @@ begin
                 AddString(Result, '');
             itCall:
             begin
-              if HexValueToInt64(GET_WString(DecodedInst[I].operands), CallAddr) then
-                if CallAddr <> 0 then
+              CallType :=
+                GetCallType(GET_WString(DecodedInst[I].operands), CallAddr);
+              case CallType of
+                ctAddress: HintStr := GetCallHint(CallAddr);
+                ctRipOffset:
                 begin
-                  HintStr := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(CallAddr);
-                  if HintStr <> '' then
-                    HintStr := ' // ' + HintStr
-                  else
-                  begin
-                    if Symbols <> nil then
-                    begin
-                      HintStr := Symbols.GetDescriptionAtAddr(CallAddr);
-                      if HintStr <> '' then
-                        HintStr := ' // ' + HintStr;
-                    end;
-                  end;
+                  OffsetAddr :=
+                    DecodedInst[I].offset + DecodedInst[I].size + CallAddr;
+                  Size := 8;
+                  if ReadProcessData(Process, Pointer(OffsetAddr), @CallAddr,
+                    Size, RegionSize, rcReadAllwais) then
+                    HintStr := GetCallHint(CallAddr);
                 end;
+                ctPointer4, ctPointer8:
+                begin
+                  if CallType = ctPointer4 then
+                    Size := 4
+                  else
+                    Size := 8;
+                  if ReadProcessData(Process, Pointer(CallAddr), @CallAddr,
+                    Size, RegionSize, rcReadAllwais) then
+                    HintStr := GetCallHint(CallAddr);
+                end;
+              end;
             end;
           end;
           LastInsruction := CurrentInstruction;

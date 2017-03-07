@@ -43,7 +43,6 @@ object dlgExportList: TdlgExportList
     OnDblClick = lvExportsDblClick
     OnGetText = lvExportsGetText
     OnHeaderClick = lvExportsHeaderClick
-    ExplicitWidth = 635
     Columns = <
       item
         Position = 0
@@ -57,7 +56,7 @@ object dlgExportList: TdlgExportList
       end
       item
         Position = 2
-        Width = 123
+        Width = 119
         WideText = 'Module'
       end
       item

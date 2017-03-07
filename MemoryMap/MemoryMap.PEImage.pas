@@ -6,7 +6,7 @@
 //  * Purpose   : Класс собирает данные по секциям и директориям PE файла
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0.4
+//  * Version   : 1.0.5
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -242,7 +242,8 @@ begin
       FEntryPoints.Add(Pointer(NativeUInt(ImageBase) +
         FImageInfo.FileHeader.OptionalHeader.AddressOfEntryPoint));
     EnumSections;
-    EnumDirectoryes;
+    if FProcessHandle <> 0 then
+      EnumDirectoryes;
   finally
     UnMapAndLoad(@FImageInfo);
   end;
