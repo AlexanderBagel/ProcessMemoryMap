@@ -69,6 +69,9 @@ ProcessMemoryMap
 При наличии информации известные вызовы в дизассемблере коментируются.
 ![7.1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/10.png?raw=true "CALL hint")
 
+Включая вызовы через таблицу импорта.
+![7.2](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/11.png?raw=true "CALL import hint")
+
 Ну и вот так выглядит список изменений в выделенных блоках с последней проверки (F5)
 
 ![8](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/8.png?raw=true "Compare result")
