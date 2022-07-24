@@ -36,10 +36,6 @@ object dlgKnownData: TdlgKnownData
     OnGetImageIndex = tvDataGetImageIndex
     Touch.InteractiveGestures = [igPan, igPressAndTap]
     Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
-    ExplicitLeft = 144
-    ExplicitTop = 224
-    ExplicitWidth = 200
-    ExplicitHeight = 100
     Columns = <>
   end
   object il16: TImageList

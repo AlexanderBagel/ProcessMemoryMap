@@ -6,7 +6,7 @@
 //  * Purpose   : Класс собирает данные по секциям и директориям PE файла
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.6
+//  * Version   : 1.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -40,7 +40,7 @@ type
   TDirectory = record
     Flag: TDirectoryFlag;
     Caption: ShortString;
-    Address: NativeUInt;
+    Address: ULONG_PTR;
     Size: NativeUInt;
   end;
 
@@ -66,12 +66,12 @@ type
     FTLSCallbacks: TList<TTLSCallback>;
   protected
     procedure EnumSections;
-    procedure EnumDirectoryes;
+    procedure EnumDirectories(LoadAsDataFile: Boolean);
   public
     constructor Create(AProcessHandle: THandle);
     destructor Destroy; override;
     procedure GetInfoFromImage(const FileName: string; ImageBase: Pointer;
-      FirstSectionSize: NativeUInt);
+      FirstSectionSize: NativeUInt; LoadAsDataFile: Boolean = False);
     function GetSectionArAddr(Value: Pointer): TSection;
     property Sections: TList<TSection> read FSections;
     property Directoryes: TList<TDirectoryArray> read FDirectoryes;
@@ -101,7 +101,7 @@ begin
   inherited;
 end;
 
-procedure TPEImage.EnumDirectoryes;
+procedure TPEImage.EnumDirectories(LoadAsDataFile: Boolean);
 type
   PLSTable32 = ^TLSTable32;
   TLSTable32 = record
@@ -186,6 +186,15 @@ begin
           pTLSCursor := Pointer(PLSTable64(@pTLSTable[0])^.AddressOfCallBacks)
         else
           pTLSCursor := Pointer(PLSTable32(@pTLSTable[0])^.AddressOfCallBacks);
+
+        // Проверка, а вдруг мы читаем не из модуля
+        if (ULONG_PTR(pTLSCursor) < ULONG_PTR(FImageBase)) or
+          (ULONG_PTR(pTLSCursor) > (ULONG_PTR(FImageBase) + FImageInfo.SizeOfImage)) then
+          Continue;
+
+        // вторая првоерка, а мы вообще иинициализированы?
+        if LoadAsDataFile then Exit;
+
         if not ReadProcessMemory(FProcessHandle,
           pTLSCursor, @TLSCallbackTable[0], Length(TLSCallbackTable),
           NumberOfBytesWritten) then Continue;
@@ -200,6 +209,8 @@ begin
           CallbackData.Address := pCallBack;
           TLSCallbacks.Add(CallbackData);
           Inc(A);
+          if A > 31 then // 32 калбэка? Серьезно?!!!
+            Break;
           pCallBack := GetNextCallback;
         end;
       end;
@@ -228,7 +239,7 @@ begin
 end;
 
 procedure TPEImage.GetInfoFromImage(const FileName: string; ImageBase: Pointer;
-  FirstSectionSize: NativeUInt);
+  FirstSectionSize: NativeUInt; LoadAsDataFile: Boolean);
 var
   Section: TSection;
 begin
@@ -247,7 +258,7 @@ begin
         FImageInfo.FileHeader.OptionalHeader.AddressOfEntryPoint));
     EnumSections;
     if FProcessHandle <> 0 then
-      EnumDirectoryes;
+      EnumDirectories(LoadAsDataFile);
   finally
     UnMapAndLoad(@FImageInfo);
   end;

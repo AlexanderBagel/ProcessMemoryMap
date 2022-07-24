@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.5
+//  * Version   : 1.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -377,8 +377,9 @@ begin
             RegionData.SetRegionType(rtExecutableImage64)
           else
             RegionData.SetRegionType(rtExecutableImage);
-          // до кучи получаем информаию по самому PE файлу
-          PEImage.GetInfoFromImage(Module.Path, MBI.BaseAddress, MBI.RegionSize);
+          // до кучи получаем информацию по самому PE файлу
+          PEImage.GetInfoFromImage(Module.Path, MBI.BaseAddress,
+            MBI.RegionSize, MBI.AllocationProtect = PAGE_READONLY);
           // и пробуем подтянуть его отладочную инфомацию, если есть MAP файл
           if FileExists(ChangeFileExt(Module.Path, '.map')) then
             DebugMapData.Init(ULONG_PTR(MBI.BaseAddress), Module.Path);
@@ -957,7 +958,7 @@ begin
     RegionData := GetRegionAtAddr(pTLSCallback.Address);
     TLSCallback.Flag := dfTlsCallback;
     TLSCallback.Caption := pTLSCallback.Caption;
-    TLSCallback.Address := NativeInt(pTLSCallback.Address);
+    TLSCallback.Address := ULONG_PTR(pTLSCallback.Address);
     TLSCallback.Size := 0;
     RegionData.Directory.Add(TLSCallback);
   end;

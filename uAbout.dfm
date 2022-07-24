@@ -4683,7 +4683,7 @@ object dlgAbout: TdlgAbout
     Top = 8
     Width = 183
     Height = 13
-    Caption = 'Process Memory Map 1.1 (revision 14)'
+    Caption = 'Process Memory Map 1.1 (revision 15)'
   end
   object Label2: TLabel
     Left = 56

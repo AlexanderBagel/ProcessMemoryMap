@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка всех известных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -241,7 +241,10 @@ begin
       for EntryPoint in Region.Directory do
         if EntryPoint.Flag <> dfDirectory then
         begin
-          Node := GetNodeByCaption(GetImagesNode, Region.Parent.Details);
+          if Region.Parent = nil then
+            Node := GetNodeByCaption(GetImagesNode, 'Invalid Data!!!')
+          else
+            Node := GetNodeByCaption(GetImagesNode, Region.Parent.Details);
 
           with FNodeDataList.List[PInteger(Node.GetData)^] do
           begin
