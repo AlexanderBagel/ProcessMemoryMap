@@ -66,6 +66,7 @@ object dlgComparator: TdlgComparator
     ReadOnly = True
     ScrollBars = ssBoth
     TabOrder = 1
+    Zoom = 100
   end
   object SaveDialog: TSaveDialog
     DefaultExt = 'rtf'

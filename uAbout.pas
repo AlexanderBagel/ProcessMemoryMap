@@ -1,12 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uAbout.pas
-//  * Purpose   : Диалог "О программе"
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0
+//  * Purpose   : Р”РёР°Р»РѕРі "Рћ РїСЂРѕРіСЂР°РјРјРµ"
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.0.14
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,9 +35,10 @@ type
     Button1: TButton;
     Label3: TLabel;
     LinkLabel4: TLinkLabel;
-    LinkLabel5: TLinkLabel;
+    lblDistorm: TLinkLabel;
     procedure LinkLabel1LinkClick(Sender: TObject; const Link: string;
       LinkType: TSysLinkType);
+    procedure FormCreate(Sender: TObject);
   private
     { Private declarations }
   public
@@ -49,7 +50,20 @@ var
 
 implementation
 
+uses
+  distorm;
+
 {$R *.dfm}
+
+procedure TdlgAbout.FormCreate(Sender: TObject);
+begin
+  var dver := get_distorm_version;
+  lblDistorm.Caption :=
+    Format(
+    'Disasm engine: <a href="http://ragestorm.net/distorm/">' +
+    'diStorm version %d.%d.%d</a>',
+    [dver shr 16, Byte(dver shr 8), Byte(dver)]);
+end;
 
 procedure TdlgAbout.LinkLabel1LinkClick(Sender: TObject; const Link: string;
   LinkType: TSysLinkType);

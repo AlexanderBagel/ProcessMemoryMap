@@ -1,13 +1,13 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uDumpDisplayUtils.pas
-//  * Purpose   : Вспомогательный модуль для отображения содержимого
-//  *           : памяти в свойствах региона и размапленных структур
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.02
+//  * Purpose   : Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Р№ РјРѕРґСѓР»СЊ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ СЃРѕРґРµСЂР¶РёРјРѕРіРѕ
+//  *           : РїР°РјСЏС‚Рё РІ СЃРІРѕР№СЃС‚РІР°С… СЂРµРіРёРѕРЅР° Рё СЂР°Р·РјР°РїР»РµРЅРЅС‹С… СЃС‚СЂСѓРєС‚СѓСЂ
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.04
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -25,12 +25,14 @@ uses
   System.SysUtils,
   System.DateUtils,
   System.StrUtils,
+  Generics.Collections,
   PsAPI,
   uUtils,
   MemoryMap.Core,
   MemoryMap.Symbols,
   MemoryMap.Utils,
-  distorm;
+  distorm,
+  mnemonics;
 
   function DumpMemory(Process: THandle; Address: Pointer; nSize: Integer = 0): string;
   function DumpMemoryFromBuff(RawBuff: TMemoryDump; Address: Pointer; nSize: Integer): string;
@@ -42,11 +44,16 @@ uses
   function DumpKUserSharedData(Process: THandle; Address: Pointer): string;
   function DumpProcessParameters32(Process: THandle; Address: Pointer): string;
   function DumpProcessParameters64(Process: THandle; Address: Pointer): string;
+
+type
+  TKnownHint = TDictionary<string, ULONG_PTR>;
+
   function Disassembly(Process: THandle; Address: Pointer;
-    Is64: Boolean; nSize: Integer = 0): string;
+    Is64: Boolean; KnownHint: TKnownHint; nSize: Integer = 0): string;
   function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
     Symbols: TSymbols; Address, AllocationBase: Pointer;
-    const ModuleName: string; Is64: Boolean; nSize: NativeUInt): string;
+    const ModuleName: string; Is64: Boolean; nSize: NativeUInt;
+    KnownHint: TKnownHint): string;
 
 const
   EmptyHeader =
@@ -54,7 +61,7 @@ const
 
 implementation
 
-// Добавить гиперссылки
+// Р”РѕР±Р°РІРёС‚СЊ РіРёРїРµСЂСЃСЃС‹Р»РєРё
 // {\field{\*\fldinst HYPERLINK "http://www.microsoft.com"}{\fldrslt Microsoft}}
 
 const
@@ -100,6 +107,22 @@ type
     dtUnicodeString64);
 
   Pointer32 = DWORD;
+
+function GET_WString(w: _WString): string;
+begin
+  Result := string(PAnsiChar(@w.p[0]));
+end;
+
+function DecodeResultToStr(Value: TDecodeResult): string;
+begin
+  case Value of
+    DECRES_SUCCESS: Result := 'DECRES_SUCCESS';
+    DECRES_MEMORYERR: Result := 'DECRES_MEMORYERR';
+    DECRES_INPUTERR: Result := 'DECRES_INPUTERR';
+  else
+    Result := 'DECRES_NONE';
+  end;
+end;
 
 function IsLonghornOrHigher: Boolean;
 begin
@@ -1071,7 +1094,7 @@ begin
     DumpSection;
   end;
 
-  // Остальные данные
+  // РћСЃС‚Р°Р»СЊРЅС‹Рµ РґР°РЅРЅС‹Рµ
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
@@ -1696,7 +1719,7 @@ begin
   end;
 end;
 
-function MitigationPoliciesToStr(Value: Byte): string;
+function MitigationPoliciesToStr(Value: DWORD): string;
 
   procedure AddResult(const Value: string);
   begin
@@ -1726,7 +1749,7 @@ begin
   if Value and $30 <> 0 then AddResult('CurDirDevicesSkippedForDlls');
 end;
 
-function DbgFlagToStr(Value: Byte): string;
+function DbgFlagToStr(Value: DWORD): string;
 
   procedure AddResult(const Value: string);
   begin
@@ -1736,34 +1759,26 @@ function DbgFlagToStr(Value: Byte): string;
       Result := Result + '|' + Value;
   end;
 
+const
+  FlagName: array [0..10] of string = (
+    'DbgErrorPortPresent',
+    'DbgElevationEnabled',
+    'DbgVirtEnabled',
+    'DbgInstallerDetectEnabled',
+    'DbgLkgEnabled',
+    'DbgDynProcessorEnabled',
+    'DbgConsoleBrokerEnabled',
+    'DbgSecureBootEnabled',
+    'DbgMultiSessionSku',
+    'DbgMultiUsersInSessionSku',
+    'DbgStateSeparationEnabled'
+  );
+
 begin
   Result := '';
-  (*
-    union
-    {
-        ULONG SharedDataFlags;
-        struct
-        {
-            ULONG DbgErrorPortPresent : 1;
-            ULONG DbgElevationEnabled : 1;
-            ULONG DbgVirtEnabled : 1;
-            ULONG DbgInstallerDetectEnabled : 1;
-            ULONG DbgLkgEnabled : 1;
-            ULONG DbgDynProcessorEnabled : 1;
-            ULONG DbgConsoleBrokerEnabled : 1;
-            ULONG DbgSecureBootEnabled : 1;
-            ULONG SpareBits : 24;
-        };
-    };
-  *)
-  if Value and 1 <> 0 then AddResult('DbgErrorPortPresent');
-  if Value and 2 <> 0 then AddResult('DbgElevationEnabled');
-  if Value and 4 <> 0 then AddResult('DbgVirtEnabled');
-  if Value and 8 <> 0 then AddResult('DbgInstallerDetectEnabled');
-  if Value and 16 <> 0 then AddResult('DbgLkgEnabled');
-  if Value and 32 <> 0 then AddResult('DbgDynProcessorEnabled');
-  if Value and 64 <> 0 then AddResult('DbgConsoleBrokerEnabled');
-  if Value and 128 <> 0 then AddResult('DbgSecureBootEnabled');
+  for var I := 0 to 10 do
+    if Value and (1 shl I) <> 0 then
+      AddResult(FlagName[I]);
 end;
 
 function DumpKUserSharedData(Process: THandle; Address: Pointer): string;
@@ -1772,6 +1787,7 @@ var
   Size, RegionSize, Cursor: NativeUInt;
   ValueBuff: DWORD;
 begin
+  // validated on Windows 11
   Result := '';
   CurerntAddr := Address;
   Size := 4096;
@@ -1798,7 +1814,8 @@ begin
   AddString(Result, 'AppCompatFlag', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'RNGSeedVersion', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'GlobalValidationRunlevel', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'Reserved2', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'TimeZoneBiasStamp', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'NtBuildNumber', @Buff[Cursor], dtDword, Cursor);
   ValueBuff := PDWORD(@Buff[Cursor])^;
   AddString(Result, 'NtProductType', @Buff[Cursor], dtDword, Cursor,
     NtProductTypeToStr(ValueBuff));
@@ -1814,21 +1831,22 @@ begin
   ValueBuff := PDWORD(@Buff[Cursor])^;
   AddString(Result, 'AlternativeArchitecture', @Buff[Cursor], dtDword,
     Cursor, AlternativeArchitectureTypeToStr(ValueBuff));
-  AddString(Result, 'AltArchitecturePad', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'BootId', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'SystemExpirationDate', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'SuiteMask', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'KdDebuggerEnabled', @Buff[Cursor], dtByte, Cursor);
   ValueBuff := PByte(@Buff[Cursor])^;
   AddString(Result, 'MitigationPolicies', @Buff[Cursor], dtByte, Cursor,
     MitigationPoliciesToStr(ValueBuff));
-  AddString(Result, 'Reserved6', @Buff[Cursor], dtWord, Cursor);
+  AddString(Result, 'CyclesPerYield', @Buff[Cursor], dtWord, Cursor);
   AddString(Result, 'ActiveConsoleId', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'DismountCount', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ComPlusPackage', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'LastSystemRITEventTickCount', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'NumberOfPhysicalPages', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'SafeBootMode', @Buff[Cursor], dtByte, Cursor);
-  AddString(Result, 'Reserved12', Address, dtBuff, 3, Cursor);
+  AddString(Result, 'VirtualizationFlags', @Buff[Cursor], dtByte, Cursor);
+  AddString(Result, 'Reserved12', @Buff[Cursor], dtWord, Cursor);
   ValueBuff := PDWORD(@Buff[Cursor])^;
   AddString(Result, 'SharedDataFlags', @Buff[Cursor], dtDword, Cursor,
     DbgFlagToStr(ValueBuff));
@@ -1836,30 +1854,44 @@ begin
   AddString(Result, 'TestRetInstruction', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'QpcFrequency', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, EmptyHeader);
-  AddString(Result, 'SystemCallPad', @Buff[Cursor], dtBuff, 24, Cursor);
+  AddString(Result, 'SystemCall', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'Reserved2', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'SystemCallPad', @Buff[Cursor], dtBuff, 16, Cursor);
   AddString(Result, EmptyHeader);
   DumpKSystemTime(Result, 'TickCount', @Buff[Cursor], Cursor);
   AddString(Result, 'TickCountPad', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'Cookie', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'CookiePad', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ConsoleSessionForegroundProcessId', @Buff[Cursor], dtInt64, Cursor);
+
   AddString(Result, EmptyHeader);
-  AddString(Result, 'Wow64SharedInformation', @Buff[Cursor], dtBuff, 64, Cursor);
+  //AddString(Result, 'Wow64SharedInformation', @Buff[Cursor], dtBuff, 64, Cursor);
+  AddString(Result, 'TimeUpdateLock', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'BaselineSystemTimeQpc', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'BaselineInterruptTimeQpc', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'QpcSystemTimeIncrement', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'QpcInterruptTimeIncrement', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'QpcSystemTimeIncrementShift', @Buff[Cursor], dtByte, Cursor);
+  AddString(Result, 'QpcInterruptTimeIncrementShift', @Buff[Cursor], dtByte, Cursor);
+  AddString(Result, 'UnparkedProcessorCount', @Buff[Cursor], dtWord, Cursor);
+  AddString(Result, 'EnclaveFeatureMask', @Buff[Cursor], dtBuff, 16, Cursor);
+  AddString(Result, 'TelemetryCoverageRound', @Buff[Cursor], dtDword, Cursor);
+
   AddString(Result, EmptyHeader);
   AddString(Result, 'UserModeGlobalLogger', @Buff[Cursor], dtBuff, 32, Cursor);
   AddString(Result, EmptyHeader);
   AddString(Result, 'ImageFileExecutionOptions', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'LangGenerationCount', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'Reserved5', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'Reserved4', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'InterruptTimeBias', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'TscQpcBias', @Buff[Cursor], dtInt64, Cursor);
+  AddString(Result, 'QpcBias', @Buff[Cursor], dtInt64, Cursor);
   AddString(Result, 'ActiveProcessorCount', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'ActiveGroupCount', @Buff[Cursor], dtWord, Cursor);
-  AddString(Result, 'Reserved4', @Buff[Cursor], dtWord, Cursor);
-  AddString(Result, 'AitSamplingValue', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'AppCompatFlag', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'SystemDllNativeRelocation', @Buff[Cursor], dtInt64, Cursor);
-  AddString(Result, 'SystemDllWowRelocation', @Buff[Cursor], dtDword, Cursor);
+//  AddString(Result, 'Reserved9', @Buff[Cursor], dtWord, Cursor);
+//  AddString(Result, 'AitSamplingValue', @Buff[Cursor], dtDword, Cursor);
+//  AddString(Result, 'AppCompatFlag', @Buff[Cursor], dtDword, Cursor);
+//  AddString(Result, 'SystemDllNativeRelocation', @Buff[Cursor], dtInt64, Cursor);
+//  AddString(Result, 'SystemDllWowRelocation', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, MemoryDumpHeader);
   AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
 end;
@@ -2029,7 +2061,7 @@ begin
 end;
 
 function Disassembly(Process: THandle; Address: Pointer;
-  Is64: Boolean; nSize: Integer): string;
+  Is64: Boolean; KnownHint: TKnownHint; nSize: Integer): string;
 var
   Buff: TMemoryDump;
   Size, RegionSize: NativeUInt;
@@ -2056,108 +2088,74 @@ begin
     @OwnerName[0], MAX_PATH) > 0 then
   begin
     Path := NormalizePath(string(OwnerName));
+    CheckPEImage(Process, MBI.AllocationBase, Is64);
     Symbols := TSymbols.Create(Process);
     try
       Result := DisassemblyFromBuff(Process, Buff, Symbols,
-        Address, MBI.AllocationBase, Path, Is64, Size);
+        Address, MBI.AllocationBase, Path, Is64, Size, KnownHint);
     finally
       Symbols.Free;
     end;
   end
   else
     Result :=
-      DisassemblyFromBuff(Process, Buff, nil, nil, Address, '', Is64, Size);
+      DisassemblyFromBuff(Process, Buff, nil, nil,
+        Address, '', Is64, Size, KnownHint);
 end;
 
 function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
   Symbols: TSymbols; Address, AllocationBase: Pointer;
-  const ModuleName: string; Is64: Boolean; nSize: NativeUInt): string;
+  const ModuleName: string; Is64: Boolean; nSize: NativeUInt;
+  KnownHint: TKnownHint): string;
 
   function HexUpperCase(const Value: string): string;
   begin
     Result := UpperCase(Value);
-    Result := StringReplace(Result, '0X', '0x', []);
+    Result := StringReplace(Result, '0X', '0x', [rfReplaceAll]);
   end;
 
 type
-  TInsructionType = (itOther, itNop, itInt, itRet, itCall);
+  TInsructionType = (itOther, itNop, itInt, itRet, itCall, itJmp);
   TCallType = (ctUnknown, ctAddress, ctRipOffset, ctPointer4, ctPointer8);
 
-  function GetInstructionType(const Value: string): TInsructionType;
+var
+  AddrMask: UInt64;
+
+  function GetInstructionType(Value: TDInst): TInsructionType;
   begin
     Result := itOther;
-    if Length(Value) < 3 then Exit;
-    if (Value[1] = 'N') and (Value[2] = 'O') and (Value[3] = 'P') then
-      Result := itNop;
-    if (Value[1] = 'I') and (Value[2] = 'N') and (Value[3] = 'T') then
-      Result := itInt;
-    if (Value = 'RET') or (Value = 'IRET') or (Value = 'RETF') then
-      Result := itRet;
-    if Value = 'CALL' then
-      Result := itCall;
+    case _InstructionType(Value.opcode) of
+      I_NOP, I_FNOP: Result := itNop;
+      I_INT, I_INT1, I_INT3, I_INTO: Result := itInt;
+      I_RET, I_RETF, I_IRET: Result := itRet;
+      I_CALL, I_CALL_FAR: Result := itCall;
+      I_JA, I_JAE, I_JB, I_JBE, I_JCXZ, I_JECXZ, I_JG, I_JGE,
+      I_JL, I_JLE, I_JMP, I_JMP_FAR, I_JNO, I_JNP, I_JNS, I_JNZ,
+      I_JO, I_JP, I_JRCXZ, I_JS, I_JZ: Result := itJmp;
+    end;
   end;
 
-  function GetCallType(const Value: string; out Address: Int64): TCallType;
-  var
-    Decrement: Boolean;
-    Tmp: string;
+  function GetCallType(const Value: string; Inst: TDInst; out Address: Int64): TCallType;
   begin
     Result := ctUnknown;
-    if HexValueToInt64(Value, Address) then Exit(ctAddress);
-
-    Tmp := Value;
-    if Length(Tmp) > 14 then // QWORD [RIP+0x0]
-    begin
-      if Copy(Tmp, 1, 10) = 'QWORD [RIP' then
+    case _OperandType(Inst.ops[0]._type) of
+      O_PC:
       begin
-        Delete(Tmp, 1, 10);
-        Decrement := Tmp[1] = '-';
-        Tmp[1] := ' ';
-        Tmp[Length(Tmp)] := ' ';
-        if HexValueToInt64(Tmp, Address) then
-        begin
-          if Decrement then
-            Address := -Address;
-          Exit(ctRipOffset);
-        end;
+        {$OVERFLOWCHECKS OFF}
+        Address := Int64((Inst.addr + Inst.size + UInt64(Inst.imm.sqword)) and AddrMask);
+        {$OVERFLOWCHECKS ON}
+        Exit(ctAddress);
       end;
-    end;
-
-    Tmp := Value;
-    if Length(Tmp) > 10 then // QWORD [0x0]
-    begin
-      if Copy(Tmp, 1, 7) = 'QWORD [' then
+      O_DISP, O_SMEM:
       begin
-        Delete(Tmp, 1, 7);
-        Tmp[Length(Tmp)] := ' ';
-        if HexValueToInt64(Tmp, Address) then Exit(ctPointer8);
-      end;
-    end;
-
-    Tmp := Value;
-    if Length(Tmp) > 10 then // DWORD [0x0]
-    begin
-      if Copy(Tmp, 1, 7) = 'DWORD [' then
-      begin
-        Delete(Tmp, 1, 7);
-        Tmp[Length(Tmp)] := ' ';
-        if HexValueToInt64(Tmp, Address) then Exit(ctPointer4);
-      end;
-    end;
-
-    Tmp := Value;
-    // Теоретически такого дизасм выдавать не должен, но подстрахуемся
-    if Length(Tmp) > 4 then // [0x0]
-    begin
-      if Tmp[1] = '[' then
-      begin
-        Tmp[1] := ' ';
-        Tmp[Length(Tmp)] := ' ';
-        if HexValueToInt64(Tmp, Address) then
-          if MemoryMapCore.Process64 then
-            Result := ctPointer8
-          else
-            Result := ctPointer4;
+        Address := Int64(Inst.disp and AddrMask);
+        if Inst.flags and FLAG_RIP_RELATIVE <> 0 then
+          Exit(ctRipOffset)
+        else
+          case Inst.dispSize of
+            64: Exit(ctPointer8);
+            32: Exit(ctPointer4);
+          end;
       end;
     end;
   end;
@@ -2169,14 +2167,11 @@ type
     OwnerName: array [0..MAX_PATH - 1] of Char;
     Path: string;
   begin
-    Result := '';
+    Result := EmptyStr;
     if CallAddr <> 0 then
     begin
-      Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(CallAddr);
-      if Result <> '' then
-        Result := ' // ' + Result;
-
-      if Result = '' then
+      Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(CallAddr));
+      if Result = EmptyStr then
       begin
         if Symbols <> nil then
         begin
@@ -2189,20 +2184,24 @@ type
           Path := NormalizePath(string(OwnerName));
           Result := Symbols.GetDescriptionAtAddr2(
             ULONG_PTR(CallAddr), ULONG_PTR(MBI.AllocationBase), Path);
-          if Result <> '' then
-            Result := ' // ' + Result;
         end;
       end;
 
+      if (Result <> EmptyStr) and Assigned(KnownHint) then
+        KnownHint.AddOrSetValue(Result, CallAddr);
+
+      if Result <> EmptyStr then
+        Result := ' // ' + Result;
     end;
   end;
 
 var
   Cursor: NativeUInt;
   I: Integer;
-  DecodedInst: array [0..14] of TDecodedInst;
+  ci: TCodeInfo;
+  DecodedInst: array [0..14] of TDInst;
   usedInstructionsCount: UInt32;
-  DecodeType: _DecodeType;
+  decodedInstruction: TDecodedInst;
   Line, mnemonic, HintStr: string;
   LastInsruction, CurrentInstruction: TInsructionType;
   CallType: TCallType;
@@ -2214,94 +2213,125 @@ begin
   Cursor := 0;
   LastInsruction := itOther;
   AddString(Result, DisasmDumpHeader);
-  if Is64 then
-    DecodeType := Decode64Bits
-  else
-    DecodeType := Decode32Bits;
   if Symbols <> nil then
     Symbols.Init(ULONG_PTR(AllocationBase), ModuleName);
   try
     while Cursor < nSize do
     begin
-      if distorm_decode(UInt64(Address) + Cursor, @RawBuff[Cursor], nSize - Cursor,
-        DecodeType, @DecodedInst[0], 15, @usedInstructionsCount) <> DECRES_NONE then
+      ZeroMemory(@ci, SizeOf(TCodeInfo));
+      ci.codeOffset := UInt64(Address) + Cursor;
+      if Is64 then
       begin
-        for I := 0 to usedInstructionsCount - 1 do
-        begin
+        AddrMask := UInt64(-1);
+        ci.dt := Decode64Bits;
+      end
+      else
+      begin
+        AddrMask := UInt32(-1);
+        ci.dt := Decode32Bits;
+      end;
+      ci.addrMask := AddrMask;
+      ci.code := @RawBuff[Cursor];
+      ci.features := DF_USE_ADDR_MASK;
+      ci.codeLen := nSize - Cursor;
 
-          mnemonic := HexUpperCase(GET_WString(DecodedInst[I].mnemonic));
-          CurrentInstruction := GetInstructionType(mnemonic);
-          HintStr := '';
-          case CurrentInstruction of
-            itOther:
-              if LastInsruction in [itNop, itInt, itRet] then
-                AddString(Result, '');
-            itNop:
-               if LastInsruction in [itOther, itInt, itRet] then
-                AddString(Result, '');
-            itInt:
-               if LastInsruction in [itOther, itNop, itRet] then
-                AddString(Result, '');
-            itCall:
-            begin
-              CallType :=
-                GetCallType(GET_WString(DecodedInst[I].operands), CallAddr);
-              case CallType of
-                ctAddress: HintStr := GetCallHint(CallAddr);
-                ctRipOffset:
-                begin
-                  OffsetAddr :=
-                    DecodedInst[I].offset + DecodedInst[I].size + CallAddr;
+      if distorm_decompose(
+        @ci, @DecodedInst[0], 15, @usedInstructionsCount) = DECRES_INPUTERR then
+      begin
+        AddString(Result, 'Disassembly input error. Halting!', EmptyStr);
+        Break;
+      end;
+
+      for I := 0 to usedInstructionsCount - 1 do
+      begin
+
+        distorm_format(@ci, @DecodedInst[I], @decodedInstruction);
+        mnemonic := HexUpperCase(GET_WString(decodedInstruction.mnemonic));
+        CurrentInstruction := GetInstructionType(DecodedInst[I]);
+        HintStr := '';
+        CallType := ctUnknown;
+        case CurrentInstruction of
+          itOther:
+            if LastInsruction in [itNop, itInt, itRet] then
+              AddString(Result, '');
+          itNop:
+             if LastInsruction in [itOther, itInt, itRet, itCall, itJmp] then
+              AddString(Result, '');
+          itInt:
+             if LastInsruction in [itOther, itNop, itRet, itCall, itJmp] then
+              AddString(Result, '');
+          itCall, itJmp:
+          begin
+            if LastInsruction in [itNop, itInt, itRet] then
+              AddString(Result, '');
+            CallType :=
+              GetCallType(GET_WString(decodedInstruction.operands), DecodedInst[I], CallAddr);
+            case CallType of
+              ctAddress: HintStr := GetCallHint(CallAddr);
+              ctRipOffset:
+              begin
+                OffsetAddr :=
+                  DecodedInst[I].addr +
+                  DecodedInst[I].size + NativeUInt(CallAddr);
+                Size := 8;
+                if ReadProcessData(Process, Pointer(OffsetAddr), @CallAddr,
+                  Size, RegionSize, rcReadAllwais) then
+                  HintStr := GetCallHint(CallAddr);
+              end;
+              ctPointer4, ctPointer8:
+              begin
+                if CallType = ctPointer4 then
+                  Size := 4
+                else
                   Size := 8;
-                  if ReadProcessData(Process, Pointer(OffsetAddr), @CallAddr,
-                    Size, RegionSize, rcReadAllwais) then
-                    HintStr := GetCallHint(CallAddr);
-                end;
-                ctPointer4, ctPointer8:
-                begin
-                  if CallType = ctPointer4 then
-                    Size := 4
-                  else
-                    Size := 8;
-                  if ReadProcessData(Process, Pointer(CallAddr), @CallAddr,
-                    Size, RegionSize, rcReadAllwais) then
-                    HintStr := GetCallHint(CallAddr);
-                end;
+                if ReadProcessData(Process, Pointer(CallAddr), @CallAddr,
+                  Size, RegionSize, rcReadAllwais) then
+                  HintStr := GetCallHint(CallAddr);
               end;
             end;
           end;
-          LastInsruction := CurrentInstruction;
-
-          Line := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
-          if Line <> '' then
-            AddString(Result, Line)
-          else
-          begin
-            if Symbols <> nil then
-            begin
-              Line := Symbols.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
-              if Line <> '' then
-                AddString(Result, Line);
-            end;
-          end;
-
-          AddString(Result,
-            Format('%s: %s %s %s %s', [
-              IntToHex(DecodedInst[I].offset, 8),
-              AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], DecodedInst[I].size),
-              mnemonic,
-              HexUpperCase(GET_WString(DecodedInst[I].operands)),
-              HintStr
-            ]));
-          Inc(Cursor, DecodedInst[I].size);
         end;
+        LastInsruction := CurrentInstruction;
+
+        Line := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
+        if Line <> EmptyStr then
+          AddString(Result, Line)
+        else
+        begin
+          if Symbols <> nil then
+          begin
+            Line := Symbols.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
+            if Line <> EmptyStr then
+              AddString(Result, Line);
+          end;
+        end;
+
+        if (HintStr = EmptyStr) and (CallType = ctRipOffset) then
+          HintStr := ' // 0x' + IntToHex(CallAddr, 8)
+        else
+          // segments
+          if not SEGMENT_IS_DEFAULT_OR_NONE(DecodedInst[I].segment) then
+            case _RegisterType(SEGMENT_GET(DecodedInst[I].segment)) of
+              R_FS: if not Is64 then HintStr := ' // _TEB';
+              R_GS: if Is64 then HintStr := ' // _TEB';
+            end;
+
+        AddString(Result,
+          Format('%s: %s %s %s %s', [
+            IntToHex(decodedInstruction.offset, 8),
+            AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], decodedInstruction.size),
+            mnemonic,
+            HexUpperCase(GET_WString(decodedInstruction.operands)),
+            HintStr
+          ]));
+        Inc(Cursor, DecodedInst[I].size);
       end;
+
     end;
   finally
     if Symbols <> nil then
       Symbols.Release;
   end;
 end;
-
 
 end.

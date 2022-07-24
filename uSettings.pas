@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uSelectProcess.pas
-//  * Purpose   : Диалог настроек
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Purpose   : Р”РёР°Р»РѕРі РЅР°СЃС‚СЂРѕРµРє
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2017.
 //  * Version   : 1.01
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru

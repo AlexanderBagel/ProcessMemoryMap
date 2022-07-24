@@ -1,25 +1,22 @@
-{
+﻿{
+/* diStorm 3.5.3 */
+
+/*
 distorm.h
 
 diStorm3 - Powerful disassembler for X86/AMD64
 http://ragestorm.net/distorm/
 distorm at gmail dot com
-Copyright (C) 2003-2015 Gil Dabah
+Copyright (C) 2003-2021 Gil Dabah
+This library is licensed under the BSD license. See the file COPYING.
+*/
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>
-
-DELPHI translate: Alexander (Rouse_) Bagel. May 2016.
+================================================================================
+Delphi port: Alexander (Rouse_) Bagel. May 2016.
+Update to 3.5.3: July 2022
+WARNINIG: Support Delphi XE2 and higher
+https://github.com/AlexanderBagel/distorm
+================================================================================
 }
 
 unit distorm;
@@ -31,80 +28,87 @@ uses
   SysUtils,
   Classes;
 
+  // 0. Open distorm solution in Microsoft Visual Studio
+  // 1. Remove "Security Check" from Project -> Properties -> C/C++ -> Code Generation
+  // 2. Build "clib" configuration
+  {$IFDEF WIN32}
+    // place to .\32\ from .\..\make\win32\clib\*.obj
+    {$L 32\insts.obj}
+    {$L 32\mnemonics.obj}
+    {$L 32\decoder.obj}
+    {$L 32\distorm.obj}
+    {$L 32\instructions.obj}
+    {$L 32\operands.obj}
+    {$L 32\prefix.obj}
+    {$L 32\textdefs.obj}
+  {$ELSE}
+    // place to .\64\ from .\..\make\win32\x64\clib\*.obj
+    {$L 64\insts.obj}
+    {$L 64\mnemonics.obj}
+    {$L 64\decoder.obj}
+    {$L 64\distorm.obj}
+    {$L 64\instructions.obj}
+    {$L 64\operands.obj}
+    {$L 64\prefix.obj}
+    {$L 64\textdefs.obj}
+  {$ENDIF}
+
 type
-  OFFSET_INTEGER = Uint64;
 
-{
-/* ***  Helper Macros  *** */
+{/*
+ * 64 bit offsets support:
+ * If the diStorm library you use was compiled with 64 bits offsets,
+ * make sure you compile your own code with the following macro set:
+ * SUPPORT_64BIT_OFFSET
+ * Otherwise comment it out, or you will get a linker error of an unresolved symbol...
+ * Turned on by default!
+ */}
 
-/* Get the ISC of the instruction, used with the definitions below. */
-#define META_GET_ISC(meta) (((meta) >> 3) & 0x1f)
-#define META_SET_ISC(di, isc) (((di)->meta) |= ((isc) << 3))
-/* Get the flow control flags of the instruction, see 'features for decompose' below. */
-#define META_GET_FC(meta) ((meta) & 0x7)
+ //* Define this macro for outer projects by default. */
+ {$DEFINE SUPPORT_64BIT_OFFSET}
 
-/* Get the target address of a branching instruction. O_PC operand type. */
-#define INSTRUCTION_GET_TARGET(di) ((_OffsetType)(((di)->addr + (di)->imm.addr + (di)->size)))
-/* Get the target address of a RIP-relative memory indirection. */
-#define INSTRUCTION_GET_RIP_TARGET(di) ((_OffsetType)(((di)->addr + (di)->disp + (di)->size)))
+ {$IFDEF SUPPORT_64BIT_OFFSET}
+ OFFSET_INTEGER = Uint64;
+ {$ELSE}
+ //* 32 bit offsets are used. */
+ OFFSET_INTEGER = Uint32;
+ {$ENDIF}
 
-/*
- * Operand Size or Adderss size are stored inside the flags:
- * 00 - 16 bits
- * 01 - 32 bits
- * 10 - 64 bits
- * 11 - reserved
- *
- * If you call these set-macros more than once, you will have to clean the bits before doing so.
- */
-#define FLAG_SET_OPSIZE(di, size) ((di->flags) |= (((size) & 3) << 8))
-#define FLAG_SET_ADDRSIZE(di, size) ((di->flags) |= (((size) & 3) << 10))
-#define FLAG_GET_OPSIZE(flags) (((flags) >> 8) & 3)
-#define FLAG_GET_ADDRSIZE(flags) (((flags) >> 10) & 3)
-/* To get the LOCK/REPNZ/REP prefixes. */
-#define FLAG_GET_PREFIX(flags) ((flags) & 7)
-/* Indicates whether the instruction is privileged. */
-#define FLAG_GET_PRIVILEGED(flags) (((flags) & FLAG_PRIVILEGED_INSTRUCTION) != 0)
+ // MACROS declaration lower ----->
 
-/*
- * Macros to extract segment registers from 'segment':
- */
-#define SEGMENT_DEFAULT 0x80
-#define SEGMENT_SET(di, seg) ((di->segment) |= seg)
-#define SEGMENT_GET(segment) (((segment) == R_NONE) ? R_NONE : ((segment) & 0x7f))
-#define SEGMENT_IS_DEFAULT(segment) (((segment) & SEGMENT_DEFAULT) == SEGMENT_DEFAULT)
-
-}
-
+  //* Decodes modes of the disassembler, 16 bits or 32 bits or 64 bits for AMD64, x86-64. */
   _DecodeType = (Decode16Bits = 0, Decode32Bits = 1, Decode64Bits = 2);
 
   _OffsetType = OFFSET_INTEGER;
 
-
   PCodeInfo = ^TCodeInfo;
   _CodeInfo = record
-    codeOffset, nextOffset: _OffsetType; // nextOffset is OUT only.
+    codeOffset, addrMask: _OffsetType;
+    nextOffset: _OffsetType; // nextOffset is OUT only.
     code: PByte;
     codeLen: Integer; // Using signed integer makes it easier to detect an underflow.
     dt: _DecodeType;
-    features: UInt32; // unsigned int = UInt32 ???
+    features: UInt32;
   end;
   TCodeInfo = _CodeInfo;
 
   _OperandType = (O_NONE, O_REG, O_IMM, O_IMM1, O_IMM2, O_DISP, O_SMEM, O_MEM, O_PC, O_PTR);
 
+  // Used by O_PTR
   _ptr = record
-    seg: Word;
+    seg: UInt16;
     // Can be 16 or 32 bits, size is in ops[n].size.
     off: UInt32;
   end;
 
+  // Used by O_IMM1 (i1) and O_IMM2 (i2). ENTER instruction only
   _ex = record
     i1, i2: UInt32;
   end;
 
   _Value = record
     case Integer of
+      // Used by O_IMM
       0: (sbyte: Int8);
       1: (ubyte: UInt8);
       2: (sword: Int16);
@@ -137,14 +141,14 @@ type
 		O_PC: the relative address of a branch instruction (instruction.imm.addr).
 		O_PTR: the absolute target address of a far branch instruction (instruction.imm.ptr.seg/off).
     }
-    _type: Byte; // _OperandType
+    _type: UInt8; // _OperandType
 
 {  Index of:
 		O_REG: holds global register index
 		O_SMEM: holds the 'base' register. E.G: [ECX], [EBX+0x1234] are both in operand.index.
 		O_MEM: holds the 'index' register. E.G: [EAX*4] is in operand.index.
 	  }
-    index: Byte;
+    index: UInt8;
 
 {	 Size in bits of:
 		O_REG: register
@@ -157,13 +161,13 @@ type
 		O_PC: size of the relative offset
 		O_PTR: size of instruction.imm.ptr.off (16 or 32)
 	  }
-    size: Word;
+    size: UInt16;
   end;
 
 const
   OPCODE_ID_NONE = 0;
   // Instruction could not be disassembled.
-  FLAG_NOT_DECODABLE = Word(-1);
+  FLAG_NOT_DECODABLE = UInt16(-1);
   // The instruction locks memory access.
   FLAG_LOCK = 1;
   // The instruction is prefixed with a REPNZ.
@@ -187,7 +191,7 @@ const
   FLAG_PRIVILEGED_INSTRUCTION = 1 shl 15;
 
   // No register was defined.
-  R_NONE = Byte(-1);
+  R_NONE = UInt8(-1);
 
   REGS64_BASE = 0;
   REGS32_BASE = 16;
@@ -223,20 +227,84 @@ type
     opcode: UInt16;
     // Up to four operands per instruction, ignored if ops[n].type == O_NONE.
     ops: array [0..OPERANDS_NO - 1] of _Operand;
+    // Number of valid ops entries.
+    opsNo: UInt8;
     // Size of the whole instruction in bytes.
     size: UInt8;
     // Segment information of memory indirection, default segment, or overriden one, can be -1. Use SEGMENT macros.
     segment: UInt8;
     // Used by ops[n].type == O_MEM. Base global register index (might be R_NONE), scale size (2/4/8), ignored for 0 or 1.
-    base, scale, dispSize: UInt8;
+    base, scale: UInt8;
+    dispSize: UInt8;
     // Meta defines the instruction set class, and the flow control flags. Use META macros.
-    meta: UInt8;
-    // The CPU flags that the instruction operates upon.
+    meta: UInt16;
+    // The CPU flags that the instruction operates upon, set only with DF_FILL_EFLAGS enabled, otherwise 0.
     modifiedFlagsMask, testedFlagsMask, undefinedFlagsMask: Uint16;
   end;
   TDInst = _DInst;
 
-  // Static size of strings. Do not change this value. Keep Python wrapper in sync.
+  //* ***  Helper Macros  *** */
+
+  //* Get the ISC of the instruction, used with the definitions below. */
+  //#define META_GET_ISC(meta) (((meta) >> 8) & 0x1f)
+  function META_GET_ISC(meta: UInt16): UInt8;
+  //#define META_SET_ISC(di, isc) (((di)->meta) |= ((isc) << 8))
+  procedure META_SET_ISC(di: PDInst; isc: UInt8);
+  //* Get the flow control flags of the instruction, see 'features for decompose' below. */
+  //#define META_GET_FC(meta) ((meta) & 0xf)
+  function META_GET_FC(meta: UInt16): UInt8;
+
+  //* Get the target address of a branching instruction. O_PC operand type. */
+  //#define INSTRUCTION_GET_TARGET(di) ((_OffsetType)(((di)->addr + (di)->imm.addr + (di)->size)))
+  function INSTRUCTION_GET_TARGET(di: PDInst): _OffsetType;
+  //* Get the target address of a RIP-relative memory indirection. */
+  //#define INSTRUCTION_GET_RIP_TARGET(di) ((_OffsetType)(((di)->addr + (di)->disp + (di)->size)))
+  function INSTRUCTION_GET_RIP_TARGET(di: PDInst): _OffsetType;
+
+///*
+// * Operand Size or Adderss size are stored inside the flags:
+// * 00 - 16 bits
+// * 01 - 32 bits
+// * 10 - 64 bits
+// * 11 - reserved
+// *
+// * If you call these set-macros more than once, you will have to clean the bits before doing so.
+// */
+
+  //#define FLAG_SET_OPSIZE(di, size) ((di->flags) |= (((size) & 3) << 8))
+  procedure FLAG_SET_OPSIZE(di: PDInst; size: UInt8);
+  //#define FLAG_SET_ADDRSIZE(di, size) ((di->flags) |= (((size) & 3) << 10))
+  procedure FLAG_SET_ADDRSIZE(di: PDInst; size: UInt8);
+  //#define FLAG_GET_OPSIZE(flags) (((flags) >> 8) & 3)
+  function FLAG_GET_OPSIZE(flags: UInt16): UInt8;
+  //#define FLAG_GET_ADDRSIZE(flags) (((flags) >> 10) & 3)
+  function FLAG_GET_ADDRSIZE(flags: UInt16): UInt8;
+
+  //* To get the LOCK/REPNZ/REP prefixes. */
+  //#define FLAG_GET_PREFIX(flags) ((flags) & 7)
+  function FLAG_GET_PREFIX(flags: UInt16): UInt8;
+  //#define FLAG_GET_PRIVILEGED(flags) (((flags) & FLAG_PRIVILEGED_INSTRUCTION) != 0)
+  function FLAG_GET_PRIVILEGED(flags: UInt16): Boolean;
+
+// *
+// * Macros to extract segment registers from 'segment':
+// *
+
+const
+  SEGMENT_DEFAULT = $80;
+
+  //#define SEGMENT_SET(di, seg) ((di->segment) |= seg)
+  procedure SEGMENT_SET(di: PDInst; seg: UInt8);
+  //#define SEGMENT_GET(segment) (((segment) == R_NONE) ? R_NONE : ((segment) & 0x7f))
+  function SEGMENT_GET(segment: UInt8): UInt8;
+  //#define SEGMENT_GET_UNSAFE(segment) ((segment) & 0x7f)
+  function SEGMENT_GET_UNSAFE(segment: UInt8): UInt8;
+  //#define SEGMENT_IS_DEFAULT(segment) (((int8_t)segment) < -1) /* Quick check it's a negative number that isn't -1, so it's (0x80 | SEGREG). */
+  function SEGMENT_IS_DEFAULT(segment: UInt8): Boolean;
+  //#define SEGMENT_IS_DEFAULT_OR_NONE(segment) (((uint8_t)(segment)) > 0x80)
+  function SEGMENT_IS_DEFAULT_OR_NONE(segment: UInt8): Boolean;
+
+// Static size of strings. Do not change this value. Keep Python wrapper in sync.
 const
   MAX_TEXT_SIZE = 48;
 
@@ -246,8 +314,6 @@ type
     p: array [0..MAX_TEXT_SIZE - 1] of UChar; // p is a null terminated string.
   end;
 
-  function GET_WString(w: _WString): string;
-
 type
 {*
  * Old decoded instruction structure in text format.
@@ -256,16 +322,16 @@ type
  *}
  PDecodedInst = ^TDecodedInst;
   _DecodedInst = record
+    offset: _OffsetType; // Start offset of the decoded instruction.
+    size: UInt; // Size of decoded instruction in bytes.
     mnemonic: _WString; // Mnemonic of decoded instruction, prefixed if required by REP, LOCK etc.
     operands: _WString; // Operands of the decoded instruction, up to 3 operands, comma-seperated.
     instructionHex: _WString; // Hex dump - little endian, including prefixes.
-    size: UInt; // Size of decoded instruction in bytes.
-    offset: _OffsetType; // Start offset of the decoded instruction.
   end;
   TDecodedInst = _DecodedInst;
 
 const
-// Register masks for quick look up, each mask indicates one of a register-class that is being used in some operand.
+  // Register masks for quick look up, each mask indicates one of a register-class that is being used in some operand.
   RM_AX = 1;     //* AL, AH, AX, EAX, RAX */
   RM_CX = 2;     //* CL, CH, CX, ECX, RCX */
   RM_DX = 4;     //* DL, DH, DX, EDX, RDX */
@@ -288,6 +354,7 @@ const
   RM_R13 = $80000; //* R13B, R13W, R13D, R13 */
   RM_R14 = $100000; //* R14B, R14W, R14D, R14 */
   RM_R15 = $200000; //* R15B, R15W, R15D, R15 */
+  RM_SEG = $400000; //* CS, SS, DS, ES, FS, GS */
 
 {* RIP should be checked using the 'flags' field and FLAG_RIP_RELATIVE.
  * Segments should be checked using the segment macros.
@@ -369,8 +436,22 @@ const
   DF_STOP_ON_INT = $100;
   // The decoder will stop and return to the caller when any of the 'CMOVxx' instruction was decoded.
   DF_STOP_ON_CMOV = $200;
+  // The decoder will stop and return to the caller when it encounters the HLT instruction.
+  DF_STOP_ON_HLT = $400;
+  // The decoder will stop and return to the caller when it encounters a privileged instruction.
+  DF_STOP_ON_PRIVILEGED = $800;
+  // The decoder will stop and return to the caller when an instruction couldn't be decoded.
+  DF_STOP_ON_UNDECODEABLE = $1000;
+  // The decoder will not synchronize to the next byte after the previosuly decoded instruction, instead it will start decoding at the next byte.
+  DF_SINGLE_BYTE_STEP = $2000;
+  // The decoder will fill in the eflags fields for the decoded instruction.
+  DF_FILL_EFLAGS = $4000;
+  // The decoder will use the addrMask in CodeInfo structure instead of DF_MAXIMUM_ADDR16/32.
+  DF_USE_ADDR_MASK = $8000;
   // The decoder will stop and return to the caller when any flow control instruction was decoded.
-  DF_STOP_ON_FLOW_CONTROL = ( DF_STOP_ON_CALL or DF_STOP_ON_RET or DF_STOP_ON_SYS or DF_STOP_ON_UNC_BRANCH or DF_STOP_ON_CND_BRANCH or DF_STOP_ON_INT or DF_STOP_ON_CMOV);
+  DF_STOP_ON_FLOW_CONTROL = (DF_STOP_ON_CALL or DF_STOP_ON_RET or
+    DF_STOP_ON_SYS or DF_STOP_ON_UNC_BRANCH or DF_STOP_ON_CND_BRANCH or
+    DF_STOP_ON_INT or DF_STOP_ON_CMOV or DF_STOP_ON_HLT);
 
   // Indicates the instruction is not a flow-control instruction.
   FC_NONE = 0;
@@ -391,10 +472,12 @@ const
   FC_INT = 6;
   // Indicates the instruction is one of: CMOVxx.
   FC_CMOV = 7;
+  //Indicates the instruction is HLT.
+  FC_HLT = 8;
 
 type
   // Return code of the decoding function.
-  TDecodeResult = (DECRES_NONE, DECRES_SUCCESS, DECRES_MEMORYERR, DECRES_INPUTERR, DECRES_FILTERED);
+  TDecodeResult = (DECRES_NONE, DECRES_SUCCESS, DECRES_MEMORYERR, DECRES_INPUTERR);
 
 {* distorm_decode
  * Input:
@@ -415,77 +498,233 @@ type
  *         2)You will have to synchronize the offset,code and length by yourself if you pass code fragments and not a complete code block!
  *}
 
- Tdistorm_decode64 = function
-  (codeOffset: _OffsetType; code: Pointer; codeLen: Integer; dt: _DecodeType;
-    AResult: PDecodedInst; maxInstructions: UInt; usedInstructionsCount: PUInt): TDecodeResult; cdecl;
+  function distorm_decode(
+    codeOffset: _OffsetType; code: Pointer; codeLen: Integer; dt: _DecodeType;
+    AResult: PDecodedInst; maxInstructions: UInt;
+    usedInstructionsCount: PUInt): TDecodeResult;
 
-  Tdistorm_format64 = procedure(ci: PCodeInfo; di: PDInst; AResult: PDecodedInst); cdecl;
+  procedure distorm_format(ci: PCodeInfo; di: PDInst; AResult: PDecodedInst);
 
 {* distorm_decompose
- * There is lots of documentation about diStorm at https://code.google.com/p/distorm/wiki
+ * There is lots of documentation about diStorm at https://github.com/gdabah/distorm/wiki
  *
- * Please read https://code.google.com/p/distorm/wiki/DecomposeInterface
+ * Please read https://github.com/gdabah/distorm/wiki/DecomposeInterface
  *
- * And also see https://code.google.com/p/distorm/wiki/TipsnTricks
+ * And also see https://github.com/gdabah/distorm/wiki/TipsnTricks
  *
  *}
 
-  Tdistorm_decompose64 = function
-    (ci: PCodeInfo; AResult: PDInst;
-      maxInstructions: UInt; usedInstructionsCount: PUInt): TDecodeResult; cdecl;
+ function distorm_decompose(
+   ci: PCodeInfo; AResult: PDInst;
+   maxInstructions: UInt; usedInstructionsCount: PUInt): TDecodeResult;
 
-  function distorm_decode(
-    codeOffset: _OffsetType; code: Pointer; codeLen: Integer; dt: _DecodeType;
-      AResult: PDecodedInst; maxInstructions: UInt; usedInstructionsCount: PUInt): TDecodeResult;
+  function get_distorm_version: Cardinal;
 
 implementation
 
-function GET_WString(w: _WString): string;
+// Macros
+// =============================================================================
+
+function META_GET_ISC(meta: UInt16): UInt8;
 begin
-  Result := string(PAnsiChar(@w.p[0]));
+  Result := (meta shr 8) and $1F;
 end;
 
-var
-  hLibHandle: THandle;
-  R: TResourceStream;
-  LibPath: string;
-  _distorm_decode: Tdistorm_decode64;
-
-function distorm_decode(
-  codeOffset: _OffsetType; code: Pointer; codeLen: Integer; dt: _DecodeType;
-    AResult: PDecodedInst; maxInstructions: UInt; usedInstructionsCount: PUInt): TDecodeResult;
+procedure META_SET_ISC(di: PDInst; isc: UInt8);
 begin
-  if Assigned(_distorm_decode) then
-    Result := _distorm_decode(codeOffset, code, codeLen,
-      dt, AResult, maxInstructions, usedInstructionsCount)
+  di^.meta := di^.meta or (isc shl 8);
+end;
+
+function META_GET_FC(meta: UInt16): UInt8;
+begin
+  Result := meta and $F;
+end;
+
+function INSTRUCTION_GET_TARGET(di: PDInst): _OffsetType;
+begin
+  Result := di^.addr + di^.imm.addr + di^.size;
+end;
+
+function INSTRUCTION_GET_RIP_TARGET(di: PDInst): _OffsetType;
+begin
+  Result := di^.addr + di^.disp + di^.size;
+end;
+
+procedure FLAG_SET_OPSIZE(di: PDInst; size: UInt8);
+begin
+  di.flags := di.flags or ((size and 3) shl 8);
+end;
+
+procedure FLAG_SET_ADDRSIZE(di: PDInst; size: UInt8);
+begin
+  di.flags := di.flags or ((size and 3) shl 10);
+end;
+
+function FLAG_GET_OPSIZE(flags: UInt16): UInt8;
+begin
+  Result := (flags shr 8) and 3;
+end;
+
+function FLAG_GET_ADDRSIZE(flags: UInt16): UInt8;
+begin
+  Result := (flags shr 10) and 3;
+end;
+
+function FLAG_GET_PREFIX(flags: UInt16): UInt8;
+begin
+  Result := flags and 7;
+end;
+
+function FLAG_GET_PRIVILEGED(flags: UInt16): Boolean;
+begin
+  Result := (flags and FLAG_PRIVILEGED_INSTRUCTION) <> 0;
+end;
+
+procedure SEGMENT_SET(di: PDInst; seg: UInt8);
+begin
+  di^.segment := di^.segment or seg;
+end;
+
+function SEGMENT_GET(segment: UInt8): UInt8;
+begin
+  if segment = R_NONE then
+    Result := R_NONE
   else
-    Result := DECRES_NONE;
+    Result := segment and $7F;
 end;
 
-initialization
+function SEGMENT_GET_UNSAFE(segment: UInt8): UInt8;
+begin
+  Result := segment and $7F;
+end;
+
+function SEGMENT_IS_DEFAULT(segment: UInt8): Boolean;
+begin
+  Result := Int8(segment) < -1;
+end;
+
+function SEGMENT_IS_DEFAULT_OR_NONE(segment: UInt8): Boolean;
+begin
+  Result := UInt8(segment) > $80;
+end;
+
+//  Strap for OBJ files
+// =============================================================================
+
+procedure _memset(pBuff: PByte; c: Integer; nCount: Integer); cdecl;
+begin
+  ZeroMemory(pBuff, nCount);
+end;
+
+procedure __aullshr;
+asm
+        cmp     cl,64
+        jae     @RETZERO
+        cmp     cl, 32
+        jae     @MORE32
+        shrd    eax,edx,cl
+        shr     edx,cl
+        ret
+@MORE32:
+        mov     eax,edx
+        xor     edx,edx
+        and     cl,31
+        shr     eax,cl
+        ret
+@RETZERO:
+        xor     eax,eax
+        xor     edx,edx
+        ret
+end;
 
 {$IFDEF WIN32}
-  LibPath := ExtractFilePath(ParamStr(0)) + 'distorm32.dll';
+  procedure _FlagsTable; external;
+  procedure _InstSharedInfoTable; external;
+  procedure _CmpMnemonicOffsets; external;
+  procedure _VCmpMnemonicOffsets; external;
+  procedure _decode_internal; external;
+  procedure _InstInfos; external;
+  procedure _InstInfosEx; external;
+  procedure _InstructionsTree; external;
+  procedure __MNEMONICS; external;
+  procedure __REGISTERS; external;
+  procedure _Table_0F_0F; external;
+  procedure _Table_0F; external;
+  procedure _Table_0F_38; external;
+  procedure _Table_0F_3A; external;
+  procedure _II_MOVSXD; external;
+  procedure _II_NOP; external;
+  procedure _II_PAUSE; external;
+  procedure _II_RDRAND; external;
+  procedure _II_3DNOW; external;
+  function _distorm_version: Cardinal; external;
 {$ELSE}
-  LibPath := ExtractFilePath(ParamStr(0)) + 'distorm64.dll';
+  procedure FlagsTable; external;
+  procedure InstSharedInfoTable; external;
+  procedure CmpMnemonicOffsets; external;
+  procedure VCmpMnemonicOffsets; external;
+  procedure decode_internal; external;
+  procedure InstInfos; external;
+  procedure InstInfosEx; external;
+  procedure InstructionsTree; external;
+  procedure _MNEMONICS; external;
+  procedure _REGISTERS; external;
+  procedure Table_0F_0F; external;
+  procedure Table_0F; external;
+  procedure Table_0F_38; external;
+  procedure Table_0F_3A; external;
+  procedure II_MOVSXD; external;
+  procedure II_NOP; external;
+  procedure II_PAUSE; external;
+  procedure II_RDRAND; external;
+  procedure II_3DNOW; external;
+  function distorm_version: Cardinal; external;
 {$ENDIF}
-  if not FileExists(LibPath) then
-  begin
-    R := TResourceStream.Create(HInstance, 'DISASM_IMAGE', RT_RCDATA);
-    try
-      R.SaveToFile(LibPath);
-    finally
-      R.Free;
-    end;
-  end;
-  hLibHandle := LoadLibrary(PChar(LibPath));
-  if hLibHandle > HINSTANCE_ERROR then
-    _distorm_decode := Tdistorm_decode64(GetProcAddress(hLibHandle, 'distorm_decode64'));
 
-finalization
+  function {$IFDEF WIN32}_distorm_decode64{$ELSE}distorm_decode64{$ENDIF}
+    (codeOffset: _OffsetType; code: Pointer; codeLen: Integer; dt: Cardinal; // _DecodeType;
+    AResult: PDecodedInst; maxInstructions: UInt;
+    usedInstructionsCount: PUInt): TDecodeResult; cdecl; external;
 
-  if hLibHandle > HINSTANCE_ERROR then
-    FreeLibrary(hLibHandle);
-  DeleteFile(LibPath);
+  procedure {$IFDEF WIN32}_distorm_format64{$ELSE}distorm_format64{$ENDIF}
+    (ci: PCodeInfo; di: PDInst; AResult: PDecodedInst); cdecl; external;
+
+  function {$IFDEF WIN32}_distorm_decompose64{$ELSE}distorm_decompose64{$ENDIF}
+    (ci: PCodeInfo; AResult: PDInst;
+    maxInstructions: UInt; usedInstructionsCount: PUInt): TDecodeResult;
+    cdecl; external;
+
+// = decorators ================================================================
+
+function distorm_decode(codeOffset: _OffsetType; code: Pointer;
+  codeLen: Integer; dt: _DecodeType; AResult: PDecodedInst;
+  maxInstructions: UInt; usedInstructionsCount: PUInt): TDecodeResult;
+begin
+  Result := {$IFDEF WIN32}_distorm_decode64{$ELSE}distorm_decode64{$ENDIF}(
+    codeOffset, code, codeLen,
+    Cardinal(dt), AResult, maxInstructions, usedInstructionsCount);
+end;
+
+procedure distorm_format(ci: PCodeInfo; di: PDInst; AResult: PDecodedInst);
+begin
+  {$IFDEF WIN32}_distorm_format64{$ELSE}distorm_format64{$ENDIF}(
+    ci, di, AResult);
+end;
+
+function distorm_decompose(ci: PCodeInfo; AResult: PDInst;
+  maxInstructions: UInt; usedInstructionsCount: PUInt): TDecodeResult;
+begin
+  Result := {$IFDEF WIN32}_distorm_decompose64{$ELSE}distorm_decompose64{$ENDIF}(
+    ci, AResult, maxInstructions, usedInstructionsCount);
+end;
+
+function get_distorm_version: Cardinal;
+begin
+  {$IFDEF WIN32}
+  Result := _distorm_version;
+  {$ELSE}
+  Result := distorm_version;
+  {$ENDIF}
+end;
 
 end.

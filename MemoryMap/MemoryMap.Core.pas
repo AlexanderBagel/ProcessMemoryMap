@@ -1,12 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.Core.pas
-//  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0.4
+//  * Purpose   : Р‘Р°Р·РѕРІС‹Р№ РєР»Р°СЃСЃ СЃРѕР±РёСЂР°СЋС‰РёР№ РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РєР°СЂС‚Рµ РїР°РјСЏС‚Рё РїСЂРѕС†РµСЃСЃР°
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.0.5
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,17 +36,17 @@ uses
   MemoryMap.DebugMapData;
 
 type
-  // Типы фильтров
+  // РўРёРїС‹ С„РёР»СЊС‚СЂРѕРІ
   TFilters = (
-    fiNone,       // отображать все регионы
-    fiImage,      // только содержащие PE файлы
-    fiPrivate,    // только приватную память
-    fiShareable,  // только шареную память
-    fiMapped,     // только отмапленные регионы
-    fiHeap,       // только содержащие кучу
-    fiThread,     // только содержащие данные нитей
-    fiSystem,     // только содержащие системные структуры
-    fiFree);      // только свободные регионы
+    fiNone,       // РѕС‚РѕР±СЂР°Р¶Р°С‚СЊ РІСЃРµ СЂРµРіРёРѕРЅС‹
+    fiImage,      // С‚РѕР»СЊРєРѕ СЃРѕРґРµСЂР¶Р°С‰РёРµ PE С„Р°Р№Р»С‹
+    fiPrivate,    // С‚РѕР»СЊРєРѕ РїСЂРёРІР°С‚РЅСѓСЋ РїР°РјСЏС‚СЊ
+    fiShareable,  // С‚РѕР»СЊРєРѕ С€Р°СЂРµРЅСѓСЋ РїР°РјСЏС‚СЊ
+    fiMapped,     // С‚РѕР»СЊРєРѕ РѕС‚РјР°РїР»РµРЅРЅС‹Рµ СЂРµРіРёРѕРЅС‹
+    fiHeap,       // С‚РѕР»СЊРєРѕ СЃРѕРґРµСЂР¶Р°С‰РёРµ РєСѓС‡Сѓ
+    fiThread,     // С‚РѕР»СЊРєРѕ СЃРѕРґРµСЂР¶Р°С‰РёРµ РґР°РЅРЅС‹Рµ РЅРёС‚РµР№
+    fiSystem,     // С‚РѕР»СЊРєРѕ СЃРѕРґРµСЂР¶Р°С‰РёРµ СЃРёСЃС‚РµРјРЅС‹Рµ СЃС‚СЂСѓРєС‚СѓСЂС‹
+    fiFree);      // С‚РѕР»СЊРєРѕ СЃРІРѕР±РѕРґРЅС‹Рµ СЂРµРіРёРѕРЅС‹
 
   TModule = record
     Path: string;
@@ -78,7 +78,7 @@ type
   TMemoryMap = class
   private const
     HEADER = 'MemoryMap';
-    Version = 1;
+    Version = 2;
   private type
     TFriendlyRegionData = class(TRegionData);
   private
@@ -168,10 +168,10 @@ type
       read FGetWow64Heaps write FGetWow64Heaps;
   end;
 
-  // синглтон
+  // СЃРёРЅРіР»С‚РѕРЅ
   function MemoryMapCore: TMemoryMap;
 
-  // процедура перезагружающая экземпляр синглтона, на новый экземпляр класса
+  // РїСЂРѕС†РµРґСѓСЂР° РїРµСЂРµР·Р°РіСЂСѓР¶Р°СЋС‰Р°СЏ СЌРєР·РµРјРїР»СЏСЂ СЃРёРЅРіР»С‚РѕРЅР°, РЅР° РЅРѕРІС‹Р№ СЌРєР·РµРјРїР»СЏСЂ РєР»Р°СЃСЃР°
   procedure ReplaceMemoryMap(Value: TMemoryMap);
 
 implementation
@@ -198,7 +198,7 @@ end;
 { TMemoryMap }
 
 //
-//  Процедура рассчитывает общий размер регионов каждого типа
+//  РџСЂРѕС†РµРґСѓСЂР° СЂР°СЃСЃС‡РёС‚С‹РІР°РµС‚ РѕР±С‰РёР№ СЂР°Р·РјРµСЂ СЂРµРіРёРѕРЅРѕРІ РєР°Р¶РґРѕРіРѕ С‚РёРїР°
 // =============================================================================
 procedure TMemoryMap.CalcTotal;
 var
@@ -275,7 +275,7 @@ begin
 end;
 
 //
-//  Функция возвращает количество доступных регионов после применения фильтра
+//  Р¤СѓРЅРєС†РёСЏ РІРѕР·РІСЂР°С‰Р°РµС‚ РєРѕР»РёС‡РµСЃС‚РІРѕ РґРѕСЃС‚СѓРїРЅС‹С… СЂРµРіРёРѕРЅРѕРІ РїРѕСЃР»Рµ РїСЂРёРјРµРЅРµРЅРёСЏ С„РёР»СЊС‚СЂР°
 // =============================================================================
 function TMemoryMap.Count: Integer;
 begin
@@ -283,7 +283,7 @@ begin
 end;
 
 //
-//  Стандартный конструктор
+//  РЎС‚Р°РЅРґР°СЂС‚РЅС‹Р№ РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ
 // =============================================================================
 constructor TMemoryMap.Create;
 begin
@@ -294,7 +294,7 @@ begin
 end;
 
 //
-//  Стандартный деструктор
+//  РЎС‚Р°РЅРґР°СЂС‚РЅС‹Р№ РґРµСЃС‚СЂСѓРєС‚РѕСЂ
 // =============================================================================
 destructor TMemoryMap.Destroy;
 begin
@@ -306,7 +306,7 @@ begin
 end;
 
 //
-//  Процедура получает инфорацию о всех регионах в открытом процессе
+//  РџСЂРѕС†РµРґСѓСЂР° РїРѕР»СѓС‡Р°РµС‚ РёРЅС„РѕСЂР°С†РёСЋ Рѕ РІСЃРµС… СЂРµРіРёРѕРЅР°С… РІ РѕС‚РєСЂС‹С‚РѕРј РїСЂРѕС†РµСЃСЃРµ
 // =============================================================================
 procedure TMemoryMap.GetAllRegions;
 var
@@ -314,7 +314,7 @@ var
   dwLength: NativeUInt;
   RegionData, LastRegionData: TFriendlyRegionData;
   OwnerName: array [0..MAX_PATH - 1] of Char;
-  Shared: Boolean;
+  Shared, Is64Image: Boolean;
   SharedCount: Byte;
   Module: TModule;
 begin
@@ -322,21 +322,21 @@ begin
   FRegionFilters.Clear;
   FHighAddress := 0;
 
-  // Перебираем в цикле все страницы памяти от нулевой,
-  // до максимально доступной пользователю
+  // РџРµСЂРµР±РёСЂР°РµРј РІ С†РёРєР»Рµ РІСЃРµ СЃС‚СЂР°РЅРёС†С‹ РїР°РјСЏС‚Рё РѕС‚ РЅСѓР»РµРІРѕР№,
+  // РґРѕ РјР°РєСЃРёРјР°Р»СЊРЅРѕ РґРѕСЃС‚СѓРїРЅРѕР№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЋ
   LastRegionData := nil;
   dwLength := SizeOf(TMemoryBasicInformation);
   while VirtualQueryEx(FProcess, Pointer(FHighAddress), MBI, dwLength) <> 0 do
   begin
 
-    // получили информацию о регионе - создаем обьект, который будет ее хранить
+    // РїРѕР»СѓС‡РёР»Рё РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЂРµРіРёРѕРЅРµ - СЃРѕР·РґР°РµРј РѕР±СЊРµРєС‚, РєРѕС‚РѕСЂС‹Р№ Р±СѓРґРµС‚ РµРµ С…СЂР°РЅРёС‚СЊ
     RegionData := NewRegionData;
     try
 
       RegionData.SetMBI(MBI);
 
-      // Если регион содержит шареные данные, выставляем флаг и
-      // указываем количество ссылок на эту память
+      // Р•СЃР»Рё СЂРµРіРёРѕРЅ СЃРѕРґРµСЂР¶РёС‚ С€Р°СЂРµРЅС‹Рµ РґР°РЅРЅС‹Рµ, РІС‹СЃС‚Р°РІР»СЏРµРј С„Р»Р°Рі Рё
+      // СѓРєР°Р·С‹РІР°РµРј РєРѕР»РёС‡РµСЃС‚РІРѕ СЃСЃС‹Р»РѕРє РЅР° СЌС‚Сѓ РїР°РјСЏС‚СЊ
       if Workset.GetPageSharedInfo(MBI.BaseAddress, Shared,
         SharedCount) and Shared then
       begin
@@ -347,8 +347,8 @@ begin
       if LastRegionData = nil then
         LastRegionData := RegionData
       else
-        // проверяем, если регион имеет ту-же AllocationBase, что и предыдущий
-        // скрываем текущий (он будет доступен посредством вызова GetHiddenRegion)
+        // РїСЂРѕРІРµСЂСЏРµРј, РµСЃР»Рё СЂРµРіРёРѕРЅ РёРјРµРµС‚ С‚Сѓ-Р¶Рµ AllocationBase, С‡С‚Рѕ Рё РїСЂРµРґС‹РґСѓС‰РёР№
+        // СЃРєСЂС‹РІР°РµРј С‚РµРєСѓС‰РёР№ (РѕРЅ Р±СѓРґРµС‚ РґРѕСЃС‚СѓРїРµРЅ РїРѕСЃСЂРµРґСЃС‚РІРѕРј РІС‹Р·РѕРІР° GetHiddenRegion)
         if MBI.AllocationBase = LastRegionData.MBI.AllocationBase then
         begin
           LastRegionData.IncHiddenRegionCount;
@@ -359,46 +359,49 @@ begin
         else
           LastRegionData := RegionData;
 
-      // Проверка, содержит ли регион отмапленный файл?
+      // РџСЂРѕРІРµСЂРєР°, СЃРѕРґРµСЂР¶РёС‚ Р»Рё СЂРµРіРёРѕРЅ РѕС‚РјР°РїР»РµРЅРЅС‹Р№ С„Р°Р№Р»?
       if GetMappedFileName(FProcess, MBI.BaseAddress,
         @OwnerName[0], MAX_PATH) > 0 then
       begin
         Module.Path := NormalizePath(string(OwnerName));
-        // Если да, запоминаем его путь
+        // Р•СЃР»Рё РґР°, Р·Р°РїРѕРјРёРЅР°РµРј РµРіРѕ РїСѓС‚СЊ
         RegionData.SetDetails(Module.Path);
-        // Проверяем, является ли файл исполняемым?
-        if CheckPEImage(FProcess, MBI.BaseAddress) then
+        // РџСЂРѕРІРµСЂСЏРµРј, СЏРІР»СЏРµС‚СЃСЏ Р»Рё С„Р°Р№Р» РёСЃРїРѕР»РЅСЏРµРјС‹Рј?
+        if CheckPEImage(FProcess, MBI.BaseAddress, Is64Image) then
         begin
-          // Если является - запоминаем его в списке модулей
+          // Р•СЃР»Рё СЏРІР»СЏРµС‚СЃСЏ - Р·Р°РїРѕРјРёРЅР°РµРј РµРіРѕ РІ СЃРїРёСЃРєРµ РјРѕРґСѓР»РµР№
           Module.BaseAddr := ULONG_PTR(MBI.BaseAddress);
           FModules.Add(Module);
-          // а самому региону назначаем тип rtExecutableImage
-          RegionData.SetRegionType(rtExecutableImage);
-          // до кучи получаем информаию по самому PE файлу
+          // Р° СЃР°РјРѕРјСѓ СЂРµРіРёРѕРЅСѓ РЅР°Р·РЅР°С‡Р°РµРј С‚РёРї rtExecutableImage
+          if Is64Image then
+            RegionData.SetRegionType(rtExecutableImage64)
+          else
+            RegionData.SetRegionType(rtExecutableImage);
+          // РґРѕ РєСѓС‡Рё РїРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°РёСЋ РїРѕ СЃР°РјРѕРјСѓ PE С„Р°Р№Р»Сѓ
           PEImage.GetInfoFromImage(Module.Path, MBI.BaseAddress, MBI.RegionSize);
-          // и пробуем подтянуть его отладочную инфомацию, если есть MAP файл
+          // Рё РїСЂРѕР±СѓРµРј РїРѕРґС‚СЏРЅСѓС‚СЊ РµРіРѕ РѕС‚Р»Р°РґРѕС‡РЅСѓСЋ РёРЅС„РѕРјР°С†РёСЋ, РµСЃР»Рё РµСЃС‚СЊ MAP С„Р°Р№Р»
           if FileExists(ChangeFileExt(Module.Path, '.map')) then
             DebugMapData.Init(ULONG_PTR(MBI.BaseAddress), Module.Path);
         end;
       end;
 
-      // инициализация завершена, добавляем очередной регион в общий спикок
+      // РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Р·Р°РІРµСЂС€РµРЅР°, РґРѕР±Р°РІР»СЏРµРј РѕС‡РµСЂРµРґРЅРѕР№ СЂРµРіРёРѕРЅ РІ РѕР±С‰РёР№ СЃРїРёРєРѕРє
       FRegions.Add(RegionData);
     except
       RegionData.Free;
       raise;
     end;
 
-    // данная переменная доступна извне и содержит адрес,
-    // на котором заканчивается доступная процессу память
+    // РґР°РЅРЅР°СЏ РїРµСЂРµРјРµРЅРЅР°СЏ РґРѕСЃС‚СѓРїРЅР° РёР·РІРЅРµ Рё СЃРѕРґРµСЂР¶РёС‚ Р°РґСЂРµСЃ,
+    // РЅР° РєРѕС‚РѕСЂРѕРј Р·Р°РєР°РЅС‡РёРІР°РµС‚СЃСЏ РґРѕСЃС‚СѓРїРЅР°СЏ РїСЂРѕС†РµСЃСЃСѓ РїР°РјСЏС‚СЊ
     Inc(FHighAddress, RegionData.MBI.RegionSize);
   end;
 end;
 
 //
-//  Для доступа к приватным методам TRegionData,
-//  к которым запрещен доступ программисту извне,
-//  применяется данная функция приводящая TRegionData к TFriendlyRegionData
+//  Р”Р»СЏ РґРѕСЃС‚СѓРїР° Рє РїСЂРёРІР°С‚РЅС‹Рј РјРµС‚РѕРґР°Рј TRegionData,
+//  Рє РєРѕС‚РѕСЂС‹Рј Р·Р°РїСЂРµС‰РµРЅ РґРѕСЃС‚СѓРї РїСЂРѕРіСЂР°РјРјРёСЃС‚Сѓ РёР·РІРЅРµ,
+//  РїСЂРёРјРµРЅСЏРµС‚СЃСЏ РґР°РЅРЅР°СЏ С„СѓРЅРєС†РёСЏ РїСЂРёРІРѕРґСЏС‰Р°СЏ TRegionData Рє TFriendlyRegionData
 // =============================================================================
 function TMemoryMap.GetFriendlyRegion(Index: Integer): TFriendlyRegionData;
 begin
@@ -406,7 +409,7 @@ begin
 end;
 
 //
-//  Функция предоставляет доступ к дочерним (скрытым) регионам
+//  Р¤СѓРЅРєС†РёСЏ РїСЂРµРґРѕСЃС‚Р°РІР»СЏРµС‚ РґРѕСЃС‚СѓРї Рє РґРѕС‡РµСЂРЅРёРј (СЃРєСЂС‹С‚С‹Рј) СЂРµРіРёРѕРЅР°Рј
 // =============================================================================
 function TMemoryMap.GetHiddenRegion(RootIndex, SubIndex: Integer): TRegionData;
 begin
@@ -414,7 +417,7 @@ begin
 end;
 
 //
-//  Функция предоставляет доступ к регионам с учетом фильтра
+//  Р¤СѓРЅРєС†РёСЏ РїСЂРµРґРѕСЃС‚Р°РІР»СЏРµС‚ РґРѕСЃС‚СѓРї Рє СЂРµРіРёРѕРЅР°Рј СЃ СѓС‡РµС‚РѕРј С„РёР»СЊС‚СЂР°
 // =============================================================================
 function TMemoryMap.GetItem(Index: Integer): TRegionData;
 begin
@@ -422,7 +425,7 @@ begin
 end;
 
 //
-//  Обертка над VirtualQueryEx
+//  РћР±РµСЂС‚РєР° РЅР°Рґ VirtualQueryEx
 // =============================================================================
 function TMemoryMap.GetPageAtAddr(Address: Pointer): TMemoryBasicInformation;
 var
@@ -435,8 +438,8 @@ begin
 end;
 
 //
-//  Функция возвращает регион по переданному адресу.
-//  Если таковой не найден, она создает его.
+//  Р¤СѓРЅРєС†РёСЏ РІРѕР·РІСЂР°С‰Р°РµС‚ СЂРµРіРёРѕРЅ РїРѕ РїРµСЂРµРґР°РЅРЅРѕРјСѓ Р°РґСЂРµСЃСѓ.
+//  Р•СЃР»Рё С‚Р°РєРѕРІРѕР№ РЅРµ РЅР°Р№РґРµРЅ, РѕРЅР° СЃРѕР·РґР°РµС‚ РµРіРѕ.
 // =============================================================================
 function TMemoryMap.GetRegionAtAddr(Address: Pointer): TFriendlyRegionData;
 var
@@ -452,7 +455,7 @@ begin
 end;
 
 //
-//  Доступ к регионам без учета фильтра
+//  Р”РѕСЃС‚СѓРї Рє СЂРµРіРёРѕРЅР°Рј Р±РµР· СѓС‡РµС‚Р° С„РёР»СЊС‚СЂР°
 // =============================================================================
 function TMemoryMap.GetRegionAtUnfilteredIndex(Index: Integer): TRegionData;
 begin
@@ -460,8 +463,8 @@ begin
 end;
 
 //
-//  Функция ищет индекс региона по его BaseAddress.
-//  Если не находит, то возвращает индекс, где он должен располагаться
+//  Р¤СѓРЅРєС†РёСЏ РёС‰РµС‚ РёРЅРґРµРєСЃ СЂРµРіРёРѕРЅР° РїРѕ РµРіРѕ BaseAddress.
+//  Р•СЃР»Рё РЅРµ РЅР°С…РѕРґРёС‚, С‚Рѕ РІРѕР·РІСЂР°С‰Р°РµС‚ РёРЅРґРµРєСЃ, РіРґРµ РѕРЅ РґРѕР»Р¶РµРЅ СЂР°СЃРїРѕР»Р°РіР°С‚СЊСЃСЏ
 // =============================================================================
 function TMemoryMap.GetRegionIndex(Address: Pointer;
   out Index: Integer): Boolean;
@@ -500,8 +503,8 @@ begin
 end;
 
 //
-//  Функция возвращает индекс региона по переданному адресу.
-//  Если таковой не найден, она создает его.
+//  Р¤СѓРЅРєС†РёСЏ РІРѕР·РІСЂР°С‰Р°РµС‚ РёРЅРґРµРєСЃ СЂРµРіРёРѕРЅР° РїРѕ РїРµСЂРµРґР°РЅРЅРѕРјСѓ Р°РґСЂРµСЃСѓ.
+//  Р•СЃР»Рё С‚Р°РєРѕРІРѕР№ РЅРµ РЅР°Р№РґРµРЅ, РѕРЅР° СЃРѕР·РґР°РµС‚ РµРіРѕ.
 // =============================================================================
 function TMemoryMap.GetRegionIndex(Address: Pointer): Integer;
 begin
@@ -510,8 +513,8 @@ begin
 end;
 
 //
-//  Основная функция класса.
-//  Получает данные о карте памяти процесса с указанным PID
+//  РћСЃРЅРѕРІРЅР°СЏ С„СѓРЅРєС†РёСЏ РєР»Р°СЃСЃР°.
+//  РџРѕР»СѓС‡Р°РµС‚ РґР°РЅРЅС‹Рµ Рѕ РєР°СЂС‚Рµ РїР°РјСЏС‚Рё РїСЂРѕС†РµСЃСЃР° СЃ СѓРєР°Р·Р°РЅРЅС‹Рј PID
 // =============================================================================
 function TMemoryMap.InitFromProcess(PID: Cardinal;
   const ProcessName: string): Boolean;
@@ -524,7 +527,7 @@ begin
   FDebugMapData.Clear;
   FFilter := fiNone;
   ProcessLock := nil;
-  // Открываем процесс на чтение
+  // РћС‚РєСЂС‹РІР°РµРј РїСЂРѕС†РµСЃСЃ РЅР° С‡С‚РµРЅРёРµ
   FProcess := OpenProcess(
     PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
     False, PID);
@@ -534,46 +537,46 @@ begin
     FPID := PID;
     FProcessName := ProcessName;
 
-    // определяем битность процесса
+    // РѕРїСЂРµРґРµР»СЏРµРј Р±РёС‚РЅРѕСЃС‚СЊ РїСЂРѕС†РµСЃСЃР°
     FProcess64 := False;
     {$IFDEF WIN64}
       if not IsWow64(FProcess) then
         FProcess64 := True;
     {$ELSE}
-      // если наше приложение 32 битное, а исследуемый процесс 64-битный
-      // кидаем исключение
+      // РµСЃР»Рё РЅР°С€Рµ РїСЂРёР»РѕР¶РµРЅРёРµ 32 Р±РёС‚РЅРѕРµ, Р° РёСЃСЃР»РµРґСѓРµРјС‹Р№ РїСЂРѕС†РµСЃСЃ 64-Р±РёС‚РЅС‹Р№
+      // РєРёРґР°РµРј РёСЃРєР»СЋС‡РµРЅРёРµ
       if Is64OS and not IsWow64(FProcess) then
         raise Exception.Create('Can''t scan process.');
     {$ENDIF}
 
-    // проверяем необходимость суспенда процесса
+    // РїСЂРѕРІРµСЂСЏРµРј РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚СЊ СЃСѓСЃРїРµРЅРґР° РїСЂРѕС†РµСЃСЃР°
     if SuspendProcessBeforeScan then
       ProcessLock := SuspendProcess(PID);
     try
       FSymbols := TSymbols.Create(FProcess);
       try
-        FPEImage := TPEImage.Create(FProcess, FProcess64);
+        FPEImage := TPEImage.Create(FProcess);
         try
           FWorkset := TWorkset.Create(FProcess);;
           try
-            // получаем данные по регионам и отмапленым файлам
+            // РїРѕР»СѓС‡Р°РµРј РґР°РЅРЅС‹Рµ РїРѕ СЂРµРіРёРѕРЅР°Рј Рё РѕС‚РјР°РїР»РµРЅС‹Рј С„Р°Р№Р»Р°Рј
             GetAllRegions;
           finally
             FWorkset.Free;
           end;
 
           {$IFDEF WIN64}
-          // если есть возможность получаем данные о 32 битных кучах
+          // РµСЃР»Рё РµСЃС‚СЊ РІРѕР·РјРѕР¶РЅРѕСЃС‚СЊ РїРѕР»СѓС‡Р°РµРј РґР°РЅРЅС‹Рµ Рѕ 32 Р±РёС‚РЅС‹С… РєСѓС‡Р°С…
           AddWow64HeapsData;
           {$ENDIF}
 
-          // добавляем данные о потоках
+          // РґРѕР±Р°РІР»СЏРµРј РґР°РЅРЅС‹Рµ Рѕ РїРѕС‚РѕРєР°С…
           AddThreadsData;
-          // добавляем данные о кучах
+          // РґРѕР±Р°РІР»СЏРµРј РґР°РЅРЅС‹Рµ Рѕ РєСѓС‡Р°С…
           AddHeapsData;
-          // добавляем данные о Process Environment Block
+          // РґРѕР±Р°РІР»СЏРµРј РґР°РЅРЅС‹Рµ Рѕ Process Environment Block
           AddPEBData;
-          // добавляем данные о загруженых PE файлах
+          // РґРѕР±Р°РІР»СЏРµРј РґР°РЅРЅС‹Рµ Рѕ Р·Р°РіСЂСѓР¶РµРЅС‹С… PE С„Р°Р№Р»Р°С…
           AddImagesData;
         finally
           FPEImage.Free;
@@ -585,11 +588,11 @@ begin
       if SuspendProcessBeforeScan then
         ResumeProcess(ProcessLock);
     end;
-    // сортируем
+    // СЃРѕСЂС‚РёСЂСѓРµРј
     SortAllContainsBlocks;
-    // считаем общую информацию о регионах
+    // СЃС‡РёС‚Р°РµРј РѕР±С‰СѓСЋ РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЂРµРіРёРѕРЅР°С…
     CalcTotal;
-    // применяем текущий фильтр
+    // РїСЂРёРјРµРЅСЏРµРј С‚РµРєСѓС‰РёР№ С„РёР»СЊС‚СЂ
     UpdateRegionFilters;
   finally
     CloseHandle(FProcess);
@@ -597,7 +600,7 @@ begin
 end;
 
 //
-//  Процедура загружает ранее сохраненную карту памяти процесса
+//  РџСЂРѕС†РµРґСѓСЂР° Р·Р°РіСЂСѓР¶Р°РµС‚ СЂР°РЅРµРµ СЃРѕС…СЂР°РЅРµРЅРЅСѓСЋ РєР°СЂС‚Сѓ РїР°РјСЏС‚Рё РїСЂРѕС†РµСЃСЃР°
 // =============================================================================
 procedure TMemoryMap.LoadFromFile(const FileName: string);
 var
@@ -612,7 +615,7 @@ begin
 end;
 
 //
-//  Процедура загружает ранее сохраненную карту памяти процесса
+//  РџСЂРѕС†РµРґСѓСЂР° Р·Р°РіСЂСѓР¶Р°РµС‚ СЂР°РЅРµРµ СЃРѕС…СЂР°РЅРµРЅРЅСѓСЋ РєР°СЂС‚Сѓ РїР°РјСЏС‚Рё РїСЂРѕС†РµСЃСЃР°
 // =============================================================================
 procedure TMemoryMap.LoadFromStream(AStream: TStream);
 var
@@ -641,7 +644,7 @@ begin
         LastVisibleRegion := Region
       else
         Region.SetParent(LastVisibleRegion);
-      if Region.RegionType = rtExecutableImage then
+      if Region.RegionType in [rtExecutableImage, rtExecutableImage64] then
       begin
         Module.Path := Region.Details;
         Module.BaseAddr := NativeUInt(Region.MBI.BaseAddress);
@@ -657,7 +660,7 @@ begin
 end;
 
 //
-//  Создаем ноый обьект для хранения данных о регионе
+//  РЎРѕР·РґР°РµРј РЅРѕС‹Р№ РѕР±СЊРµРєС‚ РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РґР°РЅРЅС‹С… Рѕ СЂРµРіРёРѕРЅРµ
 // =============================================================================
 function TMemoryMap.NewRegionData: TFriendlyRegionData;
 begin
@@ -665,7 +668,7 @@ begin
 end;
 
 //
-//  Функция рассчитывает как какому типу фильтра относится переданный регион
+//  Р¤СѓРЅРєС†РёСЏ СЂР°СЃСЃС‡РёС‚С‹РІР°РµС‚ РєР°Рє РєР°РєРѕРјСѓ С‚РёРїСѓ С„РёР»СЊС‚СЂР° РѕС‚РЅРѕСЃРёС‚СЃСЏ РїРµСЂРµРґР°РЅРЅС‹Р№ СЂРµРіРёРѕРЅ
 // =============================================================================
 function TMemoryMap.RegionToFilterType(Value: TRegionData): TFilters;
 var
@@ -691,7 +694,7 @@ begin
     rtHeap: Exit(fiHeap);
     rtThread: Exit(fiThread);
     rtSystem: Exit(fiSystem);
-    rtExecutableImage: Exit(fiImage);
+    rtExecutableImage, rtExecutableImage64: Exit(fiImage);
   end;
   if not Value.RegionVisible then
   begin
@@ -702,7 +705,7 @@ begin
 end;
 
 //
-//  Сохранение карты памяти
+//  РЎРѕС…СЂР°РЅРµРЅРёРµ РєР°СЂС‚С‹ РїР°РјСЏС‚Рё
 // =============================================================================
 procedure TMemoryMap.SaveToFile(const FileName: string);
 var
@@ -717,7 +720,7 @@ begin
 end;
 
 //
-//  Сохранение карты памяти
+//  РЎРѕС…СЂР°РЅРµРЅРёРµ РєР°СЂС‚С‹ РїР°РјСЏС‚Рё
 // =============================================================================
 procedure TMemoryMap.SaveToStream(AStream: TStream);
 var
@@ -739,7 +742,7 @@ begin
 end;
 
 //
-//  Переключение детализации при выводе списка куч
+//  РџРµСЂРµРєР»СЋС‡РµРЅРёРµ РґРµС‚Р°Р»РёР·Р°С†РёРё РїСЂРё РІС‹РІРѕРґРµ СЃРїРёСЃРєР° РєСѓС‡
 // =============================================================================
 procedure TMemoryMap.SetDetailedHeapData(const Value: Boolean);
 begin
@@ -752,7 +755,7 @@ begin
 end;
 
 //
-//  Переключение фильтра
+//  РџРµСЂРµРєР»СЋС‡РµРЅРёРµ С„РёР»СЊС‚СЂР°
 // =============================================================================
 procedure TMemoryMap.SetFilter(const Value: TFilters);
 begin
@@ -764,7 +767,7 @@ begin
 end;
 
 //
-//  Переключение флага о необходимости отображение регионов с невыделенной памятью
+//  РџРµСЂРµРєР»СЋС‡РµРЅРёРµ С„Р»Р°РіР° Рѕ РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚Рё РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ СЂРµРіРёРѕРЅРѕРІ СЃ РЅРµРІС‹РґРµР»РµРЅРЅРѕР№ РїР°РјСЏС‚СЊСЋ
 // =============================================================================
 procedure TMemoryMap.SetShowEmpty(const Value: Boolean);
 begin
@@ -776,7 +779,7 @@ begin
 end;
 
 //
-//  Процедура сортирует данные содержащиеся в поле Contains каждого региона
+//  РџСЂРѕС†РµРґСѓСЂР° СЃРѕСЂС‚РёСЂСѓРµС‚ РґР°РЅРЅС‹Рµ СЃРѕРґРµСЂР¶Р°С‰РёРµСЃСЏ РІ РїРѕР»Рµ Contains РєР°Р¶РґРѕРіРѕ СЂРµРіРёРѕРЅР°
 // =============================================================================
 procedure TMemoryMap.SortAllContainsBlocks;
 var
@@ -816,8 +819,8 @@ begin
 end;
 
 //
-//  Функция разделяет существующий регион на два
-//  и возвращает индекс вновь созданного региона
+//  Р¤СѓРЅРєС†РёСЏ СЂР°Р·РґРµР»СЏРµС‚ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ СЂРµРіРёРѕРЅ РЅР° РґРІР°
+//  Рё РІРѕР·РІСЂР°С‰Р°РµС‚ РёРЅРґРµРєСЃ РІРЅРѕРІСЊ СЃРѕР·РґР°РЅРЅРѕРіРѕ СЂРµРіРёРѕРЅР°
 // =============================================================================
 function TMemoryMap.SplitRegionAtAddr(Address: Pointer;
   Index: Integer): Integer;
@@ -827,16 +830,16 @@ var
 begin
   NewRegion := NewRegionData;
   try
-    // новый регион всегда является чайлдом
+    // РЅРѕРІС‹Р№ СЂРµРіРёРѕРЅ РІСЃРµРіРґР° СЏРІР»СЏРµС‚СЃСЏ С‡Р°Р№Р»РґРѕРј
     NewRegion.SetRegionVisible(False);
     MBI := GetPageAtAddr(Address);
 
-    // Правим размер предыдущего региона
+    // РџСЂР°РІРёРј СЂР°Р·РјРµСЂ РїСЂРµРґС‹РґСѓС‰РµРіРѕ СЂРµРіРёРѕРЅР°
     OriginalRegion := GetFriendlyRegion(Index);
     OriginalRegion.SetMBIRegionSize(ULONG_PTR(MBI.BaseAddress) -
       ULONG_PTR(OriginalRegion.MBI.BaseAddress));
-    // и размер текущего с учетом адреса следующего региона
-    // т.к. MBI.RegionSize всегда указывает размер до конца группы регионов
+    // Рё СЂР°Р·РјРµСЂ С‚РµРєСѓС‰РµРіРѕ СЃ СѓС‡РµС‚РѕРј Р°РґСЂРµСЃР° СЃР»РµРґСѓСЋС‰РµРіРѕ СЂРµРіРёРѕРЅР°
+    // С‚.Рє. MBI.RegionSize РІСЃРµРіРґР° СѓРєР°Р·С‹РІР°РµС‚ СЂР°Р·РјРµСЂ РґРѕ РєРѕРЅС†Р° РіСЂСѓРїРїС‹ СЂРµРіРёРѕРЅРѕРІ
     if Index < FRegions.Count - 1 then
     begin
       NextRegion := GetFriendlyRegion(Index + 1);
@@ -866,7 +869,7 @@ begin
 end;
 
 //
-//  Общее количество регионов
+//  РћР±С‰РµРµ РєРѕР»РёС‡РµСЃС‚РІРѕ СЂРµРіРёРѕРЅРѕРІ
 // =============================================================================
 function TMemoryMap.TotalCount: Integer;
 begin
@@ -874,7 +877,7 @@ begin
 end;
 
 //
-//  Добавляем информацию о кучах
+//  Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РєСѓС‡Р°С…
 // =============================================================================
 procedure TMemoryMap.AddHeapsData;
 var
@@ -889,7 +892,7 @@ begin
 end;
 
 //
-//  Добавляем информацию о кучах
+//  Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РєСѓС‡Р°С…
 // =============================================================================
 procedure TMemoryMap.AddHeapsData(Value: THeap);
 var
@@ -900,13 +903,13 @@ var
 begin
   for HeapData in Value.Data do
   begin
-    // если включена детализация, то добавляем все элементы кучи
+    // РµСЃР»Рё РІРєР»СЋС‡РµРЅР° РґРµС‚Р°Р»РёР·Р°С†РёСЏ, С‚Рѕ РґРѕР±Р°РІР»СЏРµРј РІСЃРµ СЌР»РµРјРµРЅС‚С‹ РєСѓС‡Рё
     if DetailedHeapData then
       RegionData := GetRegionAtAddr(Pointer(HeapData.Entry.Address))
     else
     begin
-      // если же детализация отключена, то добавляем только те записи из кучи
-      // которые принадлежат рутовым регионам
+      // РµСЃР»Рё Р¶Рµ РґРµС‚Р°Р»РёР·Р°С†РёСЏ РѕС‚РєР»СЋС‡РµРЅР°, С‚Рѕ РґРѕР±Р°РІР»СЏРµРј С‚РѕР»СЊРєРѕ С‚Рµ Р·Р°РїРёСЃРё РёР· РєСѓС‡Рё
+      // РєРѕС‚РѕСЂС‹Рµ РїСЂРёРЅР°РґР»РµР¶Р°С‚ СЂСѓС‚РѕРІС‹Рј СЂРµРіРёРѕРЅР°Рј
       GetRegionIndex(Pointer(HeapData.Entry.Address), Index);
       RegionData := GetFriendlyRegion(Index);
       if RegionData.RegionVisible then
@@ -924,7 +927,7 @@ begin
 end;
 
 //
-//  Добавляем информацию о загруженых PE файлах
+//  Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ Р·Р°РіСЂСѓР¶РµРЅС‹С… PE С„Р°Р№Р»Р°С…
 // =============================================================================
 procedure TMemoryMap.AddImagesData;
 var
@@ -938,25 +941,27 @@ var
   EntryPoint, TLSCallback: TDirectory;
   pTLSCallback: TTLSCallback;
 begin
-  // все известные точки входа добавляем в параметр с директориями
+  // РІСЃРµ РёР·РІРµСЃС‚РЅС‹Рµ С‚РѕС‡РєРё РІС…РѕРґР° РґРѕР±Р°РІР»СЏРµРј РІ РїР°СЂР°РјРµС‚СЂ СЃ РґРёСЂРµРєС‚РѕСЂРёСЏРјРё
   for pEntryPoint in FPEImage.EntryPoints do
   begin
     RegionData := GetRegionAtAddr(pEntryPoint);
+    EntryPoint.Flag := dfEntryPoint;
     EntryPoint.Caption := 'EntryPoint';
     EntryPoint.Address := NativeInt(pEntryPoint);
     EntryPoint.Size := 0;
     RegionData.Directory.Add(EntryPoint);
   end;
-  // все известные калбэки нитей добавляем в параметр с директориями
+  // РІСЃРµ РёР·РІРµСЃС‚РЅС‹Рµ РєР°Р»Р±СЌРєРё РЅРёС‚РµР№ РґРѕР±Р°РІР»СЏРµРј РІ РїР°СЂР°РјРµС‚СЂ СЃ РґРёСЂРµРєС‚РѕСЂРёСЏРјРё
   for pTLSCallback in FPEImage.TLSCallbacks do
   begin
     RegionData := GetRegionAtAddr(pTLSCallback.Address);
+    TLSCallback.Flag := dfTlsCallback;
     TLSCallback.Caption := pTLSCallback.Caption;
     TLSCallback.Address := NativeInt(pTLSCallback.Address);
     TLSCallback.Size := 0;
     RegionData.Directory.Add(TLSCallback);
   end;
-  // теперь добавляем сами директории
+  // С‚РµРїРµСЂСЊ РґРѕР±Р°РІР»СЏРµРј СЃР°РјРё РґРёСЂРµРєС‚РѕСЂРёРё
   for Directory in FPEImage.Directoryes do
   begin
     for I := 0 to 14 do
@@ -966,15 +971,15 @@ begin
       RegionData.Directory.Add(Directory.Data[I]);
     end;
   end;
-  // ну и в конце секции исполняемого файла
+  // РЅСѓ Рё РІ РєРѕРЅС†Рµ СЃРµРєС†РёРё РёСЃРїРѕР»РЅСЏРµРјРѕРіРѕ С„Р°Р№Р»Р°
   for Section in FPEImage.Sections do
   begin
-    // сначала добавляем регионы с которых начинаются инвестные нам секции
+    // СЃРЅР°С‡Р°Р»Р° РґРѕР±Р°РІР»СЏРµРј СЂРµРіРёРѕРЅС‹ СЃ РєРѕС‚РѕСЂС‹С… РЅР°С‡РёРЅР°СЋС‚СЃСЏ РёРЅРІРµСЃС‚РЅС‹Рµ РЅР°Рј СЃРµРєС†РёРё
     MBI := GetPageAtAddr(Pointer(Section.Address));
     Index := GetRegionIndex(MBI.BaseAddress);
     RegionData := GetFriendlyRegion(Index);
-    // а потом добавляем признак секции во все последующие
-    // в соответствии с размером секции
+    // Р° РїРѕС‚РѕРј РґРѕР±Р°РІР»СЏРµРј РїСЂРёР·РЅР°Рє СЃРµРєС†РёРё РІРѕ РІСЃРµ РїРѕСЃР»РµРґСѓСЋС‰РёРµ
+    // РІ СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРё СЃ СЂР°Р·РјРµСЂРѕРј СЃРµРєС†РёРё
     SectionSize := Section.Size;
     repeat
       RegionData.SetSection(Section);
@@ -986,7 +991,7 @@ begin
 end;
 
 //
-//  Добавляем информацию из PEB
+//  Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ РёР· PEB
 // =============================================================================
 procedure TMemoryMap.AddPEBData;
 
@@ -1132,7 +1137,7 @@ begin
 end;
 
 //
-//  Добавляем информацию о потоках
+//  Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РїРѕС‚РѕРєР°С…
 // =============================================================================
 procedure TMemoryMap.AddThreadsData;
 var
@@ -1147,9 +1152,15 @@ begin
 end;
 
 //
-//  Добавляем информацию о потоках
+//  Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РїРѕС‚РѕРєР°С…
 // =============================================================================
 procedure TMemoryMap.AddThreadsData(Value: TThreads);
+
+  function CheckRegionType(Value: TRegionType): Boolean;
+  begin
+    Result := not (Value in [rtExecutableImage, rtExecutableImage64]);
+  end;
+
 var
   RegionData, ImageRegion: TFriendlyRegionData;
   ThreadData: TThreadData;
@@ -1158,7 +1169,7 @@ var
   Index: Integer;
   SEHEntry: TSEHEntry;
 begin
-  // сначала информацию о стеке, адресе потоковой процедуры и TEB
+  // СЃРЅР°С‡Р°Р»Р° РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЃС‚РµРєРµ, Р°РґСЂРµСЃРµ РїРѕС‚РѕРєРѕРІРѕР№ РїСЂРѕС†РµРґСѓСЂС‹ Рё TEB
   for ThreadData in Value.ThreadData do
   begin
     if not CheckAddr(ThreadData.Address) then Continue;
@@ -1172,11 +1183,11 @@ begin
       RegionData.Contains.Add(ContainItem);
 
       ImageRegion := RegionData;
-      if ImageRegion.RegionType <> rtExecutableImage then
+      if CheckRegionType(ImageRegion.RegionType) then
       begin
         ImageRegion := TFriendlyRegionData(RegionData.Parent);
         if ImageRegion <> nil then
-          if ImageRegion.RegionType <> rtExecutableImage then
+          if CheckRegionType(ImageRegion.RegionType) then
             ImageRegion := nil;
       end;
 
@@ -1189,7 +1200,9 @@ begin
       Continue;
     end;
 
-    RegionData.SetRegionType(rtThread);
+    if CheckRegionType(RegionData.RegionType) then
+      RegionData.SetRegionType(rtThread);
+
     if RegionData.MBI.BaseAddress = ThreadData.Address then
       RegionData.SetThread(ThreadData)
     else
@@ -1211,21 +1224,22 @@ begin
 
   end;
 
-  // потом информацию о CallStack
+  // РїРѕС‚РѕРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ CallStack
   for ThreadStackEntry in Value.ThreadStackEntries do
   begin
     if not CheckAddr(ThreadStackEntry.Data.AddrFrame.Offset) then Continue;
+
     RegionData := GetRegionAtAddr(Pointer(ThreadStackEntry.Data.AddrFrame.Offset));
     ContainItem.ItemType := itStackFrame;
 
     GetRegionIndex(Pointer(ThreadStackEntry.Data.AddrPC.Offset), Index);
     ImageRegion := GetFriendlyRegion(Index);
 
-    if ImageRegion.RegionType <> rtExecutableImage then
+    if CheckRegionType(ImageRegion.RegionType) then
     begin
       ImageRegion := TFriendlyRegionData(ImageRegion.Parent);
       if ImageRegion <> nil then
-        if ImageRegion.RegionType <> rtExecutableImage then
+        if CheckRegionType(ImageRegion.RegionType) then
           ImageRegion := nil;
     end;
 
@@ -1239,7 +1253,7 @@ begin
     RegionData.Contains.Add(ContainItem);
   end;
 
-  // и в завершение информацию о SEH фреймах
+  // Рё РІ Р·Р°РІРµСЂС€РµРЅРёРµ РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ SEH С„СЂРµР№РјР°С…
   for SEHEntry in Value.SEHEntries do
   begin
     if not CheckAddr(SEHEntry.Address) then Continue;
@@ -1249,11 +1263,11 @@ begin
     GetRegionIndex(SEHEntry.Handler, Index);
     ImageRegion := GetFriendlyRegion(Index);
 
-    if ImageRegion.RegionType <> rtExecutableImage then
+    if CheckRegionType(ImageRegion.RegionType) then
     begin
       ImageRegion := TFriendlyRegionData(ImageRegion.Parent);
       if ImageRegion <> nil then
-        if ImageRegion.RegionType <> rtExecutableImage then
+        if CheckRegionType(ImageRegion.RegionType) then
           ImageRegion := nil;
     end;
 
@@ -1269,7 +1283,7 @@ begin
 end;
 
 //
-//  Добавляем информацию о Wow64 кучах
+//  Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ Wow64 РєСѓС‡Р°С…
 // =============================================================================
 procedure TMemoryMap.AddWow64HeapsData;
 var
@@ -1287,8 +1301,8 @@ begin
 end;
 
 //
-//  Процедура обновляем список FRegionFilters с индексами
-//  отфильтрованных регионов на основании текущего фильтра
+//  РџСЂРѕС†РµРґСѓСЂР° РѕР±РЅРѕРІР»СЏРµРј СЃРїРёСЃРѕРє FRegionFilters СЃ РёРЅРґРµРєСЃР°РјРё
+//  РѕС‚С„РёР»СЊС‚СЂРѕРІР°РЅРЅС‹С… СЂРµРіРёРѕРЅРѕРІ РЅР° РѕСЃРЅРѕРІР°РЅРёРё С‚РµРєСѓС‰РµРіРѕ С„РёР»СЊС‚СЂР°
 // =============================================================================
 procedure TMemoryMap.UpdateRegionFilters;
 

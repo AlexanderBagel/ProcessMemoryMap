@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.DebugMapData.pas
-//  * Purpose   : Класс для работы с отладочным MAP файлом.
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Purpose   : РљР»Р°СЃСЃ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ РѕС‚Р»Р°РґРѕС‡РЅС‹Рј MAP С„Р°Р№Р»РѕРј.
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2017.
 //  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -47,6 +47,7 @@ type
     destructor Destroy; override;
     procedure Clear;
     procedure Init(BaseAddress: ULONG_PTR; const ModulePath: string);
+    function GetAddrFromDescription(const Value: string): ULONG_PTR;
     function GetDescriptionAtAddr(Address: ULONG_PTR): string;
     function GetDescriptionAtAddrWithOffset(Address: ULONG_PTR): string;
     procedure GetExportFuncList(const ModuleName: string; Value: TStringList);
@@ -79,6 +80,24 @@ destructor TDebugMap.Destroy;
 begin
   FItems.Free;
   inherited;
+end;
+
+function TDebugMap.GetAddrFromDescription(const Value: string): ULONG_PTR;
+var
+  CheckNameOnly: Boolean;
+  CheckName: string;
+begin
+  Result := 0;
+  CheckNameOnly := Pos('!', Value) = 0;
+  for var I := 0 to FItems.Count - 1 do
+  begin
+    if CheckNameOnly then
+      CheckName := FItems.List[I].FunctionName
+    else
+      CheckName := FItems.List[I].ModuleName + '!' + FItems.List[I].FunctionName;
+    if AnsiSameText(Value, CheckName) then
+      Exit(FItems.List[I].Address);
+  end;
 end;
 
 function TDebugMap.GetDescriptionAtAddr(Address: ULONG_PTR): string;
@@ -140,21 +159,21 @@ begin
       DebugMapItem.ModuleName := ExtractFileName(ModulePath);
       SectionDataList := TList<TSectionData>.Create;
       try
-        PEImage := TPEImage.Create(0, False);
+        PEImage := TPEImage.Create(0);
         try
           PEImage.GetInfoFromImage(ModulePath, nil, 0);
 
           I := 0;
           Count := MapFile.Count;
 
-          // ищем начало таблицы секций
+          // РёС‰РµРј РЅР°С‡Р°Р»Рѕ С‚Р°Р±Р»РёС†С‹ СЃРµРєС†РёР№
           while Copy(Trim(MapFile[I]), 1, 5) <> 'Start' do
           begin
             Inc(I);
             if I = Count then Exit;
           end;
 
-          // получаем номер секции и ее имя
+          // РїРѕР»СѓС‡Р°РµРј РЅРѕРјРµСЂ СЃРµРєС†РёРё Рё РµРµ РёРјСЏ
           Inc(I);
           if I = Count then Exit;
           Line := Trim(MapFile[I]);
@@ -168,16 +187,16 @@ begin
             SectionName := Copy(Line, 1, SpacePos - 1);
             Delete(Line, 1, SpacePos);
 
-            // в старых версиях дельфи в РЕ файле имя секции называлось по имени ее класса
-            // поэтому будем искать правильную секцию опираясь на этот момент
+            // РІ СЃС‚Р°СЂС‹С… РІРµСЂСЃРёСЏС… РґРµР»СЊС„Рё РІ Р Р• С„Р°Р№Р»Рµ РёРјСЏ СЃРµРєС†РёРё РЅР°Р·С‹РІР°Р»РѕСЃСЊ РїРѕ РёРјРµРЅРё РµРµ РєР»Р°СЃСЃР°
+            // РїРѕСЌС‚РѕРјСѓ Р±СѓРґРµРј РёСЃРєР°С‚СЊ РїСЂР°РІРёР»СЊРЅСѓСЋ СЃРµРєС†РёСЋ РѕРїРёСЂР°СЏСЃСЊ РЅР° СЌС‚РѕС‚ РјРѕРјРµРЅС‚
             SectionClass := TrimLeft(Line);
 
-            // убираем декорирование (MS VC++ Debug MAP)
+            // СѓР±РёСЂР°РµРј РґРµРєРѕСЂРёСЂРѕРІР°РЅРёРµ (MS VC++ Debug MAP)
             SpacePos := Pos('$', SectionName);
             if SpacePos > 0 then
               SectionName := Copy(SectionName, 1, SpacePos - 1);
 
-            // если секция содержит код, заносим ее в список
+            // РµСЃР»Рё СЃРµРєС†РёСЏ СЃРѕРґРµСЂР¶РёС‚ РєРѕРґ, Р·Р°РЅРѕСЃРёРј РµРµ РІ СЃРїРёСЃРѕРє
             for A := 0 to PEImage.Sections.Count - 1 do
               if (PEImage.Sections[A].Caption = ShortString(SectionName)) or
                 (PEImage.Sections[A].Caption = ShortString(SectionClass)) then
@@ -199,7 +218,7 @@ begin
           PEImage.Free;
         end;
 
-        // ищем начало таблицы "Publics by Value"
+        // РёС‰РµРј РЅР°С‡Р°Р»Рѕ С‚Р°Р±Р»РёС†С‹ "Publics by Value"
         FoundTable := False;
         while not FoundTable do
         begin
@@ -216,7 +235,7 @@ begin
           FoundTable := Copy(TrimLeft(Line), 1, 16) = 'Publics by Value';
         end;
 
-        // парсим таблицу "Publics by Value"
+        // РїР°СЂСЃРёРј С‚Р°Р±Р»РёС†Сѓ "Publics by Value"
         Inc(I, 2);
         if I >= Count then Exit;
         Line := Trim(MapFile[I]);
@@ -261,13 +280,13 @@ begin
       MapFile.Free;
     end;
 
-    // выставлям правильные длины функций
+    // РІС‹СЃС‚Р°РІР»СЏРј РїСЂР°РІРёР»СЊРЅС‹Рµ РґР»РёРЅС‹ С„СѓРЅРєС†РёР№
     for I := FItems.Count - 1 downto StartPosition + 1 do
       FItems.List[I - 1].EndAddress := FItems.List[I].Address;
 
     FItems.Sort;
   except
-    // если не смогли распарсить - выкидываем все из массива данных
+    // РµСЃР»Рё РЅРµ СЃРјРѕРіР»Рё СЂР°СЃРїР°СЂСЃРёС‚СЊ - РІС‹РєРёРґС‹РІР°РµРј РІСЃРµ РёР· РјР°СЃСЃРёРІР° РґР°РЅРЅС‹С…
     for I := FItems.Count - 1 downto StartPosition do
       FItems.Delete(I);
   end;

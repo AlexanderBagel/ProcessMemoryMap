@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uMemoryMapListInfo.pas
-//  * Purpose   : Сканирование памяти процесса на основе адресов и контрольных сумм
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
+//  * Purpose   : РЎРєР°РЅРёСЂРѕРІР°РЅРёРµ РїР°РјСЏС‚Рё РїСЂРѕС†РµСЃСЃР° РЅР° РѕСЃРЅРѕРІРµ Р°РґСЂРµСЃРѕРІ Рё РєРѕРЅС‚СЂРѕР»СЊРЅС‹С… СЃСѓРјРј
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2016.
 //  * Version   : 1.0
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -202,11 +202,11 @@ begin
     begin
       Path := NormalizePath(string(OwnerName));
       Add(DisassemblyFromBuff(Process, RawBuff, Symbols,  MMLRecord.Addr,
-        MBI.AllocationBase, Path, MemoryMapCore.Process64, ScanSettings.DumpSize));
+        MBI.AllocationBase, Path, MemoryMapCore.Process64, ScanSettings.DumpSize, nil));
     end
     else
       Add(DisassemblyFromBuff(Process, RawBuff, nil, nil, MMLRecord.Addr,
-        '', MemoryMapCore.Process64, ScanSettings.DumpSize));
+        '', MemoryMapCore.Process64, ScanSettings.DumpSize, nil));
   end;
 end;
 

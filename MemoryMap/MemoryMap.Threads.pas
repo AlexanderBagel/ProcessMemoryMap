@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.Threads.pas
-//  * Purpose   : Класс собирает данные о потоках процесса.
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
+//  * Purpose   : РљР»Р°СЃСЃ СЃРѕР±РёСЂР°РµС‚ РґР°РЅРЅС‹Рµ Рѕ РїРѕС‚РѕРєР°С… РїСЂРѕС†РµСЃСЃР°.
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2013.
 //  * Version   : 1.0
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -295,9 +295,9 @@ var
 begin
   ZeroMemory(@ThreadShackEntry, SizeOf(TThreadStackEntry));
 
-  // ThreadContext должен быть выравнен, поэтому используем VirtualAlloc
-  // которая автоматически выделит память выровненую по началу страницы
-  // в противном случае получим ERROR_NOACCESS (998)
+  // ThreadContext РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІС‹СЂР°РІРЅРµРЅ, РїРѕСЌС‚РѕРјСѓ РёСЃРїРѕР»СЊР·СѓРµРј VirtualAlloc
+  // РєРѕС‚РѕСЂР°СЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РІС‹РґРµР»РёС‚ РїР°РјСЏС‚СЊ РІС‹СЂРѕРІРЅРµРЅСѓСЋ РїРѕ РЅР°С‡Р°Р»Сѓ СЃС‚СЂР°РЅРёС†С‹
+  // РІ РїСЂРѕС‚РёРІРЅРѕРј СЃР»СѓС‡Р°Рµ РїРѕР»СѓС‡РёРј ERROR_NOACCESS (998)
   ThreadContext := VirtualAlloc(nil, SizeOf(TContext), MEM_COMMIT, PAGE_READWRITE);
   try
     ThreadContext^.ContextFlags := CONTEXT_FULL;
@@ -361,9 +361,9 @@ var
 begin
   ZeroMemory(@ThreadShackEntry, SizeOf(TThreadStackEntry));
 
-  // ThreadContext должен быть выравнен, поэтому используем VirtualAlloc
-  // которая автоматически выделит память выровненую по началу страницы
-  // в противном случае получим ERROR_NOACCESS (998)
+  // ThreadContext РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІС‹СЂР°РІРЅРµРЅ, РїРѕСЌС‚РѕРјСѓ РёСЃРїРѕР»СЊР·СѓРµРј VirtualAlloc
+  // РєРѕС‚РѕСЂР°СЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РІС‹РґРµР»РёС‚ РїР°РјСЏС‚СЊ РІС‹СЂРѕРІРЅРµРЅСѓСЋ РїРѕ РЅР°С‡Р°Р»Сѓ СЃС‚СЂР°РЅРёС†С‹
+  // РІ РїСЂРѕС‚РёРІРЅРѕРј СЃР»СѓС‡Р°Рµ РїРѕР»СѓС‡РёРј ERROR_NOACCESS (998)
   ThreadContext := VirtualAlloc(nil, SizeOf(TWow64Context), MEM_COMMIT, PAGE_READWRITE);
   try
     ThreadContext^.ContextFlags := CONTEXT_FULL;
@@ -379,11 +379,9 @@ begin
     StackFrame.AddrStack.Offset := ThreadContext.Esp;
     StackFrame.AddrFrame.Offset := ThreadContext.Ebp;
 
-    while True do
+    while StackWalk64(IMAGE_FILE_MACHINE_I386, hProcess, hThread, StackFrame,
+      ThreadContext, nil, nil, nil, nil) do
     begin
-      if not StackWalk64(IMAGE_FILE_MACHINE_I386, hProcess, hThread, StackFrame,
-        ThreadContext, nil, nil, nil, nil) then
-        Break;
       if StackFrame.AddrPC.Offset <= 0 then Break;
       ThreadShackEntry.ThreadID := ID;
       ThreadShackEntry.Data := StackFrame;
@@ -452,9 +450,13 @@ var
   WOW64_NT_TIB: TWOW64_NT_TIB;
   {$ENDIF}
 begin
+  {$IFDEF WIN64}
+  Wow64 := True;
+  {$ELSE}
   Wow64 := False;
+  {$ENDIF}
 
-  // Делаем снимок нитей в системе
+  // Р”РµР»Р°РµРј СЃРЅРёРјРѕРє РЅРёС‚РµР№ РІ СЃРёСЃС‚РµРјРµ
   hSnap := CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, PID);
   if hSnap <> INVALID_HANDLE_VALUE then
   try
@@ -463,40 +465,38 @@ begin
     repeat
       if ThreadEntry.th32OwnerProcessID <> PID then Continue;
 
-      // Открываем нить
+      // РћС‚РєСЂС‹РІР°РµРј РЅРёС‚СЊ
       hThread := OpenThread(THREAD_GET_CONTEXT or
         THREAD_SUSPEND_RESUME or THREAD_QUERY_INFORMATION,
         False, ThreadEntry.th32ThreadID);
       if hThread <> 0 then
       try
-        // Получаем адрес ThreadProc()
+        // РџРѕР»СѓС‡Р°РµРј Р°РґСЂРµСЃ ThreadProc()
         if NtQueryInformationThread(hThread, ThreadQuerySetWin32StartAddress,
           @ThreadStartAddress, SizeOf(ThreadStartAddress), nil) = STATUS_SUCCESS then
           Add(hProcess, tiThreadProc, ThreadStartAddress, ThreadEntry.th32ThreadID, False);
-        // Получаем информацию по нити
+        // РџРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ РїРѕ РЅРёС‚Рё
         if NtQueryInformationThread(hThread, ThreadBasicInformation, @TBI,
           SizeOf(TThreadBasicInformation), nil) = STATUS_SUCCESS then
         begin
-          // Читаем из удаленного адресного пространства
-          // TIB (Thread Information Block) открытой нити
+          // Р§РёС‚Р°РµРј РёР· СѓРґР°Р»РµРЅРЅРѕРіРѕ Р°РґСЂРµСЃРЅРѕРіРѕ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІР°
+          // TIB (Thread Information Block) РѕС‚РєСЂС‹С‚РѕР№ РЅРёС‚Рё
           if not ReadProcessMemory(hProcess,
             TBI.TebBaseAddress, @TIB, SizeOf(NT_TIB),
             lpNumberOfBytesRead) then Exit;
-          // Добавляем в массив адрес стэка
+          // Р”РѕР±Р°РІР»СЏРµРј РІ РјР°СЃСЃРёРІ Р°РґСЂРµСЃ СЃС‚СЌРєР°
           Add(hProcess, tiStackBase, TIB.StackBase, ThreadEntry.th32ThreadID, False);
           Add(hProcess, tiStackLimit, TIB.StackLimit, ThreadEntry.th32ThreadID, False);
           Add(hProcess, tiTEB, TIB.Self, ThreadEntry.th32ThreadID, False);
         end;
-        // Получаем стэк нити
+        // РџРѕР»СѓС‡Р°РµРј СЃС‚СЌРє РЅРёС‚Рё
         GetThreadCallStack(hProcess, hThread, ThreadEntry.th32ThreadID);
 
         {$IFDEF WIN64}
-        // то-же самое только для Wow64 нити
+        // С‚Рѕ-Р¶Рµ СЃР°РјРѕРµ С‚РѕР»СЊРєРѕ РґР»СЏ Wow64 РЅРёС‚Рё
         if not IsWow64(hProcess) then Exit;
 
-        Wow64 := True;
-
-        // в 64 битном TEB поле TIB.ExceptionList указывает на начало Wow64TEB
+        // РІ 64 Р±РёС‚РЅРѕРј TEB РїРѕР»Рµ TIB.ExceptionList СѓРєР°Р·С‹РІР°РµС‚ РЅР° РЅР°С‡Р°Р»Рѕ Wow64TEB
         if not ReadProcessMemory(hProcess,
           TIB.ExceptionList, @WOW64_NT_TIB, SizeOf(TWOW64_NT_TIB),
           lpNumberOfBytesRead) then Exit;
@@ -506,16 +506,16 @@ begin
         TIB.StackBase := Pointer(WOW64_NT_TIB.StackBase);
         TIB.Self := Pointer(WOW64_NT_TIB.Self);
 
-        // Добавляем в массив адрес стэка
+        // Р”РѕР±Р°РІР»СЏРµРј РІ РјР°СЃСЃРёРІ Р°РґСЂРµСЃ СЃС‚СЌРєР°
         Add(hProcess, tiStackBase, TIB.StackBase, ThreadEntry.th32ThreadID, True);
         Add(hProcess, tiStackLimit, TIB.StackLimit, ThreadEntry.th32ThreadID, True);
         Add(hProcess, tiTEB, TIB.Self, ThreadEntry.th32ThreadID, True);
 
-        // Получаем стэк нити
+        // РџРѕР»СѓС‡Р°РµРј СЃС‚СЌРє РЅРёС‚Рё
         GetWow64ThreadCallStack32(hProcess, hThread, ThreadEntry.th32ThreadID);
         {$ENDIF}
 
-        // Получаем список SEH фреймов
+        // РџРѕР»СѓС‡Р°РµРј СЃРїРёСЃРѕРє SEH С„СЂРµР№РјРѕРІ
         GetThreadSEHFrames(hProcess, TIB.ExceptionList,
           ThreadEntry.th32ThreadID, Wow64);
       finally

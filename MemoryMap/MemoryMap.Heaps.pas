@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.Heaps.pas
-//  * Purpose   : Класс собирает данные о кучах процесса
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
+//  * Purpose   : РљР»Р°СЃСЃ СЃРѕР±РёСЂР°РµС‚ РґР°РЅРЅС‹Рµ Рѕ РєСѓС‡Р°С… РїСЂРѕС†РµСЃСЃР°
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2016.
 //  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -107,19 +107,19 @@ var
   HeapData: THeapData;
   BuffSize: NativeUInt;
 begin
-  // Т.к. связка Heap32ListFirst, Heap32ListNext, Heap32First, Heap32Next
-  // работает достаточно медленно, из-за постоянного вызова
-  // RtlQueryProcessDebugInformation на каждой итерации, мы заменим ее вызов
-  // аналогичным кодом без ненужного дубляжа
-  // Создаем отладочный буффер
+  // Рў.Рє. СЃРІСЏР·РєР° Heap32ListFirst, Heap32ListNext, Heap32First, Heap32Next
+  // СЂР°Р±РѕС‚Р°РµС‚ РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РјРµРґР»РµРЅРЅРѕ, РёР·-Р·Р° РїРѕСЃС‚РѕСЏРЅРЅРѕРіРѕ РІС‹Р·РѕРІР°
+  // RtlQueryProcessDebugInformation РЅР° РєР°Р¶РґРѕР№ РёС‚РµСЂР°С†РёРё, РјС‹ Р·Р°РјРµРЅРёРј РµРµ РІС‹Р·РѕРІ
+  // Р°РЅР°Р»РѕРіРёС‡РЅС‹Рј РєРѕРґРѕРј Р±РµР· РЅРµРЅСѓР¶РЅРѕРіРѕ РґСѓР±Р»СЏР¶Р°
+  // РЎРѕР·РґР°РµРј РѕС‚Р»Р°РґРѕС‡РЅС‹Р№ Р±СѓС„С„РµСЂ
   BuffSize := $400000;
   pDbgBuffer := RtlCreateQueryDebugBuffer(BuffSize, False);
-  // Запрашиваем информацию по списку куч процесса
+  // Р—Р°РїСЂР°С€РёРІР°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ РїРѕ СЃРїРёСЃРєСѓ РєСѓС‡ РїСЂРѕС†РµСЃСЃР°
   while CheckSmallBuff(RtlQueryProcessDebugInformation(PID,
     RTL_QUERY_PROCESS_HEAP_SUMMARY or RTL_QUERY_PROCESS_HEAP_ENTRIES,
     pDbgBuffer)) do
   begin
-    // если размера буфера не хватает, увеличиваем...
+    // РµСЃР»Рё СЂР°Р·РјРµСЂР° Р±СѓС„РµСЂР° РЅРµ С…РІР°С‚Р°РµС‚, СѓРІРµР»РёС‡РёРІР°РµРј...
     RtlDestroyQueryDebugBuffer(pDbgBuffer);
     BuffSize := BuffSize shl 1;
     pDbgBuffer := RtlCreateQueryDebugBuffer(BuffSize, False);
@@ -127,20 +127,20 @@ begin
 
   if pDbgBuffer <> nil then
   try
-    // Запрашиваем информацию по списку куч процесса
+    // Р—Р°РїСЂР°С€РёРІР°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ РїРѕ СЃРїРёСЃРєСѓ РєСѓС‡ РїСЂРѕС†РµСЃСЃР°
     if RtlQueryProcessDebugInformation(PID,
       RTL_QUERY_PROCESS_HEAP_SUMMARY or RTL_QUERY_PROCESS_HEAP_ENTRIES,
       pDbgBuffer) = STATUS_SUCCESS then
     begin
-      // Получаем указатель на кучу по умолчанию
+      // РџРѕР»СѓС‡Р°РµРј СѓРєР°Р·Р°С‚РµР»СЊ РЅР° РєСѓС‡Сѓ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
       pHeapInformation := @pDbgBuffer^.Heaps^.Heaps[0];
-      // перечисляем все ее блоки...
+      // РїРµСЂРµС‡РёСЃР»СЏРµРј РІСЃРµ РµРµ Р±Р»РѕРєРё...
       for I := 0 to pDbgBuffer^.Heaps^.NumberOfHeaps - 1 do
       begin
 
         HeapData.ID := I;
 
-        // начиная с самого первого
+        // РЅР°С‡РёРЅР°СЏ СЃ СЃР°РјРѕРіРѕ РїРµСЂРІРѕРіРѕ
         pHeapEntry := pHeapInformation^.Entries;
         dwAddr := DWORD(pHeapEntry^.u.s2.FirstBlock) +
           pHeapInformation^.EntryOverhead;
@@ -153,25 +153,25 @@ begin
 
           while (pHeapEntry^.Flags and RTL_HEAP_SEGMENT) = RTL_HEAP_SEGMENT do
           begin
-            // Если блок отмечен флагом RTL_HEAP_SEGMENT,
-            // то рассчитываем новый адрес на основе EntryOverhead
+            // Р•СЃР»Рё Р±Р»РѕРє РѕС‚РјРµС‡РµРЅ С„Р»Р°РіРѕРј RTL_HEAP_SEGMENT,
+            // С‚Рѕ СЂР°СЃСЃС‡РёС‚С‹РІР°РµРј РЅРѕРІС‹Р№ Р°РґСЂРµСЃ РЅР° РѕСЃРЅРѕРІРµ EntryOverhead
             dwAddr := DWORD(pHeapEntry^.u.s2.FirstBlock) +
               pHeapInformation^.EntryOverhead;
             Inc(pHeapEntry);
             Inc(A);
             Inc(hit_seg_count);
-            // проверка выхода за границы блоков
+            // РїСЂРѕРІРµСЂРєР° РІС‹С…РѕРґР° Р·Р° РіСЂР°РЅРёС†С‹ Р±Р»РѕРєРѕРІ
             if A + hit_seg_count >=
               Integer(pHeapInformation^.NumberOfEntries - 1) then
               Break;
           end;
 
-          // Если блок не самый первый в сегменте, то текущий адрес блока равен,
-          // адресу предыдущего блока + размер предыдущего блока
+          // Р•СЃР»Рё Р±Р»РѕРє РЅРµ СЃР°РјС‹Р№ РїРµСЂРІС‹Р№ РІ СЃРµРіРјРµРЅС‚Рµ, С‚Рѕ С‚РµРєСѓС‰РёР№ Р°РґСЂРµСЃ Р±Р»РѕРєР° СЂР°РІРµРЅ,
+          // Р°РґСЂРµСЃСѓ РїСЂРµРґС‹РґСѓС‰РµРіРѕ Р±Р»РѕРєР° + СЂР°Р·РјРµСЂ РїСЂРµРґС‹РґСѓС‰РµРіРѕ Р±Р»РѕРєР°
           if hit_seg_count = 0 then
             Inc(dwAddr, dwLastSize);
 
-          // Выставляем флаги
+          // Р’С‹СЃС‚Р°РІР»СЏРµРј С„Р»Р°РіРё
           if pHeapEntry^.Flags and RTL_HEAP_FIXED <> 0 then
             pHeapEntry^.Flags := LF32_FIXED
           else
@@ -183,21 +183,21 @@ begin
           if pHeapEntry^.Flags = 0 then
             pHeapEntry^.Flags := LF32_FIXED;
 
-          // Добавляем результат к списку
+          // Р”РѕР±Р°РІР»СЏРµРј СЂРµР·СѓР»СЊС‚Р°С‚ Рє СЃРїРёСЃРєСѓ
           HeapData.Entry.Address := dwAddr;
           HeapData.Entry.Size := pHeapEntry^.Size;
           HeapData.Entry.Flags := pHeapEntry^.Flags;
           HeapData.Wow64 := False;
           FData.Add(HeapData);
 
-         // Запоминаем адрес последнего блока
+         // Р—Р°РїРѕРјРёРЅР°РµРј Р°РґСЂРµСЃ РїРѕСЃР»РµРґРЅРµРіРѕ Р±Р»РѕРєР°
          dwLastSize := pHeapEntry^.Size;
-         // Переходим к следующему блоку
+         // РџРµСЂРµС…РѕРґРёРј Рє СЃР»РµРґСѓСЋС‰РµРјСѓ Р±Р»РѕРєСѓ
          Inc(pHeapEntry);
         finally
           Inc(A);
         end;
-        // Переходим к следующей куче
+        // РџРµСЂРµС…РѕРґРёРј Рє СЃР»РµРґСѓСЋС‰РµР№ РєСѓС‡Рµ
         Inc(pHeapInformation);
       end;
     end;

@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.Utils.pas
-//  * Purpose   : Различные вспомогательные процедуры и функции
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Purpose   : Р Р°Р·Р»РёС‡РЅС‹Рµ РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РїСЂРѕС†РµРґСѓСЂС‹ Рё С„СѓРЅРєС†РёРё
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2017.
 //  * Version   : 1.02
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -21,10 +21,10 @@ interface
 
 uses
   Winapi.Windows,
-  Winapi.ImageHlp,
   Winapi.TlHelp32,
   Generics.Collections,
-  MemoryMap.NtDll;
+  MemoryMap.NtDll,
+  MemoryMap.ImageHlp;
 
   function IsWow64(hProcess: THandle): BOOL;
   function Is64OS: Boolean;
@@ -35,7 +35,9 @@ uses
   function CheckAddr(Value: Pointer): Boolean; overload;
   function IsExecute(const Value: DWORD): Boolean;
   function IsWrite(const Value: DWORD): Boolean;
-  function CheckPEImage(hProcess: THandle; ImageBase: Pointer): Boolean;
+  function CheckPEImage(hProcess: THandle; ImageBase: Pointer): Boolean; overload;
+  function CheckPEImage(hProcess: THandle; ImageBase: Pointer;
+    out Image64: Boolean): Boolean; overload;
 
 type
   TProcessLockHandleList = TList<THandle>;
@@ -93,25 +95,25 @@ var
   AnsiResult: AnsiString;
 begin
   Result := Value;
-  // Подготавливаем параметры для вызова ZwOpenFile
+  // РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РїР°СЂР°РјРµС‚СЂС‹ РґР»СЏ РІС‹Р·РѕРІР° ZwOpenFile
   RtlInitUnicodeString(@US, StringToOleStr(Value));
-  // Аналог макроса InitializeObjectAttributes
+  // РђРЅР°Р»РѕРі РјР°РєСЂРѕСЃР° InitializeObjectAttributes
   FillChar(OA, SizeOf(OBJECT_ATTRIBUTES), #0);
   OA.Length := SizeOf(OBJECT_ATTRIBUTES);
   OA.ObjectName := @US;
   OA.Attributes := OBJ_CASE_INSENSITIVE;
-  // Функция ZwOpenFile спокойно открывает файлы, путь к которым представлен
-  // с использованием символьных ссылок, например:
+  // Р¤СѓРЅРєС†РёСЏ ZwOpenFile СЃРїРѕРєРѕР№РЅРѕ РѕС‚РєСЂС‹РІР°РµС‚ С„Р°Р№Р»С‹, РїСѓС‚СЊ Рє РєРѕС‚РѕСЂС‹Рј РїСЂРµРґСЃС‚Р°РІР»РµРЅ
+  // СЃ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµРј СЃРёРјРІРѕР»СЊРЅС‹С… СЃСЃС‹Р»РѕРє, РЅР°РїСЂРёРјРµСЂ:
   // \SystemRoot\System32\ntdll.dll
   // \??\C:\Windows\System32\ntdll.dll
   // \Device\HarddiskVolume1\WINDOWS\system32\ntdll.dll
-  // Поэтому будем использовать ее для получения хэндла
+  // РџРѕСЌС‚РѕРјСѓ Р±СѓРґРµРј РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РµРµ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ С…СЌРЅРґР»Р°
   NTSTAT := ZwOpenFile(@hFile, FILE_READ_DATA or SYNCHRONIZE, @OA, @IO,
     FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE,
     FILE_SYNCHRONOUS_IO_NONALERT);
   if NTSTAT = STATUS_SUCCESS then
   try
-    // Файл открыт, теперь смотрим его формализованный путь
+    // Р¤Р°Р№Р» РѕС‚РєСЂС‹С‚, С‚РµРїРµСЂСЊ СЃРјРѕС‚СЂРёРј РµРіРѕ С„РѕСЂРјР°Р»РёР·РѕРІР°РЅРЅС‹Р№ РїСѓС‚СЊ
     NTSTAT := NtQueryObject(hFile, ObjectNameInformation,
       @ObjectNameInfo, MAX_PATH * 2, @dwReturn);
     if NTSTAT = STATUS_SUCCESS then
@@ -123,17 +125,17 @@ begin
         ObjectNameInfo.Name.Length, @AnsiResult[1],
         MAX_PATH, nil, nil);
       Result := string(PAnsiChar(AnsiResult));
-      // Путь на открытый через ZwOpenFile файл
-      // возвращается в виде \Device\HarddiskVolumeХ\бла-бла
-      // Осталось только его сопоставить с реальным диском
+      // РџСѓС‚СЊ РЅР° РѕС‚РєСЂС‹С‚С‹Р№ С‡РµСЂРµР· ZwOpenFile С„Р°Р№Р»
+      // РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ РІ РІРёРґРµ \Device\HarddiskVolumeРҐ\Р±Р»Р°-Р±Р»Р°
+      // РћСЃС‚Р°Р»РѕСЃСЊ С‚РѕР»СЊРєРѕ РµРіРѕ СЃРѕРїРѕСЃС‚Р°РІРёС‚СЊ СЃ СЂРµР°Р»СЊРЅС‹Рј РґРёСЃРєРѕРј
       SetLength(Buff, DriveTotalSize);
       Count := GetLogicalDriveStrings(DriveTotalSize, @Buff[1]) div DriveNameSize;
       for I := 0 to Count - 1 do
       begin
         Volume := PChar(@Buff[(I * DriveNameSize) + 1]);
         Volume[3] := #0;
-        // Преобразуем имя каждого диска в символьную ссылку и
-        // сравниваем с формализированным путем
+        // РџСЂРµРѕР±СЂР°Р·СѓРµРј РёРјСЏ РєР°Р¶РґРѕРіРѕ РґРёСЃРєР° РІ СЃРёРјРІРѕР»СЊРЅСѓСЋ СЃСЃС‹Р»РєСѓ Рё
+        // СЃСЂР°РІРЅРёРІР°РµРј СЃ С„РѕСЂРјР°Р»РёР·РёСЂРѕРІР°РЅРЅС‹Рј РїСѓС‚РµРј
         QueryDosDevice(PChar(Volume), @lpQuery[0], MAX_PATH);
         dwQueryLength := Length(string(lpQuery));
         if Copy(Result, 1, dwQueryLength) = string(lpQuery) then
@@ -152,10 +154,10 @@ begin
   end;
 end;
 
-//  Функция возвращает размер секции с учетом выравнивания,
-//  указанного в PE заголовка.
-//  Вообще, правильней еще смотреть флаги IMAGE_SCN_ALIGN_ХХХBYTES у секции,
-//  которые выставляют индивидуальное выравнивание, но лениво...
+//  Р¤СѓРЅРєС†РёСЏ РІРѕР·РІСЂР°С‰Р°РµС‚ СЂР°Р·РјРµСЂ СЃРµРєС†РёРё СЃ СѓС‡РµС‚РѕРј РІС‹СЂР°РІРЅРёРІР°РЅРёСЏ,
+//  СѓРєР°Р·Р°РЅРЅРѕРіРѕ РІ PE Р·Р°РіРѕР»РѕРІРєР°.
+//  Р’РѕРѕР±С‰Рµ, РїСЂР°РІРёР»СЊРЅРµР№ РµС‰Рµ СЃРјРѕС‚СЂРµС‚СЊ С„Р»Р°РіРё IMAGE_SCN_ALIGN_РҐРҐРҐBYTES Сѓ СЃРµРєС†РёРё,
+//  РєРѕС‚РѕСЂС‹Рµ РІС‹СЃС‚Р°РІР»СЏСЋС‚ РёРЅРґРёРІРёРґСѓР°Р»СЊРЅРѕРµ РІС‹СЂР°РІРЅРёРІР°РЅРёРµ, РЅРѕ Р»РµРЅРёРІРѕ...
 // =============================================================================
 function AlignedSectionSize(const ImageInfo: LOADED_IMAGE;
   const Value: NativeUInt): NativeUInt;
@@ -188,8 +190,8 @@ begin
   Result := CheckAddr(NativeUInt(Value));
 end;
 
-//  Функция проверяет характеристики секции и возвращает флаг,
-//  содержит ли секция исполяемый код
+//  Р¤СѓРЅРєС†РёСЏ РїСЂРѕРІРµСЂСЏРµС‚ С…Р°СЂР°РєС‚РµСЂРёСЃС‚РёРєРё СЃРµРєС†РёРё Рё РІРѕР·РІСЂР°С‰Р°РµС‚ С„Р»Р°Рі,
+//  СЃРѕРґРµСЂР¶РёС‚ Р»Рё СЃРµРєС†РёСЏ РёСЃРїРѕР»СЏРµРјС‹Р№ РєРѕРґ
 // =============================================================================
 function IsExecute(const Value: DWORD): Boolean;
 begin
@@ -200,9 +202,9 @@ begin
     IMAGE_SCN_MEM_EXECUTE then Result := True;
 end;
 
-//  Функция проверяет характеристики секции и возвращает флаг,
-//  доступна ли секция на запись или
-//  содержит ли секция неинициализированные данные
+//  Р¤СѓРЅРєС†РёСЏ РїСЂРѕРІРµСЂСЏРµС‚ С…Р°СЂР°РєС‚РµСЂРёСЃС‚РёРєРё СЃРµРєС†РёРё Рё РІРѕР·РІСЂР°С‰Р°РµС‚ С„Р»Р°Рі,
+//  РґРѕСЃС‚СѓРїРЅР° Р»Рё СЃРµРєС†РёСЏ РЅР° Р·Р°РїРёСЃСЊ РёР»Рё
+//  СЃРѕРґРµСЂР¶РёС‚ Р»Рё СЃРµРєС†РёСЏ РЅРµРёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅРЅС‹Рµ РґР°РЅРЅС‹Рµ
 // =============================================================================
 function IsWrite(const Value: DWORD): Boolean;
 begin
@@ -215,11 +217,20 @@ end;
 
 function CheckPEImage(hProcess: THandle; ImageBase: Pointer): Boolean;
 var
+  Image64: Boolean;
+begin
+  Result := CheckPEImage(hProcess, ImageBase, Image64);
+end;
+
+function CheckPEImage(hProcess: THandle; ImageBase: Pointer;
+  out Image64: Boolean): Boolean;
+var
   ReturnLength: NativeUInt;
   IDH: TImageDosHeader;
   NT: TImageNtHeaders;
 begin
   Result := False;
+  Image64 := False;
   if not ReadProcessMemory(hProcess, ImageBase,
     @IDH, SizeOf(TImageDosHeader), ReturnLength) then Exit;
   if IDH.e_magic <> IMAGE_DOS_SIGNATURE then Exit;
@@ -227,6 +238,8 @@ begin
   if not ReadProcessMemory(hProcess, ImageBase,
     @NT, SizeOf(TImageNtHeaders), ReturnLength) then Exit;
   Result := NT.Signature = IMAGE_NT_SIGNATURE;
+  if Result then
+    Image64 := NT.FileHeader.Machine = IMAGE_FILE_MACHINE_AMD64;
 end;
 
 function SuspendProcess(PID: DWORD): TProcessLockHandleList;

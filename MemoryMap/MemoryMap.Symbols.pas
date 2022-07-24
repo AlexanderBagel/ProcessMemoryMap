@@ -1,12 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.Symbols.pas
-//  * Purpose   : Класс для работы с символами.
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0.1
+//  * Purpose   : РљР»Р°СЃСЃ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ СЃРёРјРІРѕР»Р°РјРё.
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.0.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -21,7 +21,7 @@ interface
 
 uses
   Winapi.Windows,
-  Winapi.ImageHlp,
+  MemoryMap.ImageHlp,
   System.Classes,
   System.SysUtils;
 
@@ -49,48 +49,7 @@ type
 implementation
 
 const
-  ImagehlpLib = 'IMAGEHLP.DLL';
-
-const
   BuffSize = $7FF;
-
-type
-  PImagehlpSymbol64 = ^TImagehlpSymbol64;
-  _IMAGEHLP_SYMBOL64 = record
-    SizeOfStruct: DWORD;
-    Address: DWORD64;
-    Size,
-    Flags,
-    MaxNameLength: DWORD;
-    Name: packed array[0..0] of Byte;
-  end;
-  TImagehlpSymbol64 = _IMAGEHLP_SYMBOL64;
-
-  {$IFDEF WIN64}
-  function SymGetSymFromAddr(hProcess: THandle; dwAddr: ULONG_PTR;
-    pdwDisplacement: PDWORD64; Symbol: PImagehlpSymbol64): Bool; stdcall;
-    external ImagehlpLib name 'SymGetSymFromAddr64';
-  function SymLoadModule(hProcess: THandle; hFile: THandle; ImageName,
-    ModuleName: LPSTR; BaseOfDll: ULONG_PTR; SizeOfDll: DWORD): DWORD; stdcall;
-    external ImagehlpLib name 'SymLoadModule64';
-  function SymUnloadModule(hProcess: THandle; BaseOfDll: ULONG_PTR): Bool; stdcall;
-    external ImagehlpLib name 'SymUnloadModule64';
-  function SymEnumerateSymbols(hProcess: THandle; BaseOfDll: ULONG_PTR;
-    EnumSymbolsCallback: TSymEnumSymbolsCallback; UserContext: Pointer): Bool; stdcall;
-    external ImagehlpLib name 'SymEnumerateSymbols64';
-  {$ELSE}
-  function SymGetSymFromAddr(hProcess: THandle; dwAddr: ULONG_PTR;
-    pdwDisplacement: PDWORD; Symbol: PImagehlpSymbol): Bool; stdcall;
-    external ImagehlpLib;
-  function SymLoadModule(hProcess: THandle; hFile: THandle; ImageName,
-    ModuleName: LPSTR; BaseOfDll: ULONG_PTR; SizeOfDll: DWORD): DWORD; stdcall;
-    external ImagehlpLib;
-  function SymUnloadModule(hProcess: THandle; BaseOfDll: ULONG_PTR): Bool; stdcall;
-    external ImagehlpLib;
-  function SymEnumerateSymbols(hProcess: THandle; BaseOfDll: ULONG_PTR;
-    EnumSymbolsCallback: TSymEnumSymbolsCallback; UserContext: Pointer): Bool; stdcall;
-    external ImagehlpLib;
-  {$ENDIF}
 
 { TSymbols }
 
@@ -120,19 +79,11 @@ end;
 
 function TSymbols.GetDescriptionAtAddr(Address: ULONG_PTR): string;
 const
-{$IFDEF WIN64}
-  SizeOfStruct = SizeOf(TImagehlpSymbol64);
-  MaxNameLength = BuffSize - SizeOfStruct;
-var
-  Symbol: PImagehlpSymbol64;
-  Displacement: DWORD64;
-{$ELSE}
   SizeOfStruct = SizeOf(TImagehlpSymbol);
   MaxNameLength = BuffSize - SizeOfStruct;
 var
   Symbol: PImagehlpSymbol;
-  Displacement: DWORD;
-{$ENDIF}
+  Displacement: NativeUInt;
 begin
   Result := '';
   GetMem(Symbol, BuffSize);
@@ -147,7 +98,7 @@ begin
     end
     else
     begin
-      // с первой попытки может и не получиться
+      // СЃ РїРµСЂРІРѕР№ РїРѕРїС‹С‚РєРё РјРѕР¶РµС‚ Рё РЅРµ РїРѕР»СѓС‡РёС‚СЊСЃСЏ
       SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(FModuleName)), nil, FBaseAddress, 0);
       if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
       begin
@@ -165,19 +116,11 @@ end;
 function TSymbols.GetDescriptionAtAddr2(Address, BaseAddress: ULONG_PTR;
   const ModuleName: string): string;
 const
-{$IFDEF WIN64}
-  SizeOfStruct = SizeOf(TImagehlpSymbol64);
-  MaxNameLength = BuffSize - SizeOfStruct;
-var
-  Symbol: PImagehlpSymbol64;
-  Displacement: DWORD64;
-{$ELSE}
   SizeOfStruct = SizeOf(TImagehlpSymbol);
   MaxNameLength = BuffSize - SizeOfStruct;
 var
   Symbol: PImagehlpSymbol;
-  Displacement: DWORD;
-{$ENDIF}
+  Displacement: NativeUInt;
 begin
   Result := '';
   if not FInited then Exit;
@@ -196,7 +139,7 @@ begin
       end
       else
       begin
-        // с первой попытки может и не получиться
+        // СЃ РїРµСЂРІРѕР№ РїРѕРїС‹С‚РєРё РјРѕР¶РµС‚ Рё РЅРµ РїРѕР»СѓС‡РёС‚СЊСЃСЏ
         SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)), nil, BaseAddress, 0);
         if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
           if Displacement = 0 then
@@ -215,19 +158,11 @@ end;
 function TSymbols.GetDescriptionAtAddr(Address, BaseAddress: ULONG_PTR;
   const ModuleName: string): string;
 const
-{$IFDEF WIN64}
-  SizeOfStruct = SizeOf(TImagehlpSymbol64);
-  MaxNameLength = BuffSize - SizeOfStruct;
-var
-  Symbol: PImagehlpSymbol64;
-  Displacement: DWORD64;
-{$ELSE}
   SizeOfStruct = SizeOf(TImagehlpSymbol);
   MaxNameLength = BuffSize - SizeOfStruct;
 var
   Symbol: PImagehlpSymbol;
-  Displacement: DWORD;
-{$ENDIF}
+  Displacement: NativeUInt;
 begin
   Result := '';
   if not FInited then Exit;
@@ -248,7 +183,7 @@ begin
       end
       else
       begin
-        // с первой попытки может и не получиться
+        // СЃ РїРµСЂРІРѕР№ РїРѕРїС‹С‚РєРё РјРѕР¶РµС‚ Рё РЅРµ РїРѕР»СѓС‡РёС‚СЊСЃСЏ
         SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)), nil, BaseAddress, 0);
         if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
           if Displacement = 0 then

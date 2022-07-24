@@ -14,6 +14,7 @@ object dlgAbout: TdlgAbout
   Font.Style = []
   OldCreateOrder = False
   Position = poMainFormCenter
+  OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
   object Image1: TImage
@@ -4680,16 +4681,16 @@ object dlgAbout: TdlgAbout
   object Label1: TLabel
     Left = 56
     Top = 8
-    Width = 182
+    Width = 183
     Height = 13
-    Caption = 'Process Memory Map 1.0 (alpha 12.1)'
+    Caption = 'Process Memory Map 1.1 (revision 14)'
   end
   object Label2: TLabel
     Left = 56
     Top = 27
     Width = 247
     Height = 13
-    Caption = 'Copyright: '#169' 2013-2017 Alexander (Rouse_) Bagel'
+    Caption = 'Copyright: '#169' 2013-2022 Alexander (Rouse_) Bagel'
   end
   object Label3: TLabel
     Left = 56
@@ -4725,7 +4726,7 @@ object dlgAbout: TdlgAbout
   object LinkLabel3: TLinkLabel
     Left = 56
     Top = 84
-    Width = 387
+    Width = 388
     Height = 19
     Caption = 
       'Latest Sources: <a href="https://github.com/AlexanderBagel/Proce' +
@@ -4748,23 +4749,23 @@ object dlgAbout: TdlgAbout
   object LinkLabel4: TLinkLabel
     Left = 56
     Top = 130
-    Width = 298
+    Width = 319
     Height = 19
     Caption = 
-      'Virtual Treeview component: <a href="http://www.soft-gems.net/in' +
-      'dex.php/controls/virtual-treeview">http://www.soft-gems.net</a>'
+      'Virtual Treeview component: <a href="http://www.jam-software.com' +
+      '/virtual-treeview/">http://www.jam-software.com</a>'
     TabOrder = 4
     UseVisualStyle = True
     OnLinkClick = LinkLabel1LinkClick
   end
-  object LinkLabel5: TLinkLabel
+  object lblDistorm: TLinkLabel
     Left = 56
     Top = 149
     Width = 188
     Height = 19
     Caption = 
       'Disasm engine: <a href="http://ragestorm.net/distorm/">diStorm v' +
-      'ersion 3.3</a>'
+      'ersion ???</a>'
     TabOrder = 5
     UseVisualStyle = True
     OnLinkClick = LinkLabel1LinkClick

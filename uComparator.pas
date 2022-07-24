@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uComparator.pas
-//  * Purpose   : Диалог отображает результаты сравнения двух карт памяти процесса
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
+//  * Purpose   : Р”РёР°Р»РѕРі РѕС‚РѕР±СЂР°Р¶Р°РµС‚ СЂРµР·СѓР»СЊС‚Р°С‚С‹ СЃСЂР°РІРЅРµРЅРёСЏ РґРІСѓС… РєР°СЂС‚ РїР°РјСЏС‚Рё РїСЂРѕС†РµСЃСЃР°
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2013.
 //  * Version   : 1.0
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -101,8 +101,8 @@ procedure TdlgComparator.AddData(Value: string; ChangeType: TChangeType);
 const
   ChangeTypeColor: array [TChangeType] of string = ('\cf1 ', '\cf2 ', '\cf3 ');
 begin
-  // RTF формируем самостоятельно, бо построчное добавление
-  // в RichEdit тормозит шибко
+  // RTF С„РѕСЂРјРёСЂСѓРµРј СЃР°РјРѕСЃС‚РѕСЏС‚РµР»СЊРЅРѕ, Р±Рѕ РїРѕСЃС‚СЂРѕС‡РЅРѕРµ РґРѕР±Р°РІР»РµРЅРёРµ
+  // РІ RichEdit С‚РѕСЂРјРѕР·РёС‚ С€РёР±РєРѕ
   Value := StringReplace(Value, '\', '\\', [rfReplaceAll]);
   if RTF = '' then
   begin
@@ -161,8 +161,8 @@ begin
   if SaveDialog.Execute then
   begin
     edChanges.Lines.SaveToFile(SaveDialog.FileName);
-    // помимо результатов сравнения сохраняем также обе карты памяти
-    // дабы можно было потом поизучать изменения более подробно
+    // РїРѕРјРёРјРѕ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ СЃСЂР°РІРЅРµРЅРёСЏ СЃРѕС…СЂР°РЅСЏРµРј С‚Р°РєР¶Рµ РѕР±Рµ РєР°СЂС‚С‹ РїР°РјСЏС‚Рё
+    // РґР°Р±С‹ РјРѕР¶РЅРѕ Р±С‹Р»Рѕ РїРѕС‚РѕРј РїРѕРёР·СѓС‡Р°С‚СЊ РёР·РјРµРЅРµРЅРёСЏ Р±РѕР»РµРµ РїРѕРґСЂРѕР±РЅРѕ
     SavePath := SaveDialog.FileName;
     TempPath := ChangeFileExt(SavePath, '.oldmap.pmm');
     FOldMM.SaveToFile(TempPath);
@@ -214,15 +214,15 @@ begin
   Address := 0;
   Dict := TDictionary<string, TContainItem>.Create(NewValue.Count);
   try
-    // сначала собираем данные по новым значениям
+    // СЃРЅР°С‡Р°Р»Р° СЃРѕР±РёСЂР°РµРј РґР°РЅРЅС‹Рµ РїРѕ РЅРѕРІС‹Рј Р·РЅР°С‡РµРЅРёСЏРј
     for NewCont in NewValue do
       Dict.Add(NewCont.Hash, NewCont);
 
-    // теперь делаем сверку по старым значениям
+    // С‚РµРїРµСЂСЊ РґРµР»Р°РµРј СЃРІРµСЂРєСѓ РїРѕ СЃС‚Р°СЂС‹Рј Р·РЅР°С‡РµРЅРёСЏРј
     for OldCont in OldValue do
     begin
 
-      // если значение из старого листа присутствует в новом, удаляем его из списка
+      // РµСЃР»Рё Р·РЅР°С‡РµРЅРёРµ РёР· СЃС‚Р°СЂРѕРіРѕ Р»РёСЃС‚Р° РїСЂРёСЃСѓС‚СЃС‚РІСѓРµС‚ РІ РЅРѕРІРѕРј, СѓРґР°Р»СЏРµРј РµРіРѕ РёР· СЃРїРёСЃРєР°
       if Dict.TryGetValue(OldCont.Hash, NewCont) then
       begin
         case OldCont.ItemType of
@@ -234,7 +234,7 @@ begin
         Continue;
       end;
 
-      // в противном случае говорим что значение удалено
+      // РІ РїСЂРѕС‚РёРІРЅРѕРј СЃР»СѓС‡Р°Рµ РіРѕРІРѕСЂРёРј С‡С‚Рѕ Р·РЅР°С‡РµРЅРёРµ СѓРґР°Р»РµРЅРѕ
       case OldCont.ItemType of
         itHeapBlock: Address := OldCont.Heap.Entry.Address;
         itThreadData: Address := NativeUInt(OldCont.ThreadData.Address);
@@ -246,7 +246,7 @@ begin
 
     end;
 
-    // все что осталось в словаре - добавленные значения
+    // РІСЃРµ С‡С‚Рѕ РѕСЃС‚Р°Р»РѕСЃСЊ РІ СЃР»РѕРІР°СЂРµ - РґРѕР±Р°РІР»РµРЅРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ
     for NewCont in Dict.Values do
     begin
       case NewCont.ItemType of
@@ -271,15 +271,15 @@ var
 begin
   Dict := TDictionary<ShortString, TDirectory>.Create(NewValue.Count);
   try
-    // сначала собираем данные по новым директориям
+    // СЃРЅР°С‡Р°Р»Р° СЃРѕР±РёСЂР°РµРј РґР°РЅРЅС‹Рµ РїРѕ РЅРѕРІС‹Рј РґРёСЂРµРєС‚РѕСЂРёСЏРј
     for NewDir in NewValue do
       Dict.Add(NewDir.Caption, NewDir);
 
-    // теперь делаем сверку по старым
+    // С‚РµРїРµСЂСЊ РґРµР»Р°РµРј СЃРІРµСЂРєСѓ РїРѕ СЃС‚Р°СЂС‹Рј
     for OldDir in OldValue do
     begin
 
-      // если директория из старого листа присутствует в новом, удаляем ее из списка
+      // РµСЃР»Рё РґРёСЂРµРєС‚РѕСЂРёСЏ РёР· СЃС‚Р°СЂРѕРіРѕ Р»РёСЃС‚Р° РїСЂРёСЃСѓС‚СЃС‚РІСѓРµС‚ РІ РЅРѕРІРѕРј, СѓРґР°Р»СЏРµРј РµРµ РёР· СЃРїРёСЃРєР°
       if Dict.TryGetValue(OldDir.Caption, NewDir) then
       begin
         CompareValues('Directory "' + string(OldDir.Caption) + '" address',
@@ -292,14 +292,14 @@ begin
         Continue;
       end;
 
-      // в противном случае говорим что директория удалена
+      // РІ РїСЂРѕС‚РёРІРЅРѕРј СЃР»СѓС‡Р°Рµ РіРѕРІРѕСЂРёРј С‡С‚Рѕ РґРёСЂРµРєС‚РѕСЂРёСЏ СѓРґР°Р»РµРЅР°
       AddChanged('Directory "' + string(OldDir.Caption) +
         '" removed at address: ' + UInt64ToStr(OldDir.Address), ctDel);
       AddChanged('Directory size: ' + SizeToStr2(OldDir.Size), ctDel);
 
     end;
 
-    // все что осталось в словаре - добавленные директории
+    // РІСЃРµ С‡С‚Рѕ РѕСЃС‚Р°Р»РѕСЃСЊ РІ СЃР»РѕРІР°СЂРµ - РґРѕР±Р°РІР»РµРЅРЅС‹Рµ РґРёСЂРµРєС‚РѕСЂРёРё
     for NewDir in Dict.Values do
     begin
       AddChanged('Directory "' + string(NewDir.Caption) +
@@ -361,7 +361,7 @@ begin
       IncSearchPos(OldIndex);
       OldRegion := OldMM.GetRegionAtUnfilteredIndex(OldIndex);
 
-      // если новых регионов больше нет, значит все старые удалены
+      // РµСЃР»Рё РЅРѕРІС‹С… СЂРµРіРёРѕРЅРѕРІ Р±РѕР»СЊС€Рµ РЅРµС‚, Р·РЅР°С‡РёС‚ РІСЃРµ СЃС‚Р°СЂС‹Рµ СѓРґР°Р»РµРЅС‹
       if NewIndex >= NewMM.TotalCount then
       begin
         RegionChanged(OldRegion, ctDel);
@@ -372,13 +372,13 @@ begin
       NewRegion := NewMM.GetRegionAtUnfilteredIndex(NewIndex);
 
       case ComparePtr(OldRegion.MBI.BaseAddress, NewRegion.MBI.BaseAddress) of
-        // Если адреса регионов совпали - сравниваем их
+        // Р•СЃР»Рё Р°РґСЂРµСЃР° СЂРµРіРёРѕРЅРѕРІ СЃРѕРІРїР°Р»Рё - СЃСЂР°РІРЅРёРІР°РµРј РёС…
         0: CompareRegion;
 
-        // если адрес нового региона больше текущего - текущий удален
+        // РµСЃР»Рё Р°РґСЂРµСЃ РЅРѕРІРѕРіРѕ СЂРµРіРёРѕРЅР° Р±РѕР»СЊС€Рµ С‚РµРєСѓС‰РµРіРѕ - С‚РµРєСѓС‰РёР№ СѓРґР°Р»РµРЅ
        -1:
         begin
-          // и все регионы, которые были расположены до этого адреса тоже удалены
+          // Рё РІСЃРµ СЂРµРіРёРѕРЅС‹, РєРѕС‚РѕСЂС‹Рµ Р±С‹Р»Рё СЂР°СЃРїРѕР»РѕР¶РµРЅС‹ РґРѕ СЌС‚РѕРіРѕ Р°РґСЂРµСЃР° С‚РѕР¶Рµ СѓРґР°Р»РµРЅС‹
           repeat
             RegionChanged(OldRegion, ctDel);
             Inc(OldIndex);
@@ -387,10 +387,10 @@ begin
           Continue;
         end;
 
-        // а если адрес нового региона меньше текущего - то добавился новый регион
+        // Р° РµСЃР»Рё Р°РґСЂРµСЃ РЅРѕРІРѕРіРѕ СЂРµРіРёРѕРЅР° РјРµРЅСЊС€Рµ С‚РµРєСѓС‰РµРіРѕ - С‚Рѕ РґРѕР±Р°РІРёР»СЃСЏ РЅРѕРІС‹Р№ СЂРµРіРёРѕРЅ
         1:
         begin
-          // причем добавленных может быть также несколько
+          // РїСЂРёС‡РµРј РґРѕР±Р°РІР»РµРЅРЅС‹С… РјРѕР¶РµС‚ Р±С‹С‚СЊ С‚Р°РєР¶Рµ РЅРµСЃРєРѕР»СЊРєРѕ
           repeat
             RegionChanged(NewRegion, ctAdd);
             Inc(NewIndex);
@@ -403,7 +403,7 @@ begin
       Inc(NewIndex);
     end;
 
-    // если остались новые регионы, то они все добавленные
+    // РµСЃР»Рё РѕСЃС‚Р°Р»РёСЃСЊ РЅРѕРІС‹Рµ СЂРµРіРёРѕРЅС‹, С‚Рѕ РѕРЅРё РІСЃРµ РґРѕР±Р°РІР»РµРЅРЅС‹Рµ
     while NewIndex < NewMM.TotalCount do
     begin
       NewRegion := NewMM.GetRegionAtUnfilteredIndex(NewIndex);
@@ -417,8 +417,8 @@ begin
     begin
       dlgProgress.lblProgress.Caption :=
         dlgProgress.lblProgress.Caption + '. Loading...';
-      // загружаем RTF руками через API, ибо Lines.LoadFromStream
-      // периодически грузит данные криво
+      // Р·Р°РіСЂСѓР¶Р°РµРј RTF СЂСѓРєР°РјРё С‡РµСЂРµР· API, РёР±Рѕ Lines.LoadFromStream
+      // РїРµСЂРёРѕРґРёС‡РµСЃРєРё РіСЂСѓР·РёС‚ РґР°РЅРЅС‹Рµ РєСЂРёРІРѕ
       RTF := RTF + '}' + #0;
       M := TMemoryStream.Create;
       try

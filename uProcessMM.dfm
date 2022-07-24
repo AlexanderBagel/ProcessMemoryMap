@@ -70,11 +70,6 @@ object dlgProcessMM: TdlgProcessMM
       Height = 198
       Align = alClient
       Header.AutoSizeIndex = 0
-      Header.Font.Charset = DEFAULT_CHARSET
-      Header.Font.Color = clWindowText
-      Header.Font.Height = -11
-      Header.Font.Name = 'Tahoma'
-      Header.Font.Style = []
       Header.Height = 24
       Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
       TabOrder = 0
@@ -83,29 +78,31 @@ object dlgProcessMM: TdlgProcessMM
       OnBeforeItemErase = lvSummaryBeforeItemErase
       OnGetText = lvSummaryGetText
       OnNodeClick = lvSummaryNodeClick
+      Touch.InteractiveGestures = [igPan, igPressAndTap]
+      Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
       Columns = <
         item
           Position = 0
+          Text = 'Type'
           Width = 100
-          WideText = 'Type'
         end
         item
           Alignment = taRightJustify
           Position = 1
+          Text = 'Size'
           Width = 150
-          WideText = 'Size'
         end
         item
           Alignment = taRightJustify
           Position = 2
+          Text = 'Commited'
           Width = 150
-          WideText = 'Commited'
         end
         item
           Alignment = taRightJustify
           Position = 3
+          Text = 'Blocks'
           Width = 150
-          WideText = 'Blocks'
         end>
     end
   end
@@ -116,11 +113,6 @@ object dlgProcessMM: TdlgProcessMM
     Height = 315
     Anchors = [akLeft, akTop, akRight, akBottom]
     Header.AutoSizeIndex = 0
-    Header.Font.Charset = DEFAULT_CHARSET
-    Header.Font.Color = clWindowText
-    Header.Font.Height = -11
-    Header.Font.Name = 'Tahoma'
-    Header.Font.Style = []
     Header.Height = 24
     Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     PopupMenu = PopupMenu
@@ -130,56 +122,58 @@ object dlgProcessMM: TdlgProcessMM
     OnBeforeItemErase = stMemoryMapBeforeItemErase
     OnGetText = stMemoryMapGetText
     OnNodeDblClick = stMemoryMapNodeDblClick
+    Touch.InteractiveGestures = [igPan, igPressAndTap]
+    Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
     Columns = <
       item
         Position = 0
+        Text = 'Address'
         Width = 170
-        WideText = 'Address'
       end
       item
         Position = 1
+        Text = 'Type'
         Width = 300
-        WideText = 'Type'
       end
       item
         Alignment = taRightJustify
         CaptionAlignment = taRightJustify
         Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
         Position = 2
+        Text = 'Size'
         Width = 75
-        WideText = 'Size'
       end
       item
         Position = 3
+        Text = 'Section'
         Width = 64
-        WideText = 'Section'
       end
       item
         Position = 4
+        Text = 'Contains'
         Width = 120
-        WideText = 'Contains'
       end
       item
         Position = 5
+        Text = 'Access'
         Width = 100
-        WideText = 'Access'
       end
       item
         Position = 6
+        Text = 'Initial Access'
         Width = 100
-        WideText = 'Initial Access'
       end
       item
         Alignment = taRightJustify
         CaptionAlignment = taRightJustify
         Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
         Position = 7
-        WideText = 'Blocks'
+        Text = 'Blocks'
       end
       item
         Position = 8
+        Text = 'Details'
         Width = 560
-        WideText = 'Details'
       end>
   end
   object MainMenu: TMainMenu
@@ -245,18 +239,24 @@ object dlgProcessMM: TdlgProcessMM
       object mnuFind: TMenuItem
         Action = acSearchData
       end
-    end
-    object mnuUtils: TMenuItem
-      Caption = 'Utils'
+      object N14: TMenuItem
+        Caption = '-'
+      end
       object mnuQuery: TMenuItem
         Action = acQueryAddr
       end
+    end
+    object N13: TMenuItem
+      Caption = 'View'
       object mnuShowExport: TMenuItem
         Action = acShowExports
       end
-      object N11: TMenuItem
-        Caption = '-'
+      object mnuShowKnonData: TMenuItem
+        Action = acShowKnown
       end
+    end
+    object mnuUtils: TMenuItem
+      Caption = 'Utils'
       object DumpAddress1: TMenuItem
         Action = acDumpAddr
       end
@@ -268,6 +268,9 @@ object dlgProcessMM: TdlgProcessMM
       end
       object FillAddrListInfo1: TMenuItem
         Action = acFillMMList
+      end
+      object FindPatchedData1: TMenuItem
+        Action = acFindPachedData
       end
     end
     object mnuOptions: TMenuItem
@@ -418,17 +421,10 @@ object dlgProcessMM: TdlgProcessMM
     end
     object acSearchAddress: TAction
       Category = 'Search'
-      Caption = 'Search Address...'
+      Caption = 'Highlight Address...'
       ShortCut = 16449
       OnExecute = acSearchAddressExecute
       OnUpdate = acCompareUpdate
-    end
-    object acQueryAddr: TAction
-      Category = 'Utils'
-      Caption = 'Query Address'
-      ShortCut = 16465
-      OnExecute = acQueryAddrExecute
-      OnUpdate = acSaveUpdate
     end
     object acSearchData: TAction
       Category = 'Search'
@@ -437,8 +433,17 @@ object dlgProcessMM: TdlgProcessMM
       OnExecute = acSearchDataExecute
       OnUpdate = acSaveUpdate
     end
+    object acQueryAddr: TAction
+      Category = 'Search'
+      Caption = 'Query Address'
+      SecondaryShortCuts.Strings = (
+        'F3')
+      ShortCut = 16465
+      OnExecute = acQueryAddrExecute
+      OnUpdate = acSaveUpdate
+    end
     object acShowExports: TAction
-      Category = 'Utils'
+      Category = 'View'
       Caption = 'Show Export List...'
       ShortCut = 16453
       OnExecute = acShowExportsExecute
@@ -479,9 +484,20 @@ object dlgProcessMM: TdlgProcessMM
     object acFillMMList: TAction
       Category = 'Utils'
       Caption = 'Fill AddrList Info...'
-      ShortCut = 24657
       OnExecute = acFillMMListExecute
-      OnUpdate = acFillMMListUpdate
+      OnUpdate = acSaveUpdate
+    end
+    object acFindPachedData: TAction
+      Category = 'Utils'
+      Caption = 'Find Patched Data...'
+      OnUpdate = acSaveUpdate
+    end
+    object acShowKnown: TAction
+      Category = 'View'
+      Caption = 'Show Known Data...'
+      ShortCut = 113
+      OnExecute = acShowKnownExecute
+      OnUpdate = acSaveUpdate
     end
   end
   object SaveDMPDialog: TSaveDialog

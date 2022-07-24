@@ -1,12 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.Workset.pas
-//  * Purpose   : Класс собирает данные о Workset процесса
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Purpose   : РљР»Р°СЃСЃ СЃРѕР±РёСЂР°РµС‚ РґР°РЅРЅС‹Рµ Рѕ Workset РїСЂРѕС†РµСЃСЃР°
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -101,7 +101,7 @@ begin
     ShareInfo.Shared := WorksetBuff[I]  and SharedBitMask <> 0;
     ShareInfo.SharedCount := GetSharedCount(WorksetBuff[I]);
     try
-      FData.Add(Pointer(WorksetBuff[I] and AddrMask), ShareInfo);
+      FData.AddOrSetValue(Pointer(WorksetBuff[I] and AddrMask), ShareInfo);
     except
       on E: EListError do ;
     else

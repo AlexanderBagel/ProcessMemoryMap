@@ -1,12 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.PEImage.pas
-//  * Purpose   : Класс собирает данные по секциям и директориям PE файла
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0.5
+//  * Purpose   : РљР»Р°СЃСЃ СЃРѕР±РёСЂР°РµС‚ РґР°РЅРЅС‹Рµ РїРѕ СЃРµРєС†РёСЏРј Рё РґРёСЂРµРєС‚РѕСЂРёСЏРј PE С„Р°Р№Р»Р°
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.0.6
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -23,7 +23,7 @@ uses
   Winapi.Windows,
   Generics.Collections,
   MemoryMap.Utils,
-  Winapi.ImageHlp,
+  MemoryMap.ImageHlp,
   SysUtils;
 
 type
@@ -35,7 +35,10 @@ type
     IsData: Boolean;
   end;
 
+  TDirectoryFlag = (dfDirectory, dfEntryPoint, dfTlsCallback);
+
   TDirectory = record
+    Flag: TDirectoryFlag;
     Caption: ShortString;
     Address: NativeUInt;
     Size: NativeUInt;
@@ -54,7 +57,7 @@ type
   TPEImage = class
   private
     FProcessHandle: THandle;
-    FProcess64: Boolean;
+    FImage64: Boolean;
     FImageBase: Pointer;
     FImageInfo: LOADED_IMAGE;
     FSections: TList<TSection>;
@@ -65,7 +68,7 @@ type
     procedure EnumSections;
     procedure EnumDirectoryes;
   public
-    constructor Create(AProcessHandle: THandle; AProcess64: Boolean);
+    constructor Create(AProcessHandle: THandle);
     destructor Destroy; override;
     procedure GetInfoFromImage(const FileName: string; ImageBase: Pointer;
       FirstSectionSize: NativeUInt);
@@ -80,10 +83,9 @@ implementation
 
 { TPEImage }
 
-constructor TPEImage.Create(AProcessHandle: THandle; AProcess64: Boolean);
+constructor TPEImage.Create(AProcessHandle: THandle);
 begin
   FProcessHandle := AProcessHandle;
-  FProcess64 := AProcess64;
   FSections := TList<TSection>.Create;
   FDirectoryes := TList<TDirectoryArray>.Create;
   FEntryPoints := TList<Pointer>.Create;
@@ -129,7 +131,7 @@ var
   DirAddr: Pointer;
   Directory: TDirectoryArray;
 
-  // это все для работы с калбэками
+  // СЌС‚Рѕ РІСЃРµ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ РєР°Р»Р±СЌРєР°РјРё
   pTLSCursor: PULONG_PTR;
   pTLSTable: array [0..SizeOf(TLSTable64) - 1] of Byte;
   NumberOfBytesWritten: SIZE_T;
@@ -140,7 +142,7 @@ var
 
   function GetNextCallback: Pointer;
   begin
-    if FProcess64 then
+    if FImage64 then
     begin
       Result := Pointer(PUint64(@TLSCallbackTable[TLSCallbackTableCursor])^);
       Inc(TLSCallbackTableCursor, 8);
@@ -157,29 +159,30 @@ begin
   Directory.Count := 0;
   for I := 0 to 14 do
   begin
-    // Получаем адрес директории
+    // РџРѕР»СѓС‡Р°РµРј Р°РґСЂРµСЃ РґРёСЂРµРєС‚РѕСЂРёРё
     DirAddr := ImageDirectoryEntryToData(FImageInfo.MappedAddress,
       True, I, dwDirSize);
     if DirAddr <> nil then
     begin
       Inc(Directory.Count);
+      Directory.Data[I].Flag := dfDirectory;
       Directory.Data[I].Caption := ShortString(DirectoryStr[I]);
       Directory.Data[I].Address := NativeUint(FImageBase) +
         NativeUint(DirAddr) - NativeUint(FImageInfo.MappedAddress);
       Directory.Data[I].Size := dwDirSize;
-      // дополнительно рассчитываем адреса всех TLS Callback
+      // РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ СЂР°СЃСЃС‡РёС‚С‹РІР°РµРј Р°РґСЂРµСЃР° РІСЃРµС… TLS Callback
       if I = IMAGE_DIRECTORY_ENTRY_TLS then
       begin
-        // рассчитываем адрес TLS таблицы у удаленном АП
+        // СЂР°СЃСЃС‡РёС‚С‹РІР°РµРј Р°РґСЂРµСЃ TLS С‚Р°Р±Р»РёС†С‹ Сѓ СѓРґР°Р»РµРЅРЅРѕРј РђРџ
         pTLSCursor := PULONG_PTR(NativeUint(FImageBase) +
           NativeUint(DirAddr) - NativeUint(FImageInfo.MappedAddress));
-        // читаем начало TLS таблицы
+        // С‡РёС‚Р°РµРј РЅР°С‡Р°Р»Рѕ TLS С‚Р°Р±Р»РёС†С‹
         if not ReadProcessMemory(FProcessHandle, pTLSCursor,
           @pTLSTable[0], SizeOf(pTLSTable), NumberOfBytesWritten) then Continue;
 
-        // читаем саму таблицу каллбэков
+        // С‡РёС‚Р°РµРј СЃР°РјСѓ С‚Р°Р±Р»РёС†Сѓ РєР°Р»Р»Р±СЌРєРѕРІ
         SetLength(TLSCallbackTable, 256);
-        if FProcess64 then
+        if FImage64 then
           pTLSCursor := Pointer(PLSTable64(@pTLSTable[0])^.AddressOfCallBacks)
         else
           pTLSCursor := Pointer(PLSTable32(@pTLSTable[0])^.AddressOfCallBacks);
@@ -187,7 +190,7 @@ begin
           pTLSCursor, @TLSCallbackTable[0], Length(TLSCallbackTable),
           NumberOfBytesWritten) then Continue;
 
-        // читаем их последовательно (по 4 или 8 байт в зависимости от битности)
+        // С‡РёС‚Р°РµРј РёС… РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕ (РїРѕ 4 РёР»Рё 8 Р±Р°Р№С‚ РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ Р±РёС‚РЅРѕСЃС‚Рё)
         A := 0;
         TLSCallbackTableCursor := 0;
         pCallBack := GetNextCallback;
@@ -232,6 +235,7 @@ begin
   FImageBase := ImageBase;
   if MapAndLoad(PAnsiChar(AnsiString(FileName)), nil, @FImageInfo, True, True) then
   try
+    FImage64 := FImageInfo.FileHeader^.FileHeader.Machine = IMAGE_FILE_MACHINE_AMD64;
     Section.Caption := 'PEHeader';
     Section.Address := NativeUint(ImageBase);
     Section.Size := FirstSectionSize;

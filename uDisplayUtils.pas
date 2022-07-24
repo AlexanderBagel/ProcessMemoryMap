@@ -1,12 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uDisplayUtils.pas
-//  * Purpose   : Вспомогательный модуль для отображения полученой информации
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Purpose   : Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Р№ РјРѕРґСѓР»СЊ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ РїРѕР»СѓС‡РµРЅРѕР№ РёРЅС„РѕСЂРјР°С†РёРё
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -25,6 +25,8 @@ uses
   System.SysUtils,
   uUtils,
   uSettings,
+
+  MemoryMap.Core,
   MemoryMap.RegionData,
   MemoryMap.Heaps,
   MemoryMap.Threads,
@@ -167,7 +169,7 @@ begin
     rtSystem: Result := Settings.SystemColor;
     rtHeap: Result := Settings.HeapColor;
     rtThread: Result := Settings.ThreadColor;
-    rtExecutableImage: Result := Settings.ImageColor;
+    rtExecutableImage, rtExecutableImage64: Result := Settings.ImageColor;
   else
     if Value.MBI.State = MEM_COMMIT then
       case Value.MBI.Type_9 of
@@ -191,6 +193,8 @@ begin
 end;
 
 function GetLevel1RegionTypeString(ARegion: TRegionData): string;
+const
+  DefImageName = 'PE Image';
 begin
   Result := '';
   case ARegion.RegionType of
@@ -207,7 +211,16 @@ begin
       if ARegion.HiddenRegionCount = 0 then
         Result := Result + ', ' + string(ARegion.SystemData.Description);
     end;
-    rtExecutableImage: Result := 'PE Image';
+    rtExecutableImage:
+      if MemoryMapCore.Process64 then
+        Result := DefImageName + ' (x86)'
+      else
+        Result := DefImageName;
+    rtExecutableImage64:
+      if MemoryMapCore.Process64 then
+        Result := DefImageName
+      else
+        Result := DefImageName + ' (x64)';
   end;
   ConcatenateStrings(Result, ExtractRegionTypeString(ARegion));
 end;

@@ -28,11 +28,6 @@ object dlgExportList: TdlgExportList
     Align = alClient
     Header.AutoSizeIndex = 2
     Header.DefaultHeight = 21
-    Header.Font.Charset = DEFAULT_CHARSET
-    Header.Font.Color = clWindowText
-    Header.Font.Height = -11
-    Header.Font.Name = 'Tahoma'
-    Header.Font.Style = []
     Header.Height = 21
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     PopupMenu = pmCopy
@@ -43,27 +38,29 @@ object dlgExportList: TdlgExportList
     OnDblClick = lvExportsDblClick
     OnGetText = lvExportsGetText
     OnHeaderClick = lvExportsHeaderClick
+    Touch.InteractiveGestures = [igPan, igPressAndTap]
+    Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
     Columns = <
       item
         Position = 0
+        Text = 'Type'
         Width = 100
-        WideText = 'Type'
       end
       item
         Position = 1
+        Text = 'Address'
         Width = 150
-        WideText = 'Address'
       end
       item
         Position = 2
-        Width = 119
-        WideText = 'Module'
+        Text = 'Module'
+        Width = 123
       end
       item
         Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAutoSpring, coAllowFocus]
         Position = 3
+        Text = 'Function'
         Width = 331
-        WideText = 'Function'
       end>
   end
   object pmCopy: TPopupMenu

@@ -1,12 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : MemoryMap
 //  * Unit Name : MemoryMap.RegionData.pas
-//  * Purpose   : Класс хранит информацию о регионе
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Purpose   : РљР»Р°СЃСЃ С…СЂР°РЅРёС‚ РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЂРµРіРёРѕРЅРµ
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -30,13 +30,14 @@ uses
   MemoryMap.PEImage;
 
 type
-  // Тип региона
+  // РўРёРї СЂРµРіРёРѕРЅР°
   TRegionType = (
     rtDefault,
-    rtHeap,                // регион содержит элементы кучи
-    rtThread,              // регион содержит стек потока или TEB
-    rtSystem,              // регион содержит системные данные (PEB/KUSER_SHARED_DATA и т.п.)
-    rtExecutableImage      // регион содержит образ исполняемого PE файла
+    rtHeap,                // СЂРµРіРёРѕРЅ СЃРѕРґРµСЂР¶РёС‚ СЌР»РµРјРµРЅС‚С‹ РєСѓС‡Рё
+    rtThread,              // СЂРµРіРёРѕРЅ СЃРѕРґРµСЂР¶РёС‚ СЃС‚РµРє РїРѕС‚РѕРєР° РёР»Рё TEB
+    rtSystem,              // СЂРµРіРёРѕРЅ СЃРѕРґРµСЂР¶РёС‚ СЃРёСЃС‚РµРјРЅС‹Рµ РґР°РЅРЅС‹Рµ (PEB/KUSER_SHARED_DATA Рё С‚.Рї.)
+    rtExecutableImage,     // СЂРµРіРёРѕРЅ СЃРѕРґРµСЂР¶РёС‚ РѕР±СЂР°Р· РёСЃРїРѕР»РЅСЏРµРјРѕРіРѕ PE С„Р°Р№Р»Р°
+    rtExecutableImage64
     );
 
   TSystemData = record
@@ -238,6 +239,7 @@ begin
     for I := 0 to Directory.Count - 1 do
     begin
       Dir := Directory[I];
+      S.Add(IntToStr(Byte(Dir.Flag)));
       AddString(string(Dir.Caption));
       S.Add(IntToStr(Dir.Address));
       S.Add(IntToStr(Dir.Size));
@@ -351,6 +353,7 @@ begin
     FSharedCount := StrToInt64(NextValue);
     for I := 0 to StrToInt64(NextValue) - 1 do
     begin
+      Dir.Flag := TDirectoryFlag(StrToInt64(NextValue));
       Dir.Caption := ShortString(ShortString(Trim(NextValue)));
       Dir.Address := StrToInt64(NextValue);
       Dir.Size := StrToInt64(NextValue);

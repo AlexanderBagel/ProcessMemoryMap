@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uSelectProcess.pas
-//  * Purpose   : Диалог выбора процесса
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Purpose   : Р”РёР°Р»РѕРі РІС‹Р±РѕСЂР° РїСЂРѕС†РµСЃСЃР°
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2017.
 //  * Version   : 1.0.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -129,12 +129,12 @@ end;
 procedure TdlgSelectProcess.lvProcessMouseUp(Sender: TObject;
   Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
-  // Обход небольшого глюка.
-  // Данный диалог обычно отображается над lvSummary, который отвечает
-  // за фильтрацию данных.
-  // А в lvSummary метод OnNodeClick вызывается по MouseUp,
-  // и при двойном клике на текущем диалоге сразу вызывается фильтрация,
-  // а это нам не надо.
+  // РћР±С…РѕРґ РЅРµР±РѕР»СЊС€РѕРіРѕ РіР»СЋРєР°.
+  // Р”Р°РЅРЅС‹Р№ РґРёР°Р»РѕРі РѕР±С‹С‡РЅРѕ РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ РЅР°Рґ lvSummary, РєРѕС‚РѕСЂС‹Р№ РѕС‚РІРµС‡Р°РµС‚
+  // Р·Р° С„РёР»СЊС‚СЂР°С†РёСЋ РґР°РЅРЅС‹С….
+  // Рђ РІ lvSummary РјРµС‚РѕРґ OnNodeClick РІС‹Р·С‹РІР°РµС‚СЃСЏ РїРѕ MouseUp,
+  // Рё РїСЂРё РґРІРѕР№РЅРѕРј РєР»РёРєРµ РЅР° С‚РµРєСѓС‰РµРј РґРёР°Р»РѕРіРµ СЃСЂР°Р·Сѓ РІС‹Р·С‹РІР°РµС‚СЃСЏ С„РёР»СЊС‚СЂР°С†РёСЏ,
+  // Р° СЌС‚Рѕ РЅР°Рј РЅРµ РЅР°РґРѕ.
   if DblClicked then
   begin
     ProcessReconnect.SetKnownProcessList(ProcessList);
@@ -289,14 +289,14 @@ begin
   if StyleServices.Enabled then
   begin
     Item.Mask := HDI_FORMAT;
-    // Убираем предыдущую стрелку
+    // РЈР±РёСЂР°РµРј РїСЂРµРґС‹РґСѓС‰СѓСЋ СЃС‚СЂРµР»РєСѓ
     HeaderHandle := ListView_GetHeader(lvProcess.Handle);
     if Header_GetItem(HeaderHandle, SortData.PreviosSelected, Item) then
     begin
       Item.fmt := Item.fmt and not (HDF_SORTUP or HDF_SORTDOWN);
       Header_SetItem(HeaderHandle, SortData.PreviosSelected, Item);
     end;
-    // Рисуем новую
+    // Р РёСЃСѓРµРј РЅРѕРІСѓСЋ
     Item.Mask := HDI_FORMAT;
     Header_GetItem(HeaderHandle, SortData.SortColumn, Item);
     Item.fmt := Item.fmt or Direction;

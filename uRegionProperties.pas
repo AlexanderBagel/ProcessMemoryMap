@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uRegionProperties.pas
-//  * Purpose   : Диалог для отображения данных по переданному адресу
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
+//  * Purpose   : Р”РёР°Р»РѕРі РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ РґР°РЅРЅС‹С… РїРѕ РїРµСЂРµРґР°РЅРЅРѕРјСѓ Р°РґСЂРµСЃСѓ
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2017.
 //  * Version   : 1.02
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -30,7 +30,9 @@ uses
   MemoryMap.Symbols,
   MemoryMap.Threads,
   MemoryMap.NtDll,
-  MemoryMap.Workset;
+  MemoryMap.Workset,
+
+  uDumpDisplayUtils;
 
 type
   TdlgRegionProps = class(TForm)
@@ -50,11 +52,15 @@ type
     procedure mnuShowAsDisassemblyClick(Sender: TObject);
     procedure mnuGotoAddressClick(Sender: TObject);
     procedure mnuPopupPopup(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
     CurerntAddr: Pointer;
+    SelectedAddr: ULONG_PTR;
     ShowAsDisassembly: Boolean;
+    KnownHint: TKnownHint;
     procedure Add(const Value: string);
     procedure StartQuery(Value: Pointer);
     procedure ShowInfoFromMBI(Process: THandle;
@@ -71,7 +77,6 @@ implementation
 uses
   uUtils,
   uSettings,
-  uDumpDisplayUtils,
   uDisplayUtils;
 
 {$R *.dfm}
@@ -88,6 +93,16 @@ begin
   Action := ACloseAction;
 end;
 
+procedure TdlgRegionProps.FormCreate(Sender: TObject);
+begin
+  KnownHint := TKnownHint.Create;
+end;
+
+procedure TdlgRegionProps.FormDestroy(Sender: TObject);
+begin
+  FreeAndNil(KnownHint);
+end;
+
 procedure TdlgRegionProps.FormKeyPress(Sender: TObject; var Key: Char);
 begin
   if Key = #27 then Close;
@@ -99,24 +114,37 @@ begin
 end;
 
 procedure TdlgRegionProps.mnuGotoAddressClick(Sender: TObject);
-var
-  SelectAddr: Int64;
 begin
-  if HexValueToInt64(edProperties.SelText, SelectAddr) then
-    if SelectAddr <> 0 then
-    begin
-      dlgRegionProps := TdlgRegionProps.Create(Application);
-      dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectAddr), ShowAsDisassembly);
-    end;
+  if SelectedAddr <> 0 then
+  begin
+    dlgRegionProps := TdlgRegionProps.Create(Application);
+    dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectedAddr), ShowAsDisassembly);
+  end;
 end;
 
 procedure TdlgRegionProps.mnuPopupPopup(Sender: TObject);
 var
-  SelectAddr: Int64;
+  HexAddr: Int64;
 begin
-  mnuGotoAddress.Enabled := False;
-  if HexValueToInt64(edProperties.SelText, SelectAddr) then
-    mnuGotoAddress.Enabled := SelectAddr <> 0;
+  SelectedAddr := 0;
+  if HexValueToInt64(edProperties.SelText, HexAddr) then
+    SelectedAddr := ULONG_PTR(HexAddr);
+  if SelectedAddr = 0 then
+  begin
+    var S := Trim(edProperties.SelText);
+    var StartText := Pos('/', S);
+    if StartText > 0 then
+    begin
+      S := Copy(S, StartText + 1, Length(S));
+      if (S.Length > 0) and (S[1] = '/') then
+        S[1] := ' ';
+      S := Trim(S);
+    end;
+    SelectedAddr := MemoryMapCore.DebugMapData.GetAddrFromDescription(S);
+    if SelectedAddr = 0 then
+      KnownHint.TryGetValue(S, SelectedAddr);
+  end;
+  mnuGotoAddress.Enabled := SelectedAddr <> 0;
 end;
 
 procedure TdlgRegionProps.mnuRefreshClick(Sender: TObject);
@@ -233,7 +261,7 @@ begin
 
       if ShowAsDisassembly then
       begin
-        Add(Disassembly(Process, Value, MemoryMapCore.Process64));
+        Add(Disassembly(Process, Value, MemoryMapCore.Process64, KnownHint));
         Exit;
       end;
 

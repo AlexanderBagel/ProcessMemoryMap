@@ -4,8 +4,8 @@
 //  * Project   : ProcessMM
 //  * Unit Name : ProcessMM.dpr
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.0.14
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -48,17 +48,13 @@ uses
   uMemoryMapListInfo in 'uMemoryMapListInfo.pas' {dlgMemoryMapListInfo},
   uMemoryMapListInfoSettings in 'uMemoryMapListInfoSettings.pas' {dlgMemoryMapListInfoSettings},
   distorm in 'distorm\distorm.pas',
-  mnemonics in 'distorm\mnemonics.pas',
   MemoryMap.DebugMapData in 'MemoryMap\MemoryMap.DebugMapData.pas',
-  uProcessReconnect in 'uProcessReconnect.pas';
+  uProcessReconnect in 'uProcessReconnect.pas',
+  MemoryMap.ImageHlp in 'MemoryMap\MemoryMap.ImageHlp.pas',
+  mnemonics in 'distorm\mnemonics.pas',
+  uKnownData in 'uKnownData.pas' {dlgKnownData};
 
 {$R *.res}
-
-{$IFDEF WIN32}
-  {$R 'distorm_lib32.res' 'distorm_lib32.rc'}
-{$ELSE}
-  {$R 'distorm_lib64.res' 'distorm_lib64.rc'}
-{$ENDIF}
 
 // Директива SINGLE_INSTANCE не дает запускать 32 битному приложению 64 битный аналог
 // Сугубо для отладки

@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uSelectAddress.pas
-//  * Purpose   : Диалог для выбора адреса
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
+//  * Purpose   : Р”РёР°Р»РѕРі РґР»СЏ РІС‹Р±РѕСЂР° Р°РґСЂРµСЃР°
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2016.
 //  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -25,6 +25,7 @@ uses
   Vcl.StdCtrls;
 
 type
+  TCaptionType = (ctDump, ctHighLight, ctQuery);
   TdlgSelectAddress = class(TForm)
     Label1: TLabel;
     Label2: TLabel;
@@ -42,7 +43,7 @@ type
   private
     InChange: Boolean;
   public
-    function ShowDlg(ShowSize: Boolean): TModalResult;
+    function ShowDlg(CaptionType: TCaptionType): TModalResult;
   end;
 
 var
@@ -130,11 +131,13 @@ begin
   end;
 end;
 
-function TdlgSelectAddress.ShowDlg(ShowSize: Boolean): TModalResult;
+function TdlgSelectAddress.ShowDlg(CaptionType: TCaptionType): TModalResult;
 var
   Offset: Integer;
 begin
-  if ShowSize then
+  if CaptionType = ctHighLight then
+    Caption := 'Process Memory Map - HighLight Address';
+  if CaptionType = ctDump then
   begin
     Caption := 'Process Memory Map - Dump Address';
     lblSize.Visible := True;

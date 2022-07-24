@@ -1,12 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : uProcessMM.pas
-//  * Purpose   : Главная форма проекта
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0.1
+//  * Purpose   : Р“Р»Р°РІРЅР°СЏ С„РѕСЂРјР° РїСЂРѕРµРєС‚Р°
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2016, 2022.
+//  * Version   : 1.0.14
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -25,7 +25,7 @@ uses
   Vcl.Menus, VirtualTrees, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.ImgList, Winapi.TlHelp32, Winapi.ShellAPI, Winapi.CommCtrl,
   Vcl.Clipbrd, System.Actions, Vcl.ActnList, Vcl.PlatformDefaultStyleActnCtrls,
-  Vcl.ActnMan,
+  Vcl.ActnMan, System.ImageList,
 
   MemoryMap.Core,
   MemoryMap.RegionData,
@@ -34,7 +34,7 @@ uses
   MemoryMap.Heaps,
 
   uDisplayUtils,
-  uIPC, System.ImageList;
+  uIPC;
 
 type
   TdlgProcessMM = class(TForm)
@@ -116,11 +116,16 @@ type
     mnuUtils: TMenuItem;
     DumpAddress1: TMenuItem;
     DumpRegion2: TMenuItem;
-    N11: TMenuItem;
     SaveDMPDialog: TSaveDialog;
     acFillMMList: TAction;
     N12: TMenuItem;
     FillAddrListInfo1: TMenuItem;
+    FindPatchedData1: TMenuItem;
+    acFindPachedData: TAction;
+    N13: TMenuItem;
+    N14: TMenuItem;
+    mnuShowKnonData: TMenuItem;
+    acShowKnown: TAction;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -166,8 +171,8 @@ type
     procedure FormShow(Sender: TObject);
     procedure stMemoryMapNodeDblClick(Sender: TBaseVirtualTree;
       const HitInfo: THitInfo);
-    procedure acFillMMListUpdate(Sender: TObject);
     procedure acFillMMListExecute(Sender: TObject);
+    procedure acShowKnownExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -205,7 +210,8 @@ uses
   uDump,
   uAbout,
   uMemoryMapListInfo,
-  uProcessReconnect;
+  uProcessReconnect,
+  uKnownData;
 
 const
   RootCaption = 'Process Memory Map';
@@ -299,7 +305,7 @@ begin
       dlgSelectAddress.edInt.Text := IntToStr(Data^.Address);
       dlgSelectAddress.edSize.Text := IntToStr(Data^.Size);
     end;
-    if dlgSelectAddress.ShowDlg(True) = mrOk then
+    if dlgSelectAddress.ShowDlg(ctDump) = mrOk then
     begin
       DumpAddress := Pointer(StrToInt64(dlgSelectAddress.edInt.Text));
       DumpSize := StrToInt64(dlgSelectAddress.edSize.Text)
@@ -360,11 +366,6 @@ begin
   dlgMemoryMapListInfo.ShowMemoryMapInfo;
 end;
 
-procedure TdlgProcessMM.acFillMMListUpdate(Sender: TObject);
-begin
-  (Sender as TAction).Enabled := ProcessOpen;
-end;
-
 procedure TdlgProcessMM.acOpenExecute(Sender: TObject);
 begin
   if OpenPMMDialog.Execute then
@@ -384,7 +385,7 @@ begin
   QueryAddr := nil;
   dlgSelectAddress := TdlgSelectAddress.Create(nil);
   try
-    if dlgSelectAddress.ShowDlg(False) = mrOk then
+    if dlgSelectAddress.ShowDlg(ctQuery) = mrOk then
       QueryAddr := Pointer(StrToInt64(dlgSelectAddress.edInt.Text));
   finally
     dlgSelectAddress.Release;
@@ -474,7 +475,7 @@ begin
   QueryAddr := 0;
   dlgSelectAddress := TdlgSelectAddress.Create(nil);
   try
-    if dlgSelectAddress.ShowDlg(False) = mrOk then
+    if dlgSelectAddress.ShowDlg(ctHighLight) = mrOk then
       QueryAddr := StrToInt64(dlgSelectAddress.edInt.Text);
   finally
     dlgSelectAddress.Release;
@@ -564,6 +565,18 @@ begin
   dlgExportList.ShowExport;
 end;
 
+procedure TdlgProcessMM.acShowKnownExecute(Sender: TObject);
+begin
+//
+  if dlgKnownData <> nil then
+  begin
+    dlgKnownData.BringToFront;
+    Exit;
+  end;
+  dlgKnownData := TdlgKnownData.Create(Application);
+  dlgKnownData.ShowKnownData;
+end;
+
 procedure TdlgProcessMM.AddShieldIconToMenu;
 var
   IconInfo: TSHStockIconInfo;
@@ -580,7 +593,7 @@ begin
 end;
 
 //
-//   Процедура рассчитывает количество всех отображаемых узлов
+//   РџСЂРѕС†РµРґСѓСЂР° СЂР°СЃСЃС‡РёС‚С‹РІР°РµС‚ РєРѕР»РёС‡РµСЃС‚РІРѕ РІСЃРµС… РѕС‚РѕР±СЂР°Р¶Р°РµРјС‹С… СѓР·Р»РѕРІ
 // =============================================================================
 procedure TdlgProcessMM.CalcNodeDataArraySize;
 var
@@ -615,7 +628,7 @@ begin
 end;
 
 //
-//   Процедура инициализирует дерево
+//   РџСЂРѕС†РµРґСѓСЂР° РёРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ РґРµСЂРµРІРѕ
 // =============================================================================
 procedure TdlgProcessMM.FillTreeView;
 var
@@ -629,14 +642,14 @@ var
     I: Integer;
     NeedAdd: Boolean;
   begin
-    // в случае если регион содержит в себе один единственный элемент кучи
-    // данные не выводим (ибо не имеет смысла)
+    // РІ СЃР»СѓС‡Р°Рµ РµСЃР»Рё СЂРµРіРёРѕРЅ СЃРѕРґРµСЂР¶РёС‚ РІ СЃРµР±Рµ РѕРґРёРЅ РµРґРёРЅСЃС‚РІРµРЅРЅС‹Р№ СЌР»РµРјРµРЅС‚ РєСѓС‡Рё
+    // РґР°РЅРЅС‹Рµ РЅРµ РІС‹РІРѕРґРёРј (РёР±Рѕ РЅРµ РёРјРµРµС‚ СЃРјС‹СЃР»Р°)
     if Region.RegionType = rtHeap then
       if Region.Contains.Count = 1 then Exit;
 
     for I := 0 to Region.Contains.Count - 1 do
     begin
-      // фильтруем регион
+      // С„РёР»СЊС‚СЂСѓРµРј СЂРµРіРёРѕРЅ
       NeedAdd := False;
       case MemoryMapCore.Filter of
         fiNone: NeedAdd := True;
@@ -645,7 +658,7 @@ var
         fiSystem: NeedAdd := Region.Contains[I].ItemType = itSystem;
       end;
       if not NeedAdd then Continue;
-      // если фильтр пройден - добавляем
+      // РµСЃР»Рё С„РёР»СЊС‚СЂ РїСЂРѕР№РґРµРЅ - РґРѕР±Р°РІР»СЏРµРј
       AddDataToContainsNode(Region, @NodeDataArray[Counter],
         Region.Contains[I]);
       NodeDataArray[Counter].Node :=
@@ -658,8 +671,8 @@ var
   var
     I: Integer;
   begin
-    // директории и секции выводятся только в случае отсутвия фильтра
-    // или когда выставлен фильтр на образы файлов
+    // РґРёСЂРµРєС‚РѕСЂРёРё Рё СЃРµРєС†РёРё РІС‹РІРѕРґСЏС‚СЃСЏ С‚РѕР»СЊРєРѕ РІ СЃР»СѓС‡Р°Рµ РѕС‚СЃСѓС‚РІРёСЏ С„РёР»СЊС‚СЂР°
+    // РёР»Рё РєРѕРіРґР° РІС‹СЃС‚Р°РІР»РµРЅ С„РёР»СЊС‚СЂ РЅР° РѕР±СЂР°Р·С‹ С„Р°Р№Р»РѕРІ
     if not (MemoryMapCore.Filter in [fiNone, fiImage]) then Exit;
     for I := 0 to Region.Directory.Count - 1 do
     begin
@@ -681,12 +694,12 @@ begin
     stMemoryMap.RootNodeCount := 0;
     MemoryMapCore.ShowEmpty := Settings.ShowFreeRegions;
     MemoryMapCore.DetailedHeapData := Settings.ShowDetailedHeap;
-    // Рассчитываем общее количество узлов
+    // Р Р°СЃСЃС‡РёС‚С‹РІР°РµРј РѕР±С‰РµРµ РєРѕР»РёС‡РµСЃС‚РІРѕ СѓР·Р»РѕРІ
     CalcNodeDataArraySize;
     Counter := 0;
     for Lvl1 := 0 to MemoryMapCore.Count - 1 do
     begin
-      // Заполяем данные по узлам первого уровня
+      // Р—Р°РїРѕР»СЏРµРј РґР°РЅРЅС‹Рµ РїРѕ СѓР·Р»Р°Рј РїРµСЂРІРѕРіРѕ СѓСЂРѕРІРЅСЏ
       Region := MemoryMapCore[Lvl1];
       if Region.RegionVisible then
         NodesColor := AddDataToLevel1Node(Region, @NodeDataArray[Counter])
@@ -694,26 +707,26 @@ begin
       begin
         NodesColor := GetRegionColor(Region, True);
         AddDataToLevel2Node(Region, @NodeDataArray[Counter], NodesColor,
-          Region.RegionType = rtExecutableImage);
+          Region.RegionType in [rtExecutableImage, rtExecutableImage64]);
       end;
       Lvl1Root :=
         stMemoryMap.AddChild(stMemoryMap.RootNode, @NodeDataArray[Counter]);
       NodeDataArray[Counter].Node := Lvl1Root;
       Inc(Counter);
 
-      // Рассчитываем доппараметры, для более красивого отображения узлов
-      // второго уровня. NodesColor отвечает за цвет подэлементов,
-      // PEImage за вывод допинформации по региону
+      // Р Р°СЃСЃС‡РёС‚С‹РІР°РµРј РґРѕРїРїР°СЂР°РјРµС‚СЂС‹, РґР»СЏ Р±РѕР»РµРµ РєСЂР°СЃРёРІРѕРіРѕ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ СѓР·Р»РѕРІ
+      // РІС‚РѕСЂРѕРіРѕ СѓСЂРѕРІРЅСЏ. NodesColor РѕС‚РІРµС‡Р°РµС‚ Р·Р° С†РІРµС‚ РїРѕРґСЌР»РµРјРµРЅС‚РѕРІ,
+      // PEImage Р·Р° РІС‹РІРѕРґ РґРѕРїРёРЅС„РѕСЂРјР°С†РёРё РїРѕ СЂРµРіРёРѕРЅСѓ
       if Region.RegionType in [rtDefault, rtSystem] then
         NodesColor := 0;
-      PEImage := Region.RegionType = rtExecutableImage;
+      PEImage := Region.RegionType in [rtExecutableImage, rtExecutableImage64];
       if PEImage then
         NodesColor := Settings.ImagePartColor;
 
-      // Проверка, присутствуют ли скрытые узлы?
+      // РџСЂРѕРІРµСЂРєР°, РїСЂРёСЃСѓС‚СЃС‚РІСѓСЋС‚ Р»Рё СЃРєСЂС‹С‚С‹Рµ СѓР·Р»С‹?
       if Region.HiddenRegionCount > 0 then
       begin
-        // если присутствуют, добавляем их...
+        // РµСЃР»Рё РїСЂРёСЃСѓС‚СЃС‚РІСѓСЋС‚, РґРѕР±Р°РІР»СЏРµРј РёС…...
         for Lvl2 := 0 to Region.HiddenRegionCount do
         begin
           Region := MemoryMapCore.GetHiddenRegion(Lvl1, Lvl2);
@@ -723,9 +736,9 @@ begin
           NodeDataArray[Counter].Node := Lvl2Root;
           Inc(Counter);
 
-          // у узлов второго уровня всегда выводится список директорий
+          // Сѓ СѓР·Р»РѕРІ РІС‚РѕСЂРѕРіРѕ СѓСЂРѕРІРЅСЏ РІСЃРµРіРґР° РІС‹РІРѕРґРёС‚СЃСЏ СЃРїРёСЃРѕРє РґРёСЂРµРєС‚РѕСЂРёР№
           AddDirectoryNodes(Lvl2Root);
-          // и дополнительной информации
+          // Рё РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕР№ РёРЅС„РѕСЂРјР°С†РёРё
           if Region.Contains.Count > 0 then
             AddContainsNodes(Lvl2Root);
         end;
@@ -733,8 +746,8 @@ begin
       else
       begin
 
-        // а у узлов первого уровня директории и доп информация выводятся только
-        // в тех случаях, если отсутствую скрытые узлы
+        // Р° Сѓ СѓР·Р»РѕРІ РїРµСЂРІРѕРіРѕ СѓСЂРѕРІРЅСЏ РґРёСЂРµРєС‚РѕСЂРёРё Рё РґРѕРї РёРЅС„РѕСЂРјР°С†РёСЏ РІС‹РІРѕРґСЏС‚СЃСЏ С‚РѕР»СЊРєРѕ
+        // РІ С‚РµС… СЃР»СѓС‡Р°СЏС…, РµСЃР»Рё РѕС‚СЃСѓС‚СЃС‚РІСѓСЋ СЃРєСЂС‹С‚С‹Рµ СѓР·Р»С‹
         AddDirectoryNodes(Lvl1Root);
         if Region.Contains.Count > 0 then
           AddContainsNodes(Lvl1Root);
@@ -780,7 +793,7 @@ procedure TdlgProcessMM.FormKeyPress(Sender: TObject; var Key: Char);
 var
   TmpString, ClipboardString: string;
 begin
-  // реализуем быстрый поиск при нажатии клавиш
+  // СЂРµР°Р»РёР·СѓРµРј Р±С‹СЃС‚СЂС‹Р№ РїРѕРёСЃРє РїСЂРё РЅР°Р¶Р°С‚РёРё РєР»Р°РІРёС€
   if Key = #8 then
   begin
     Delete(SearchString, Length(SearchString), 1);
