@@ -29,12 +29,12 @@ uses
 
 type
   TThreadInfo = (tiNoData, tiExceptionList, tiStackBase,
-    tiStackLimit, tiTEB, tiThreadProc);
+    tiStackLimit, tiTEB, tiThreadProc, tiOleTlsData);
 
 const
   ThreadInfoStr: array [TThreadInfo] of string = ('UnknownThreadData',
     'Thread Exception List', 'Thread Stack Base', 'Thread Stack Limit',
-    'TEB', 'ThreadProc');
+    'TEB', 'ThreadProc', 'OleTlsData');
 
 type
   TThreadData = record
@@ -444,7 +444,7 @@ var
   TBI: TThreadBasicInformation;
   TIB: NT_TIB;
   lpNumberOfBytesRead: NativeUInt;
-  ThreadStartAddress: Pointer;
+  ThreadStartAddress, pOleTlsData: Pointer;
   Wow64: Boolean;
   {$IFDEF WIN64}
   WOW64_NT_TIB: TWOW64_NT_TIB;
@@ -484,10 +484,18 @@ begin
           if not ReadProcessMemory(hProcess,
             TBI.TebBaseAddress, @TIB, SizeOf(NT_TIB),
             lpNumberOfBytesRead) then Exit;
+
           // Добавляем в массив адрес стэка
           Add(hProcess, tiStackBase, TIB.StackBase, ThreadEntry.th32ThreadID, False);
           Add(hProcess, tiStackLimit, TIB.StackLimit, ThreadEntry.th32ThreadID, False);
           Add(hProcess, tiTEB, TIB.Self, ThreadEntry.th32ThreadID, False);
+
+          // Адрес структуры OleTlsData хранящей информацию по OLE32 данным
+          // находится по фиксированному оффсету $1758
+          if ReadProcessMemory(hProcess,
+            Pointer(PByte(TBI.TebBaseAddress) + $1758), @pOleTlsData, 8,
+            lpNumberOfBytesRead) and Assigned(pOleTlsData) then
+            Add(hProcess, tiOleTlsData, pOleTlsData, ThreadEntry.th32ThreadID, False);
         end;
         // Получаем стэк нити
         GetThreadCallStack(hProcess, hThread, ThreadEntry.th32ThreadID);
@@ -510,6 +518,14 @@ begin
         Add(hProcess, tiStackBase, TIB.StackBase, ThreadEntry.th32ThreadID, True);
         Add(hProcess, tiStackLimit, TIB.StackLimit, ThreadEntry.th32ThreadID, True);
         Add(hProcess, tiTEB, TIB.Self, ThreadEntry.th32ThreadID, True);
+
+        // Адрес структуры OleTlsData хранящей информацию по OLE32 данным
+        // находится по фиксированному оффсету $F80
+        pOleTlsData := nil;
+        if ReadProcessMemory(hProcess,
+          Pointer(PByte(TIB.Self) + $F80), @pOleTlsData, 4,
+          lpNumberOfBytesRead) and Assigned(pOleTlsData) then
+          Add(hProcess, tiOleTlsData, pOleTlsData, ThreadEntry.th32ThreadID, True);
 
         // Получаем стэк нити
         GetWow64ThreadCallStack32(hProcess, hThread, ThreadEntry.th32ThreadID);

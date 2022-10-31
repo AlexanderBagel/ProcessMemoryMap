@@ -4678,12 +4678,12 @@ object dlgAbout: TdlgAbout
       030000C0010000C0000000F0000000F0000000FC000000FC010000FF1F0000FF
       FF0000}
   end
-  object Label1: TLabel
+  object lblPMMVer: TLabel
     Left = 56
     Top = 8
-    Width = 183
+    Width = 119
     Height = 13
-    Caption = 'Process Memory Map 1.1 (revision 15)'
+    Caption = 'Process Memory Map ???'
   end
   object Label2: TLabel
     Left = 56

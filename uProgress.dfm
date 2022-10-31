@@ -13,6 +13,8 @@ object dlgProgress: TdlgProgress
   Font.Style = []
   OldCreateOrder = False
   Position = poMainFormCenter
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
   PixelsPerInch = 96
   TextHeight = 13
   object Panel1: TPanel
@@ -30,13 +32,6 @@ object dlgProgress: TdlgProgress
       AutoSize = False
       Caption = 'lblProgress'
       EllipsisPosition = epPathEllipsis
-    end
-    object ProgressBar: TProgressBar
-      Left = 16
-      Top = 35
-      Width = 433
-      Height = 17
-      TabOrder = 0
     end
   end
 end

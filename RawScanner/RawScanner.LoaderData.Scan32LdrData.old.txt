@@ -1,0 +1,112 @@
+
+{$REGION ' старый вариант кода с костылем '}
+
+//  function GetSystemWow64Directory(lpBuffer: LPWSTR; uSize: UINT): UINT; stdcall;
+//    external kernel32 name 'GetSystemWow64DirectoryW';
+//
+//procedure TLoaderData.Scan32LdrData(LdrAddr: ULONG_PTR64);
+//const
+//  MM_HIGHEST_USER_ADDRESS = {$IFDEF WIN32}$7FFEFFFF;{$ELSE}$7FFFFFEFFFF;{$ENDIF}
+//
+//  function IsFile32(const FilePath: string): Boolean;
+//  var
+//    DosHeader: TImageDosHeader;
+//    NtHeader: TImageNtHeaders32;
+//    Raw: TBufferedFileStream;
+//  begin
+//    Raw := TBufferedFileStream.Create(FilePath, fmShareDenyWrite);
+//    try
+//      Raw.ReadBuffer(DosHeader, SizeOf(TImageDosHeader));
+//      Raw.Position := DosHeader._lfanew;
+//      Raw.ReadBuffer(NtHeader, SizeOf(TImageNtHeaders32));
+//      Result := NtHeader.FileHeader.Machine = IMAGE_FILE_MACHINE_I386;
+//    finally
+//      Raw.Free;
+//    end;
+//  end;
+//
+//var
+//  Ldr: PEB_LDR_DATA32;
+//  Entry: LDR_DATA_TABLE_ENTRY32;
+//  lpNumberOfBytesRead: NativeUInt;
+//  Module: TModuleData;
+//  MapedFilePath: string;
+//  MapedFilePathLen: DWORD;
+//  SysDir, SysWowDir: string;
+//begin
+//  if not ReadProcessMemory(FProcess, Pointer(LdrAddr),
+//    @Ldr, SizeOf(PEB_LDR_DATA32), lpNumberOfBytesRead) then
+//    Exit;
+//  if not ReadProcessMemory(FProcess, Pointer(Ldr.InLoadOrderModuleList.FLink),
+//    @Entry, SizeOf(LDR_DATA_TABLE_ENTRY32), lpNumberOfBytesRead) then
+//    Exit;
+//
+//  if FIsWow64Mode then
+//  begin
+//    SetLength(SysDir, MAX_PATH);
+//    SetLength(SysDir, GetSystemDirectory(@SysDir[1], MAX_PATH));
+//    SetLength(SysWowDir, MAX_PATH);
+//    SetLength(SysWowDir, GetSystemWow64Directory(@SysWowDir[1], MAX_PATH));
+//  end;
+//
+//  SetLength(MapedFilePath, MAX_PATH);
+//
+//  while Entry.DllBase <> 0 do
+//  begin
+//    Module.ImageBase := Entry.DllBase;
+//    Module.Is64Image := False;
+//    SetLength(Module.ModulePath, Entry.FullDllName.Length shr 1);
+//    if not ReadProcessMemory(FProcess, Pointer(Entry.FullDllName.Buffer),
+//      @Module.ModulePath[1], Entry.FullDllName.Length, lpNumberOfBytesRead) then
+//      Exit;
+//
+//    // нюанс, 32 битные библиотеки в списке LDR будут прописаны с путем из
+//    // дефолтной системной директории, хотя на самом деле они грузятся
+//    // из SysWow64 папки. Поэтому проверяем, если SysWow64 присутствует
+//    // то все 32 битные пути библиотек меняем на правильный посредством
+//    // вызова GetMappedFileName + нормализация.
+//    // Для 64 битных это делать не имеет смысла, т.к. они грузятся по старшим
+//    // адресам куда не может быть загружена 32 битная библиотека, а по младшим
+//    // мы и сами сможет прочитать данные из 32 битной сборки
+//    if FIsWow64Mode then
+//    begin
+//      // GetMappedFileName работает с адресами меньше MM_HIGHEST_USER_ADDRESS
+//      // если адрес будет больше - вернется ноль с ошибкой ERROR_INVALID_PARAMETER
+//      if Module.ImageBase < MM_HIGHEST_USER_ADDRESS then
+//      begin
+//        MapedFilePathLen := GetMappedFileName(FProcess, Module.ImageBase,
+//          @MapedFilePath[1], MAX_PATH * SizeOf(Char));
+//        if MapedFilePathLen > 0 then
+//          Module.ModulePath := NormalizePath(Copy(MapedFilePath, 1, MapedFilePathLen));
+//      end
+//      else
+//      begin
+//        // а если адрес библиотеки выше допустимого, то будем делать костыль
+//        // проверка, находится ли файл в системной директории?
+//        if Module.ModulePath.StartsWith(SysDir, True) then
+//        begin
+//          // проверка, есть ли файл на диске и является ли он 32 битным?
+//          if not (FileExists(Module.ModulePath) and IsFile32(Module.ModulePath)) then
+//          begin
+//            // нет, файл отсутствует либо не является 32 битным
+//            // меняем путь на SysWow64 директорию
+//            Module.ModulePath := StringReplace(Module.ModulePath, SysDir, SysWowDir, [rfIgnoreCase]);
+//            // повторная проверка
+//            if not (FileExists(Module.ModulePath) and IsFile32(Module.ModulePath)) then
+//              // если в SysWow64 нет подходящего файла, чтож - тогда пропускаем его
+//              // потому что мы его всеравно не сможем правильно подгрузить и обработать
+//              Module.ModulePath := EmptyStr;
+//          end;
+//        end;
+//      end;
+//    end;
+//
+//    if Module.ModulePath <> EmptyStr then
+//      FModuleList.Add(Module);
+//
+//    if not ReadProcessMemory(FProcess, Pointer(Entry.InLoadOrderLinks.FLink),
+//      @Entry, SizeOf(LDR_DATA_TABLE_ENTRY32), lpNumberOfBytesRead) then
+//      Exit;
+//  end;
+//end;
+{$ENDREGION}

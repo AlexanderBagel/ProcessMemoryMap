@@ -5,8 +5,8 @@
 //  * Unit Name : uMemoryMapListInfo.pas
 //  * Purpose   : Сканирование памяти процесса на основе адресов и контрольных сумм
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.2.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -29,6 +29,7 @@ uses
   MemoryMap.Utils,
   MemoryMap.WorkSet,
   MemoryMap.Symbols,
+  MemoryMap.DebugMapData,
   uDumpDisplayUtils;
 
 type
@@ -69,6 +70,7 @@ type
     procedure SaveDump(Addr: ULONG_PTR; RawBuff: TMemoryDump);
   public
     procedure ShowMemoryMapInfo;
+    procedure GenerateMemoryMapInfo;
   end;
 
 var
@@ -86,6 +88,132 @@ uses
 {$R *.dfm}
 
 { TdlgMemoryMapListInfo }
+
+
+procedure TdlgMemoryMapListInfo.GenerateMemoryMapInfo;
+
+  function IsVclFunction(const FuncName: string): Boolean;
+  begin
+    Result := FuncName.StartsWith('Winapi.');
+    if not Result then
+      Result := FuncName.StartsWith('System.');
+    if not Result then
+      Result := FuncName.StartsWith('Vcl.');
+    if not Result then
+      Result := FuncName.StartsWith('Generics.');
+    if not Result then
+      Result := FuncName.StartsWith('SysInit.');
+  end;
+
+const
+  FuncPrefix = '             // ';
+var
+  DebugMap: TDebugMap;
+  FuncDataList: TDictionary<ULONG_PTR, string>;
+  RegionAddr: ULONG_PTR;
+  RegionData, MMLPath: string;
+  Enumerator: TEnumerator<ULONG_PTR>;
+  MML: TStringList;
+  ProcessLock: TProcessLockHandleList;
+  AddrSize: Integer;
+  Size, RegionSize: NativeUInt;
+  RawBuff: TMemoryDump;
+  CRC: DWORD;
+begin
+  if MemoryMapCore.Process64 then
+    AddrSize := 16
+  else
+    AddrSize := 8;
+  MMLPath := ChangeFileExt(MemoryMapCore.ProcessPath, '.mml');
+  DebugMap := MemoryMapCore.DebugMapData;
+  FuncDataList := TDictionary<ULONG_PTR, string>.Create;
+  try
+
+    // создаем список адресов по 4096 байт куда входит хотябы одна функция
+    for var I := 0 to DebugMap.Items.Count - 1 do
+    begin
+      with DebugMap.Items.List[I] do
+      begin
+        if IsVclFunction(FunctionName) then
+          Continue;
+        RegionAddr := Address and not $FFF;
+        if not FuncDataList.TryGetValue(RegionAddr, RegionData) then
+          RegionData := FuncPrefix + FunctionName
+        else
+          RegionData := FuncPrefix + FunctionName + sLineBreak + RegionData;
+        FuncDataList.AddOrSetValue(RegionAddr, RegionData);
+      end;
+    end;
+
+    Enumerator := FuncDataList.Keys.GetEnumerator;
+    try
+      MML := TStringList.Create;
+      try
+
+        Process := OpenProcessWithReconnect;
+        try
+          ProcessLock := nil;
+          if Settings.SuspendProcess then
+            ProcessLock := SuspendProcess(MemoryMapCore.PID);
+          try
+
+            while Enumerator.MoveNext do
+            begin
+
+              // рассчитываем контрольную сумму каждого блока
+              Size := 4096;
+              SetLength(RawBuff, Size);
+              if not ReadProcessData(Process, Pointer(Enumerator.Current), @RawBuff[0],
+                Size, RegionSize, rcReadAllwais) then
+                Continue;
+              SetLength(RawBuff, Size);
+
+              CRC := CRC32(RawBuff);
+
+              // помещаем в MML описание блока, какие функции в него входят
+              // адрес и контрольную сумму блока
+              FuncDataList.TryGetValue(Enumerator.Current, RegionData);
+              MML.Add(RegionData);
+              MML.Add('addr: ' + IntToHex(Enumerator.Current, AddrSize) +
+                ' crc: ' + IntToHex(CRC, 8));
+            end;
+
+          finally
+            if Assigned(ProcessLock) then
+              ResumeProcess(ProcessLock);
+          end;
+        finally
+          CloseHandle(Process);
+        end;
+
+        if MML.Count > 0 then
+          MML.SaveToFile(MMLPath);
+
+      finally
+        MML.Free;
+      end;
+    finally
+      Enumerator.Free;
+    end;
+  finally
+    FuncDataList.Free;
+  end;
+
+  // если файл сгенерировался успешно то открываем его с настройками по умолчанию
+  if FileExists(MMLPath) then
+  begin
+    ScanSettings.MMLFile := MMLPath;
+    ScanSettings.ShowDump := False;
+    ScanSettings.DumpSize := 0;
+    ScanSettings.ShowDisasm := False;
+    ScanSettings.NeedGenerateMML := False;
+    ScanSettings.NeedSave := False;
+    ScanSettings.SavePath := EmptyStr;
+    ScanSettings.DumpFullRegIfNotShared := False;
+    ScanSettings.DumpFullRegIfWrongCRC := False;
+    Scan;
+  end;
+end;
 
 procedure TdlgMemoryMapListInfo.LoadMMLData;
 var
@@ -193,7 +321,7 @@ begin
   end;
 
   if ScanSettings.ShowDump then
-    Add(DumpMemoryFromBuff(RawBuff, MMLRecord.Addr, ScanSettings.DumpSize));
+    Add(DumpMemoryFromBuff(Process, MMLRecord.Addr, RawBuff, ScanSettings.DumpSize));
 
   if ScanSettings.ShowDisasm then
   begin

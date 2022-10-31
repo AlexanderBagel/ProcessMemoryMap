@@ -3,7 +3,7 @@ object dlgSettings: TdlgSettings
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Process Memory Map - Settings'
-  ClientHeight = 437
+  ClientHeight = 461
   ClientWidth = 318
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -26,7 +26,7 @@ object dlgSettings: TdlgSettings
   end
   object cbShowColors: TCheckBox
     Left = 16
-    Top = 124
+    Top = 147
     Width = 185
     Height = 17
     Caption = 'Show colors'
@@ -34,7 +34,7 @@ object dlgSettings: TdlgSettings
   end
   object GroupBox1: TGroupBox
     Left = 16
-    Top = 147
+    Top = 171
     Width = 289
     Height = 249
     Caption = 'Color scheme:'
@@ -193,7 +193,7 @@ object dlgSettings: TdlgSettings
   end
   object Button1: TButton
     Left = 230
-    Top = 402
+    Top = 426
     Width = 75
     Height = 25
     Cancel = True
@@ -203,7 +203,7 @@ object dlgSettings: TdlgSettings
   end
   object btnOk: TButton
     Left = 149
-    Top = 402
+    Top = 426
     Width = 75
     Height = 25
     Caption = 'OK'
@@ -212,7 +212,7 @@ object dlgSettings: TdlgSettings
   end
   object btnReset: TButton
     Left = 16
-    Top = 402
+    Top = 426
     Width = 75
     Height = 25
     Caption = 'Reset'
@@ -250,6 +250,14 @@ object dlgSettings: TdlgSettings
     Height = 17
     Caption = 'Auto Reconnect'
     TabOrder = 9
+  end
+  object cbUseFilter: TCheckBox
+    Left = 16
+    Top = 124
+    Width = 184
+    Height = 17
+    Caption = 'Use Scanner Filter'
+    TabOrder = 10
   end
   object ColorDialog: TColorDialog
     Left = 232

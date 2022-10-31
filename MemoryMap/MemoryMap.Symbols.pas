@@ -15,7 +15,7 @@
 //  ****************************************************************************
 //
 
-unit MemoryMap.Symbols;
+unit MemoryMap.Symbols deprecated 'use RawScanner.SymbolStorage';
 
 interface
 
@@ -23,7 +23,8 @@ uses
   Winapi.Windows,
   MemoryMap.ImageHlp,
   System.Classes,
-  System.SysUtils;
+  System.SysUtils,
+  Generics.Collections;
 
 type
   TSymbols = class
@@ -32,6 +33,7 @@ type
     FProcess: THandle;
     FModuleName: string;
     FBaseAddress: ULONG_PTR;
+    FData: TDictionary<Pointer, string>;
   public
     constructor Create(hProcess: THandle);
     destructor Destroy; override;
@@ -44,6 +46,7 @@ type
       const ModuleName: string): string;
     procedure GetExportFuncList(const ModuleName: string;
       BaseAddress: ULONG_PTR; Value: TStringList);
+    property BaseAddress: ULONG_PTR read FBaseAddress;
   end;
 
 implementation
@@ -58,10 +61,12 @@ begin
   FProcess := hProcess;
   SymSetOptions(SYMOPT_UNDNAME or SYMOPT_DEFERRED_LOADS);
   FInited := SymInitialize(hProcess, nil, True);
+  FData := TDictionary<Pointer, string>.Create;
 end;
 
 destructor TSymbols.Destroy;
 begin
+  FData.Free;
   if FInited then
     SymCleanup(FProcess);
   inherited;
@@ -78,38 +83,9 @@ begin
 end;
 
 function TSymbols.GetDescriptionAtAddr(Address: ULONG_PTR): string;
-const
-  SizeOfStruct = SizeOf(TImagehlpSymbol);
-  MaxNameLength = BuffSize - SizeOfStruct;
-var
-  Symbol: PImagehlpSymbol;
-  Displacement: NativeUInt;
 begin
   Result := '';
-  GetMem(Symbol, BuffSize);
-  try
-    Symbol^.SizeOfStruct := SizeOfStruct;
-    Symbol^.MaxNameLength := MaxNameLength;
-    Symbol^.Size := 0;
-    if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
-    begin
-      if Displacement = 0 then
-        Result := string(PAnsiChar(@(Symbol^).Name[0]));
-    end
-    else
-    begin
-      // с первой попытки может и не получиться
-      SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(FModuleName)), nil, FBaseAddress, 0);
-      if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
-      begin
-        if Displacement = 0 then
-          Result := string(PAnsiChar(@(Symbol^).Name[0]));
-      end;
-    end;
-  finally
-    FreeMem(Symbol);
-  end;
-  if Result <> '' then
+  if FData.TryGetValue(Pointer(Address), Result) then
     Result := ExtractFileName(FModuleName) + '!' + Result;
 end;
 
@@ -223,11 +199,23 @@ begin
 end;
 
 procedure TSymbols.Init(BaseAddress: ULONG_PTR; const ModuleName: string);
+var
+  List: TStringList;
+  Value: string;
 begin
   FModuleName := ModuleName;
   FBaseAddress := BaseAddress;
-  SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)),
-    nil, BaseAddress, 0);
+  List := TStringList.Create;
+  try
+    GetExportFuncList(ModuleName, BaseAddress, List);
+    for var I := 0 to List.Count - 1 do
+      if FData.TryGetValue(List.Objects[I], Value) then
+        FData.AddOrSetValue(List.Objects[I], Value + ';' + List[I])
+      else
+        FData.Add(List.Objects[I], List[I]);
+  finally
+    List.Free;
+  end;
 end;
 
 procedure TSymbols.Release;

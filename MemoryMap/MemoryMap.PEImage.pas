@@ -6,7 +6,7 @@
 //  * Purpose   : Класс собирает данные по секциям и директориям PE файла
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.15
+//  * Version   : 1.2.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -66,12 +66,12 @@ type
     FTLSCallbacks: TList<TTLSCallback>;
   protected
     procedure EnumSections;
-    procedure EnumDirectories(LoadAsDataFile: Boolean);
+    procedure EnumDirectories(LoadAsImage: Boolean);
   public
     constructor Create(AProcessHandle: THandle);
     destructor Destroy; override;
     procedure GetInfoFromImage(const FileName: string; ImageBase: Pointer;
-      FirstSectionSize: NativeUInt; LoadAsDataFile: Boolean = False);
+      FirstSectionSize: NativeUInt; LoadAsImage: Boolean = True);
     function GetSectionArAddr(Value: Pointer): TSection;
     property Sections: TList<TSection> read FSections;
     property Directoryes: TList<TDirectoryArray> read FDirectoryes;
@@ -101,7 +101,7 @@ begin
   inherited;
 end;
 
-procedure TPEImage.EnumDirectories(LoadAsDataFile: Boolean);
+procedure TPEImage.EnumDirectories(LoadAsImage: Boolean);
 type
   PLSTable32 = ^TLSTable32;
   TLSTable32 = record
@@ -192,8 +192,8 @@ begin
           (ULONG_PTR(pTLSCursor) > (ULONG_PTR(FImageBase) + FImageInfo.SizeOfImage)) then
           Continue;
 
-        // вторая првоерка, а мы вообще иинициализированы?
-        if LoadAsDataFile then Exit;
+        // вторая проверка, а мы вообще иинициализированы?
+        if not LoadAsImage then Exit;
 
         if not ReadProcessMemory(FProcessHandle,
           pTLSCursor, @TLSCallbackTable[0], Length(TLSCallbackTable),
@@ -228,7 +228,8 @@ begin
   ImageSectionHeader := FImageInfo.Sections;
   for I := 0 to Integer(FImageInfo.NumberOfSections) - 1 do
   begin
-    Section.Caption := ShortString(PAnsiChar(@ImageSectionHeader^.Name[0]));
+    Section.Caption := Copy(ShortString(
+      PAnsiChar(@ImageSectionHeader^.Name[0])), 1, IMAGE_SIZEOF_SHORT_NAME);
     Section.Address := NativeUint(FImageBase) + ImageSectionHeader^.VirtualAddress;
     Section.Size := AlignedSectionSize(FImageInfo, ImageSectionHeader^.SizeOfRawData);
     Section.IsCode := IsExecute(ImageSectionHeader^.Characteristics);
@@ -239,7 +240,7 @@ begin
 end;
 
 procedure TPEImage.GetInfoFromImage(const FileName: string; ImageBase: Pointer;
-  FirstSectionSize: NativeUInt; LoadAsDataFile: Boolean);
+  FirstSectionSize: NativeUInt; LoadAsImage: Boolean);
 var
   Section: TSection;
 begin
@@ -258,7 +259,7 @@ begin
         FImageInfo.FileHeader.OptionalHeader.AddressOfEntryPoint));
     EnumSections;
     if FProcessHandle <> 0 then
-      EnumDirectories(LoadAsDataFile);
+      EnumDirectories(LoadAsImage);
   finally
     UnMapAndLoad(@FImageInfo);
   end;

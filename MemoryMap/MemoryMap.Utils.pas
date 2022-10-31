@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Utils.pas
 //  * Purpose   : Различные вспомогательные процедуры и функции
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.02
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.2.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,6 +22,7 @@ interface
 uses
   Winapi.Windows,
   Winapi.TlHelp32,
+  System.SysUtils,
   Generics.Collections,
   MemoryMap.NtDll,
   MemoryMap.ImageHlp;
@@ -71,7 +72,6 @@ asm
 {$ENDIF}
 end;
 
-
 function NormalizePath(const Value: string): string;
 const
   OBJ_CASE_INSENSITIVE         = $00000040;
@@ -82,6 +82,7 @@ const
   DriveNameSize = 4;
   VolumeCount = 26;
   DriveTotalSize = DriveNameSize * VolumeCount;
+  DosDeviceName = '\Device\HarddiskVolume';
 var
   US: UNICODE_STRING;
   OA: OBJECT_ATTRIBUTES;
@@ -95,63 +96,69 @@ var
   AnsiResult: AnsiString;
 begin
   Result := Value;
-  // Подготавливаем параметры для вызова ZwOpenFile
-  RtlInitUnicodeString(@US, StringToOleStr(Value));
-  // Аналог макроса InitializeObjectAttributes
-  FillChar(OA, SizeOf(OBJECT_ATTRIBUTES), #0);
-  OA.Length := SizeOf(OBJECT_ATTRIBUTES);
-  OA.ObjectName := @US;
-  OA.Attributes := OBJ_CASE_INSENSITIVE;
-  // Функция ZwOpenFile спокойно открывает файлы, путь к которым представлен
-  // с использованием символьных ссылок, например:
-  // \SystemRoot\System32\ntdll.dll
-  // \??\C:\Windows\System32\ntdll.dll
-  // \Device\HarddiskVolume1\WINDOWS\system32\ntdll.dll
-  // Поэтому будем использовать ее для получения хэндла
-  NTSTAT := ZwOpenFile(@hFile, FILE_READ_DATA or SYNCHRONIZE, @OA, @IO,
-    FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE,
-    FILE_SYNCHRONOUS_IO_NONALERT);
-  if NTSTAT = STATUS_SUCCESS then
-  try
-    // Файл открыт, теперь смотрим его формализованный путь
-    NTSTAT := NtQueryObject(hFile, ObjectNameInformation,
-      @ObjectNameInfo, MAX_PATH * 2, @dwReturn);
+
+  if not Value.StartsWith(DosDeviceName, True) then
+  begin
+    // Подготавливаем параметры для вызова ZwOpenFile
+    RtlInitUnicodeString(@US, StringToOleStr(Value));
+    // Аналог макроса InitializeObjectAttributes
+    FillChar(OA, SizeOf(OBJECT_ATTRIBUTES), #0);
+    OA.Length := SizeOf(OBJECT_ATTRIBUTES);
+    OA.ObjectName := @US;
+    OA.Attributes := OBJ_CASE_INSENSITIVE;
+    // Функция ZwOpenFile спокойно открывает файлы, путь к которым представлен
+    // с использованием символьных ссылок, например:
+    // \SystemRoot\System32\ntdll.dll
+    // \??\C:\Windows\System32\ntdll.dll
+    // \Device\HarddiskVolume1\WINDOWS\system32\ntdll.dll
+    // Поэтому будем использовать ее для получения хэндла
+    NTSTAT := ZwOpenFile(@hFile, FILE_READ_DATA or SYNCHRONIZE, @OA, @IO,
+      FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE,
+      FILE_SYNCHRONOUS_IO_NONALERT);
     if NTSTAT = STATUS_SUCCESS then
-    begin
-      SetLength(AnsiResult, MAX_PATH);
-      WideCharToMultiByte(CP_ACP, 0,
-        @ObjectNameInfo.Name.Buffer[ObjectNameInfo.Name.MaximumLength -
-        ObjectNameInfo.Name.Length {$IFDEF WIN64} + 4{$ENDIF}],
-        ObjectNameInfo.Name.Length, @AnsiResult[1],
-        MAX_PATH, nil, nil);
-      Result := string(PAnsiChar(AnsiResult));
-      // Путь на открытый через ZwOpenFile файл
-      // возвращается в виде \Device\HarddiskVolumeХ\бла-бла
-      // Осталось только его сопоставить с реальным диском
-      SetLength(Buff, DriveTotalSize);
-      Count := GetLogicalDriveStrings(DriveTotalSize, @Buff[1]) div DriveNameSize;
-      for I := 0 to Count - 1 do
+    try
+      // Файл открыт, теперь смотрим его формализованный путь
+      NTSTAT := NtQueryObject(hFile, ObjectNameInformation,
+        @ObjectNameInfo, MAX_PATH * 2, @dwReturn);
+      if NTSTAT = STATUS_SUCCESS then
       begin
-        Volume := PChar(@Buff[(I * DriveNameSize) + 1]);
-        Volume[3] := #0;
-        // Преобразуем имя каждого диска в символьную ссылку и
-        // сравниваем с формализированным путем
-        QueryDosDevice(PChar(Volume), @lpQuery[0], MAX_PATH);
-        dwQueryLength := Length(string(lpQuery));
-        if Copy(Result, 1, dwQueryLength) = string(lpQuery) then
-        begin
-          Volume[3] := '\';
-          if lpQuery[dwQueryLength - 1] <> '\' then
-            Inc(dwQueryLength);
-          Delete(Result, 1, dwQueryLength);
-          Result := Volume + Result;
-          Break;
-        end;
+        SetLength(AnsiResult, MAX_PATH);
+        WideCharToMultiByte(CP_ACP, 0,
+          @ObjectNameInfo.Name.Buffer[ObjectNameInfo.Name.MaximumLength -
+          ObjectNameInfo.Name.Length {$IFDEF WIN64} + 4{$ENDIF}],
+          ObjectNameInfo.Name.Length, @AnsiResult[1],
+          MAX_PATH, nil, nil);
+        Result := string(PAnsiChar(AnsiResult));
       end;
+    finally
+      ZwClose(hFile);
     end;
-  finally
-    ZwClose(hFile);
   end;
+
+  // Путь на открытый через ZwOpenFile файл
+  // возвращается в виде \Device\HarddiskVolumeХ\бла-бла
+  // Осталось только его сопоставить с реальным диском
+  SetLength(Buff, DriveTotalSize);
+  Count := GetLogicalDriveStrings(DriveTotalSize, @Buff[1]) div DriveNameSize;
+  for I := 0 to Count - 1 do
+  begin
+    Volume := PChar(@Buff[(I * DriveNameSize) + 1]);
+    Volume[3] := #0;
+    // Преобразуем имя каждого диска в символьную ссылку и
+    // сравниваем с формализированным путем
+    QueryDosDevice(PChar(Volume), @lpQuery[0], MAX_PATH);
+    dwQueryLength := Length(string(lpQuery));
+    if Copy(Result, 1, dwQueryLength) = string(lpQuery) then
+    begin
+      Volume[3] := '\';
+      if lpQuery[dwQueryLength - 1] <> '\' then
+        Inc(dwQueryLength);
+      Delete(Result, 1, dwQueryLength);
+      Result := Volume + Result;
+      Break;
+    end;
+  end;
+
 end;
 
 //  Функция возвращает размер секции с учетом выравнивания,

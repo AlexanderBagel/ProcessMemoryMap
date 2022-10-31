@@ -52,7 +52,22 @@ uses
   uProcessReconnect in 'uProcessReconnect.pas',
   MemoryMap.ImageHlp in 'MemoryMap\MemoryMap.ImageHlp.pas',
   mnemonics in 'distorm\mnemonics.pas',
-  uKnownData in 'uKnownData.pas' {dlgKnownData};
+  uKnownData in 'uKnownData.pas' {dlgKnownData},
+  uPatchDetect in 'uPatchDetect.pas' {dlgPatches},
+  RawScanner.Analyzer in 'RawScanner\RawScanner.Analyzer.pas',
+  RawScanner.ApiSet in 'RawScanner\RawScanner.ApiSet.pas',
+  RawScanner.Disassembler in 'RawScanner\RawScanner.Disassembler.pas',
+  RawScanner.Filter in 'RawScanner\RawScanner.Filter.pas',
+  RawScanner.LoaderData in 'RawScanner\RawScanner.LoaderData.pas',
+  RawScanner.Logger in 'RawScanner\RawScanner.Logger.pas',
+  RawScanner.ModulesData in 'RawScanner\RawScanner.ModulesData.pas',
+  RawScanner.Types in 'RawScanner\RawScanner.Types.pas',
+  RawScanner.Utils in 'RawScanner\RawScanner.Utils.pas',
+  RawScanner.Wow64 in 'RawScanner\RawScanner.Wow64.pas',
+  RawScanner.Core in 'RawScanner\RawScanner.Core.pas',
+  RawScanner.SymbolStorage in 'RawScanner\RawScanner.SymbolStorage.pas',
+  RawScanner.ActivationContext in 'RawScanner\RawScanner.ActivationContext.pas',
+  FWProgressBar in 'Controls\FWProgressBar.pas';
 
 {$R *.res}
 

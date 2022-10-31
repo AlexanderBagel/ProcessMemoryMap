@@ -371,6 +371,8 @@ begin
       Node^.Details := ARegion.Details;
       if Settings.ShowColors then
         Node^.Color := Settings.ThreadColor;
+      if Item.ThreadData.Flag = tiOleTlsData then
+        Node^.Contains := 'Structure holding per thread state needed by OLE32';
     end;
     itStackFrame:
     begin

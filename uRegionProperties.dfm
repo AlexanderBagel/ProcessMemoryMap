@@ -72,5 +72,31 @@ object dlgRegionProps: TdlgRegionProps
       ShortCut = 16452
       OnClick = mnuShowAsDisassemblyClick
     end
+    object mnuDasmMode: TMenuItem
+      Caption = 'Change disasm mode'
+      object mnuDasmModeAuto: TMenuItem
+        Caption = 'Auto detect'
+        Checked = True
+        GroupIndex = 1
+        RadioItem = True
+        OnClick = mnuDasmModeAutoClick
+      end
+      object mnuDasmMode86: TMenuItem
+        Tag = 1
+        Caption = 'x86'
+        GroupIndex = 1
+        RadioItem = True
+        ShortCut = 16440
+        OnClick = mnuDasmModeAutoClick
+      end
+      object mnuDasmMode64: TMenuItem
+        Tag = 2
+        Caption = 'x64'
+        GroupIndex = 1
+        RadioItem = True
+        ShortCut = 16438
+        OnClick = mnuDasmModeAutoClick
+      end
+    end
   end
 end

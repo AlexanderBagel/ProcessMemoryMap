@@ -278,13 +278,11 @@ var
   OldProtect: Cardinal;
 begin
   Result := False;
-  if not Settings.SuspendProcess then
-    if ReadCondition = rcReadAllwais then
-      ReadCondition := rcReadIfReadAccessPresent;
   dwLength := SizeOf(TMemoryBasicInformation);
   RegionSize := 0;
   if VirtualQueryEx(Process,
     Address, MBI, dwLength) <> dwLength then Exit;
+
   // Rouse_ 16.10.2015
   // Если на регион в котором расположена KUSER_SHARED_DATA
   // и который имеет атрибуты защиты PAGE_READONLY
@@ -292,11 +290,12 @@ begin
   // то в Windows 7 64 бита отключается обновление этой структуры
   // и как следствие перестает работать GetTickCount и прочее
   // поэтому отключаем лишние телодвижения
-  if ReadCondition = rcReadAllwais then
-    if MBI.Protect = PAGE_READONLY then
-      ReadCondition := rcReadIfReadAccessPresent;
+  if (ReadCondition = rcReadAllwais) and CanRead then
+    ReadCondition := rcReadIfReadAccessPresent;
+
   RegionSize := MBI.RegionSize -
     (NativeUInt(Address) - NativeUInt(MBI.BaseAddress));
+
   case ReadCondition of
     rcReadIfReadAccessPresent:
       if not CanRead then
@@ -314,10 +313,14 @@ begin
       VirtualProtectEx(Process, MBI.BaseAddress, MBI.RegionSize,
         PAGE_READONLY, OldProtect);
   end;
+
+  // рассчет предельного размера, чтобы не вышл за границу региона
   if Size > RegionSize then
     Size := RegionSize;
+
   Result := ReadProcessMemory(Process, Address,
     OutBuffer, Size, Size);
+
   if ReadCondition = rcReadAllwais then
     VirtualProtectEx(Process, MBI.BaseAddress, MBI.RegionSize,
       OldProtect, OldProtect);

@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог "О программе"
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.15
+//  * Version   : 1.2.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -27,7 +27,7 @@ uses
 type
   TdlgAbout = class(TForm)
     Image1: TImage;
-    Label1: TLabel;
+    lblPMMVer: TLabel;
     Label2: TLabel;
     LinkLabel1: TLinkLabel;
     LinkLabel2: TLinkLabel;
@@ -51,12 +51,14 @@ var
 implementation
 
 uses
+  MemoryMap.Core,
   distorm;
 
 {$R *.dfm}
 
 procedure TdlgAbout.FormCreate(Sender: TObject);
 begin
+  lblPMMVer.Caption := 'Process Memory Map ' + MemoryMapVersionStr;
   var dver := get_distorm_version;
   lblDistorm.Caption :=
     Format(

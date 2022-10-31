@@ -21,6 +21,7 @@ interface
 
 uses
   Winapi.Windows,
+  SysUtils,
   Generics.Collections,
   Winapi.TlHelp32;
 
@@ -37,14 +38,19 @@ type
     Entry: THeapEntry;
   end;
 
+  THeapProgressEvent = reference to procedure(const Step: string; APecent: Integer);
+
   THeap = class
   private
     FData: TList<THeapData>;
+    FProgress: THeapProgressEvent;
   protected
+    procedure DoProgress(const Step: string; APecent: Integer);
     procedure Update(PID: Cardinal; hProcess: THandle);
   public
     constructor Create; overload;
-    constructor Create(PID: Cardinal; hProcess: THandle); overload;
+    constructor Create(PID: Cardinal; hProcess: THandle;
+      AProgress: THeapProgressEvent = nil); overload;
     destructor Destroy; override;
     property Data: TList<THeapData> read FData;
   end;
@@ -57,8 +63,10 @@ uses
 
 { THeap }
 
-constructor THeap.Create(PID: Cardinal; hProcess: THandle);
+constructor THeap.Create(PID: Cardinal; hProcess: THandle;
+  AProgress: THeapProgressEvent);
 begin
+  FProgress := AProgress;
   Create;
   Update(PID, hProcess);
 end;
@@ -72,6 +80,12 @@ destructor THeap.Destroy;
 begin
   FData.Free;
   inherited;
+end;
+
+procedure THeap.DoProgress(const Step: string; APecent: Integer);
+begin
+  if Assigned(FProgress) then
+    FProgress(Step, APecent);
 end;
 
 procedure THeap.Update(PID: Cardinal; hProcess: THandle);
@@ -88,6 +102,7 @@ const
   RTL_HEAP_FIXED = (RTL_HEAP_BUSY or RTL_HEAP_SETTABLE_VALUE or
     RTL_HEAP_SETTABLE_FLAG2 or RTL_HEAP_SETTABLE_FLAG3 or
     RTL_HEAP_SETTABLE_FLAGS or RTL_HEAP_PROTECTED_ENTRY);
+  ProgressHint = 'Loading heap... %d';
 
   function CheckSmallBuff(Value: DWORD): Boolean;
   const
@@ -106,6 +121,7 @@ var
   hit_seg_count: Integer;
   HeapData: THeapData;
   BuffSize: NativeUInt;
+  MaxCursor, LastPercent, CurrentPercent: Integer;
 begin
   // Т.к. связка Heap32ListFirst, Heap32ListNext, Heap32First, Heap32Next
   // работает достаточно медленно, из-за постоянного вызова
@@ -122,21 +138,35 @@ begin
     // если размера буфера не хватает, увеличиваем...
     RtlDestroyQueryDebugBuffer(pDbgBuffer);
     BuffSize := BuffSize shl 1;
+    DoProgress('Calculate Heap Buff size: 0x' + IntToHex(BuffSize, 1), 0);
     pDbgBuffer := RtlCreateQueryDebugBuffer(BuffSize, False);
   end;
 
   if pDbgBuffer <> nil then
   try
     // Запрашиваем информацию по списку куч процесса
+    DoProgress('Query Heap data...', 0);
     if RtlQueryProcessDebugInformation(PID,
       RTL_QUERY_PROCESS_HEAP_SUMMARY or RTL_QUERY_PROCESS_HEAP_ENTRIES,
       pDbgBuffer) = STATUS_SUCCESS then
     begin
       // Получаем указатель на кучу по умолчанию
       pHeapInformation := @pDbgBuffer^.Heaps^.Heaps[0];
+
+      // Прогресс
+      LastPercent := 0;
+      MaxCursor := pDbgBuffer^.Heaps^.NumberOfHeaps;
+
       // перечисляем все ее блоки...
-      for I := 0 to pDbgBuffer^.Heaps^.NumberOfHeaps - 1 do
+      for I := 0 to MaxCursor - 1 do
       begin
+
+        CurrentPercent := Round(I / (MaxCursor / 100));
+        if CurrentPercent <> LastPercent then
+        begin
+          LastPercent := CurrentPercent;
+          DoProgress(Format(ProgressHint, [CurrentPercent]), CurrentPercent);
+        end;
 
         HeapData.ID := I;
 

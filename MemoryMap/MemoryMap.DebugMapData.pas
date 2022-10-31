@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.DebugMapData.pas
 //  * Purpose   : Класс для работы с отладочным MAP файлом.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0.1
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.2.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -45,12 +45,12 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    procedure Clear;
     procedure Init(BaseAddress: ULONG_PTR; const ModulePath: string);
     function GetAddrFromDescription(const Value: string): ULONG_PTR;
     function GetDescriptionAtAddr(Address: ULONG_PTR): string;
     function GetDescriptionAtAddrWithOffset(Address: ULONG_PTR): string;
     procedure GetExportFuncList(const ModuleName: string; Value: TStringList);
+    property Items: TList<TDebugMapItem> read FItems;
   end;
 
 implementation
@@ -59,11 +59,6 @@ uses
   MemoryMap.PEImage;
 
 { TDebugMap }
-
-procedure TDebugMap.Clear;
-begin
-  FItems.Clear;
-end;
 
 constructor TDebugMap.Create;
 begin

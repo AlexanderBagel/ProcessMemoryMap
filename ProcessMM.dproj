@@ -147,6 +147,7 @@ msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64
 brcc32 $(PROJECTDIR)\win64release.rc
 $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_DebugInformation>2</DCC_DebugInformation>
+        <Debugger_RunParams>6968</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
@@ -166,18 +167,21 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_RangeChecking>true</DCC_RangeChecking>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <DCC_RunTimeTypeInfo>true</DCC_RunTimeTypeInfo>
+        <Debugger_RunParams>3148</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_3_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
-        <Debugger_RunParams>&quot;Process Memory Map MMF&quot;</Debugger_RunParams>
+        <Debugger_RunParams>11980</Debugger_RunParams>
         <DCC_DebugDCUs>true</DCC_DebugDCUs>
         <DCC_RangeChecking>true</DCC_RangeChecking>
         <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
+        <DCC_MapFile>3</DCC_MapFile>
+        <DCC_Define>MP;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -243,6 +247,24 @@ $(PreBuildEvent)]]></PreBuildEvent>
             <Form>dlgKnownData</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="uPatchDetect.pas">
+            <Form>dlgPatches</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="RawScanner\RawScanner.Analyzer.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.ApiSet.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.Disassembler.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.Filter.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.LoaderData.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.Logger.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.ModulesData.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.Types.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.Utils.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.Wow64.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.Core.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.SymbolStorage.pas"/>
+        <DCCReference Include="RawScanner\RawScanner.ActivationContext.pas"/>
+        <DCCReference Include="Controls\FWProgressBar.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2022.
-//  * Version   : 1.0.14
+//  * Version   : 1.2.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -33,8 +33,11 @@ uses
   MemoryMap.Threads,
   MemoryMap.Heaps,
 
+  RawScanner.Core,
+
   uDisplayUtils,
-  uIPC;
+  uIPC,
+  uProgress;
 
 type
   TdlgProcessMM = class(TForm)
@@ -126,6 +129,9 @@ type
     N14: TMenuItem;
     mnuShowKnonData: TMenuItem;
     acShowKnown: TAction;
+    FillAddrListInfo2: TMenuItem;
+    acGenerateMML: TAction;
+    GenerateMMLfromMAP1: TMenuItem;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -173,6 +179,10 @@ type
       const HitInfo: THitInfo);
     procedure acFillMMListExecute(Sender: TObject);
     procedure acShowKnownExecute(Sender: TObject);
+    procedure acGenerateMMLUpdate(Sender: TObject);
+    procedure acGenerateMMLExecute(Sender: TObject);
+    procedure acFindPachedDataUpdate(Sender: TObject);
+    procedure acFindPachedDataExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -185,10 +195,13 @@ type
     {$ENDIF}
     procedure AddShieldIconToMenu;
     procedure CalcNodeDataArraySize;
+    procedure InternalOpenProcess(AMap: TMemoryMap;
+      PID: DWORD; const ProcessName: string);
     procedure FillTreeView;
     function Search(const Value: string): Boolean;
     function GetSelectedNodeData: PNodeData;
     procedure OnGetWow64Heaps(Value: THeap);
+    procedure OnInitProgress(const Step: string; APecent: Integer);
   public
     function Reconnect: Boolean;
   end;
@@ -211,7 +224,8 @@ uses
   uAbout,
   uMemoryMapListInfo,
   uProcessReconnect,
-  uKnownData;
+  uKnownData,
+  uPatchDetect;
 
 const
   RootCaption = 'Process Memory Map';
@@ -366,6 +380,34 @@ begin
   dlgMemoryMapListInfo.ShowMemoryMapInfo;
 end;
 
+procedure TdlgProcessMM.acFindPachedDataExecute(Sender: TObject);
+begin
+  if dlgPatches <> nil then
+  begin
+    dlgPatches.BringToFront;
+    Exit;
+  end;
+  dlgPatches := TdlgPatches.Create(Application);
+  dlgPatches.FindPatches;
+end;
+
+procedure TdlgProcessMM.acFindPachedDataUpdate(Sender: TObject);
+begin
+  (Sender as TAction).Enabled := ProcessOpen and RawScannerCore.Active;
+end;
+
+procedure TdlgProcessMM.acGenerateMMLExecute(Sender: TObject);
+begin
+  dlgMemoryMapListInfo := TdlgMemoryMapListInfo.Create(Application);
+  dlgMemoryMapListInfo.GenerateMemoryMapInfo;
+end;
+
+procedure TdlgProcessMM.acGenerateMMLUpdate(Sender: TObject);
+begin
+  TAction(Sender).Enabled := ProcessOpen and
+    (MemoryMapCore.DebugMapData.Items.Count > 0);
+end;
+
 procedure TdlgProcessMM.acOpenExecute(Sender: TObject);
 begin
   if OpenPMMDialog.Execute then
@@ -398,16 +440,17 @@ end;
 procedure TdlgProcessMM.acRefreshExecute(Sender: TObject);
 var
   M: TMemoryMap;
+  NewPID: Cardinal;
 begin
   try
+    NewPID := ProcessReconnect.GetNewPID(MemoryMapCore.PID);
+    if NewPID = 0 then Abort;
     if Settings.SearchDifferences then
     begin
       M := TMemoryMap.Create;
       try
         M.OnGetWow64Heaps := OnGetWow64Heaps;
-        Reconnect;
-        M.InitFromProcess(MemoryMapCore.PID,
-          MemoryMapCore.ProcessName);
+        InternalOpenProcess(M, NewPID, MemoryMapCore.ProcessName);
         dlgComparator := TdlgComparator.Create(nil);
         try
           if dlgComparator.CompareMemoryMaps(MemoryMapCore, M) then
@@ -421,8 +464,7 @@ begin
       end;
     end
     else
-      MemoryMapCore.InitFromProcess(MemoryMapCore.PID,
-        MemoryMapCore.ProcessName);
+      InternalOpenProcess(MemoryMapCore, NewPID, MemoryMapCore.ProcessName);
   except
     acSelectProcess.Execute;
     Exit;
@@ -505,10 +547,47 @@ begin
 end;
 
 procedure TdlgProcessMM.acSelectProcessExecute(Sender: TObject);
+
+  procedure OpenProcessAndInitGUI(PID: DWORD; const ProcessName: string);
+  var
+    Ico: TIcon;
+  begin
+    InternalOpenProcess(MemoryMapCore, PID, ProcessName);
+    Ico := TIcon.Create;
+    try
+      Ico.Handle := GetProcessIco(PID);
+      imgProcess.Picture.Assign(Ico);
+      lblProcessNameData.Caption := MemoryMapCore.ProcessName +
+        ' (' + MemoryMapCore.ProcessPath + ')';
+      lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
+      ProcessOpen := True;
+      MapPresent := True;
+      FillTreeView;
+    finally
+      Ico.Free;
+    end;
+  end;
+
 var
   dlgSelectProcess: TdlgSelectProcess;
-  Ico: TIcon;
+  CmdLinePID: DWORD;
+  ProcHandle: THandle;
 begin
+  if FirstSelectProcess and (ParamCount > 0) then
+  begin
+    if TryStrToUInt(ParamStr(1), CmdLinePID) then
+    begin
+      FirstSelectProcess := False;
+      ProcHandle := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
+        False, CmdLinePID);
+      if ProcHandle <> 0 then
+      begin
+        CloseHandle(ProcHandle);
+        OpenProcessAndInitGUI(CmdLinePID, 'opened from cmd ' + IntToStr(CmdLinePID));
+        Exit;
+      end;
+    end;
+  end;
   dlgSelectProcess := TdlgSelectProcess.Create(Self);
   try
     if FirstSelectProcess then
@@ -519,23 +598,8 @@ begin
     else
       dlgSelectProcess.Position := poMainFormCenter;
     case dlgSelectProcess.ShowModal of
-      mrOk:
-      begin
-        MemoryMapCore.InitFromProcess(dlgSelectProcess.Pid,
-          dlgSelectProcess.ProcessName);
-        Ico := TIcon.Create;
-        try
-          Ico.Handle := GetProcessIco(dlgSelectProcess.Pid);
-          imgProcess.Picture.Assign(Ico);
-          lblProcessNameData.Caption := MemoryMapCore.ProcessName;
-          lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
-          ProcessOpen := True;
-          MapPresent := True;
-          FillTreeView;
-        finally
-          Ico.Free;
-        end;
-      end;
+      mrOk: OpenProcessAndInitGUI(dlgSelectProcess.Pid,
+        dlgSelectProcess.ProcessName);
       mrClose: Close;
     end;
   finally
@@ -567,7 +631,6 @@ end;
 
 procedure TdlgProcessMM.acShowKnownExecute(Sender: TObject);
 begin
-//
   if dlgKnownData <> nil then
   begin
     dlgKnownData.BringToFront;
@@ -776,7 +839,12 @@ begin
   {$ELSE}
   IPCServer := TIPCServer.Create;
   {$ENDIF}
+
+  // Инициализация синглтонов и их событий
+  RawScannerCore.OnProgress := OnInitProgress;
+  MemoryMapCore.OnProgress := OnInitProgress;
   MemoryMapCore.OnGetWow64Heaps := OnGetWow64Heaps;
+
   Application.Title := Caption;
   FirstRun := True;
   FirstSelectProcess := True;
@@ -855,6 +923,24 @@ begin
   E := stMemoryMap.SelectedNodes.GetEnumerator;
   if E.MoveNext then
     Result := PNodeData(stMemoryMap.GetNodeData(E.Current)^);
+end;
+
+procedure TdlgProcessMM.InternalOpenProcess(AMap: TMemoryMap; PID: DWORD;
+  const ProcessName: string);
+begin
+  dlgProgress := TdlgProgress.Create(nil);
+  try
+    if not ProcessOpen then
+      dlgProgress.Position := poScreenCenter;
+    AMap.OnProgress := OnInitProgress;
+    dlgProgress.ShowWithCallback(procedure()
+    begin
+      RawScannerCore.InitFromProcess(PID);
+      AMap.InitFromProcess(PID, ProcessName);
+    end);
+  finally
+    FreeAndNil(dlgProgress);
+  end;
 end;
 
 procedure TdlgProcessMM.lvSummaryBeforeItemErase(Sender: TBaseVirtualTree;
@@ -936,6 +1022,14 @@ begin
   end;
 end;
 
+procedure TdlgProcessMM.OnInitProgress(const Step: string; APecent: Integer);
+begin
+  if dlgProgress = nil then Exit;
+  dlgProgress.lblProgress.Caption := Step;
+  dlgProgress.ProgressBar.Position := APecent;
+  Application.ProcessMessages;
+end;
+
 function TdlgProcessMM.Reconnect: Boolean;
 var
   NewPID: DWORD;
@@ -945,7 +1039,7 @@ begin
   try
     NewPID := ProcessReconnect.GetNewPID(MemoryMapCore.PID);
     if NewPID = 0 then Exit(False);
-    MemoryMapCore.InitFromProcess(NewPID, MemoryMapCore.ProcessName);
+    InternalOpenProcess(MemoryMapCore, NewPID, MemoryMapCore.ProcessName);
     lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
     FillTreeView;
   except

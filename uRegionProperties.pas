@@ -32,6 +32,10 @@ uses
   MemoryMap.NtDll,
   MemoryMap.Workset,
 
+  RawScanner.Core,
+  {$MESSAGE 'По идее SymbolStorage тут должен использоваться - но не используется'}
+  RawScanner.SymbolStorage,
+
   uDumpDisplayUtils;
 
 type
@@ -45,6 +49,10 @@ type
     mnuShowAsDisassembly: TMenuItem;
     mnuGotoAddress: TMenuItem;
     N3: TMenuItem;
+    mnuDasmMode: TMenuItem;
+    mnuDasmMode86: TMenuItem;
+    mnuDasmMode64: TMenuItem;
+    mnuDasmModeAuto: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuCopyClick(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
@@ -54,6 +62,7 @@ type
     procedure mnuPopupPopup(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure mnuDasmModeAutoClick(Sender: TObject);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
@@ -61,6 +70,7 @@ type
     SelectedAddr: ULONG_PTR;
     ShowAsDisassembly: Boolean;
     KnownHint: TKnownHint;
+    DAsmMode: TDasmMode;
     procedure Add(const Value: string);
     procedure StartQuery(Value: Pointer);
     procedure ShowInfoFromMBI(Process: THandle;
@@ -78,6 +88,9 @@ uses
   uUtils,
   uSettings,
   uDisplayUtils;
+
+const
+  DefCaption = 'Process Memory Map - Region Properties [0x%x]';
 
 {$R *.dfm}
 
@@ -202,6 +215,7 @@ begin
     @OwnerName[0], MAX_PATH) > 0 then
   begin
     Path := NormalizePath(string(OwnerName));
+    Caption := Caption + ' "' + ExtractFileName(Path) + '"';
     Add('Mapped file: ' + Path);
     if CheckPEImage(Process, MBI.AllocationBase) then
       Add('    Executable');
@@ -237,17 +251,61 @@ end;
 procedure TdlgRegionProps.StartQuery(Value: Pointer);
 const
   KUSER_SHARED_DATA_ADDR = Pointer($7FFE0000);
+
+  function GetPageAddr: Pointer;
+  begin
+    Result := Pointer(NativeUInt(Value) and not $FFF);
+  end;
+
+  function CheckThreadData(AFlag: TThreadInfo; Use32AddrMode: Boolean): Boolean;
+  begin
+    case AFlag of
+      tiTEB:
+      begin
+        {$IFDEF WIN32}
+        Add(DumpThread32(Process, Value));
+        {$ELSE}
+        if Use32AddrMode then
+          Add(DumpThread32(Process, Value))
+        else
+          Add(DumpThread64(Process, Value));
+        {$ENDIF}
+        Result := True;
+      end;
+      tiOleTlsData:
+      begin
+        {$IFDEF WIN32}
+        Add(DumpOleTlsData32(Process, Value, False));
+        {$ELSE}
+        if Use32AddrMode then
+          Add(DumpOleTlsData32(Process, Value, True))
+        else
+          Add(DumpOleTlsData64(Process, Value));
+        {$ENDIF}
+        Result := True;
+      end;
+    else
+      Result := False;
+    end;
+  end;
+
+const
+  DAsmModeStr: array [Boolean] of string = ('x86', 'x64');
+
 var
   MBI: TMemoryBasicInformation;
   dwLength: Cardinal;
   ProcessLock: TProcessLockHandleList;
   Index: Integer;
   ARegion: TRegionData;
+  Item: TContainItem;
+  Dasm64Mode: Boolean;
 begin
   CurerntAddr := Value;
   ProcessLock := nil;
   Process := OpenProcessWithReconnect;
   try
+    Caption := Format(DefCaption, [ULONG_PTR(Value)]);
     edProperties.Lines.Add('Info at address: ' + UInt64ToStr(ULONG_PTR(Value)));
     if Settings.SuspendProcess then
       ProcessLock := SuspendProcess(MemoryMapCore.PID);
@@ -261,13 +319,15 @@ begin
 
       if ShowAsDisassembly then
       begin
-        Add(Disassembly(Process, Value, MemoryMapCore.Process64, KnownHint));
+        Add(Disassembly(Process, Value, DAsmMode, KnownHint, Dasm64Mode));
+        Caption := Caption + ' Mode: ' + DAsmModeStr[Dasm64Mode];
         Exit;
       end;
 
       if Value = KUSER_SHARED_DATA_ADDR then
       begin
         Add(DumpKUserSharedData(Process, Value));
+        Caption := Caption + ' KUSER_SHARED_DATA';
         Exit;
       end;
 
@@ -275,6 +335,7 @@ begin
       if Value = MemoryMapCore.PebWow64BaseAddress then
       begin
         Add(DumpPEB32(Process, Value));
+        Caption := Caption + ' PebWow64';
         Exit;
       end;
       {$ENDIF}
@@ -283,8 +344,10 @@ begin
       begin
         {$IFDEF WIN32}
         Add(DumpPEB32(Process, Value));
+        Caption := Caption + ' Peb32';
         {$ELSE}
         Add(DumpPEB64(Process, Value));
+        Caption := Caption + ' Peb64';
         {$ENDIF}
         Exit;
       end;
@@ -295,28 +358,36 @@ begin
         Exit;
       end;
 
+      // вывод информации с которой начинается регион (описана непосредственно в Region)
       if MemoryMapCore.GetRegionIndex(Value, Index) then
       begin
         ARegion := MemoryMapCore.GetRegionAtUnfilteredIndex(Index);
-        if (ARegion.RegionType = rtThread) and
-          (ARegion.Thread.Flag = tiTEB) then
-        begin
-          {$IFDEF WIN32}
-          Add(DumpThread32(Process, Value));
-          {$ELSE}
-          if ARegion.Thread.Wow64 then
-            Add(DumpThread32(Process, Value))
-          else
-            Add(DumpThread64(Process, Value));
-          {$ENDIF}
-          Exit;
-        end;
+        if (ARegion.RegionType = rtThread) then
+          if CheckThreadData(ARegion.Thread.Flag, ARegion.Thread.Wow64) then
+            Exit;
+      end;
+
+      // вывод информации которая является частью региона (находится в Region.Contains)
+      if MemoryMapCore.GetRegionIndex(GetPageAddr, Index) then
+      begin
+        ARegion := MemoryMapCore.GetRegionAtUnfilteredIndex(Index);
+        if (ARegion.RegionType = rtThread) then
+          for Item in ARegion.Contains do
+            case Item.ItemType of
+              itThreadData:
+              begin
+                if (Item.ThreadData.Address = Value) and
+                (CheckThreadData(Item.ThreadData.Flag, Item.ThreadData.Wow64)) then
+                  Exit;
+              end;
+            end;
       end;
 
       {$IFDEF WIN64}
       if Value = Pointer(MemoryMapCore.PEBWow64.ProcessParameters) then
       begin
         Add(DumpProcessParameters32(Process, Value));
+        Caption := Caption + ' ProcessParameters32';
         Exit;
       end;
       {$ENDIF}
@@ -325,8 +396,10 @@ begin
       begin
         {$IFDEF WIN32}
         Add(DumpProcessParameters32(Process, Value));
+        Caption := Caption + ' ProcessParameters32';
         {$ELSE}
         Add(DumpProcessParameters64(Process, Value));
+        Caption := Caption + ' ProcessParameters64';
         {$ENDIF}
         Exit;
       end;
@@ -339,6 +412,26 @@ begin
     end;
   finally
     CloseHandle(Process);
+  end;
+end;
+
+procedure TdlgRegionProps.mnuDasmModeAutoClick(Sender: TObject);
+var
+  NewDAsmMode: TDasmMode;
+begin
+  NewDAsmMode := TDasmMode(TMenuItem(Sender).Tag);
+  if DAsmMode = NewDAsmMode then Exit;
+  DAsmMode := NewDAsmMode;
+  TMenuItem(Sender).Checked := True;
+  if mnuShowAsDisassembly.Checked then
+  begin
+    edProperties.Lines.BeginUpdate;
+    try
+      edProperties.Lines.Clear;
+      StartQuery(CurerntAddr);
+    finally
+      edProperties.Lines.EndUpdate;;
+    end;
   end;
 end;
 

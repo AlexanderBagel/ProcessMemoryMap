@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectProcess.pas
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.01
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
+//  * Version   : 1.2.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -53,6 +53,7 @@ type
     cbShowDetailedHeapData: TCheckBox;
     cbSuspendProcess: TCheckBox;
     cbReconnect: TCheckBox;
+    cbUseFilter: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -76,6 +77,7 @@ type
     FShowFreeRegions: Boolean;
     FSuspendProcess: Boolean;
     FReconnect: Boolean;
+    FUseScannerFilter: Boolean;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -97,6 +99,7 @@ type
     property ShowDetailedHeap: Boolean read FShowDetailedHeap write FShowDetailedHeap;
     property ShowFreeRegions: Boolean read FShowFreeRegions write FShowFreeRegions;
     property SuspendProcess: Boolean read FSuspendProcess write FSuspendProcess;
+    property UseScannerFilter: Boolean read FUseScannerFilter write FUseScannerFilter;
   end;
 
   function Settings: TSettings;
@@ -141,11 +144,12 @@ begin
   ThreadColor := RGB(255, 192, 128);
   SystemColor := RGB(180, 150, 149);
   AutoReconnect := True;
-  SearchDifferences := True;
+  SearchDifferences := False;
   ShowColors := True;
   ShowDetailedHeap := False;
   ShowFreeRegions := False;
   SuspendProcess := False;
+  UseScannerFilter := False;
 end;
 
 procedure TSettings.LoadSettings;
@@ -170,6 +174,7 @@ begin
       ShowDetailedHeap := R.ReadBool('ShowDetailedHeap');
       ShowFreeRegions := R.ReadBool('ShowFreeRegions');
       SuspendProcess := R.ReadBool('SuspendProcess');
+      UseScannerFilter := R.ReadBool('UseScannerFilter');
       for I := 0 to 7 do
         FColors[I] := R.ReadInteger(RegKeys[I]);
     except
@@ -196,6 +201,7 @@ begin
     R.WriteBool('ShowDetailedHeap', ShowDetailedHeap);
     R.WriteBool('ShowFreeRegions', ShowFreeRegions);
     R.WriteBool('SuspendProcess', SuspendProcess);
+    R.WriteBool('UseScannerFilter', UseScannerFilter);
     for I := 0 to 7 do
       R.WriteInteger(RegKeys[I], FColors[I]);
   finally
@@ -226,6 +232,7 @@ begin
   Settings.ShowColors := cbShowColors.Checked;
   Settings.ShowDetailedHeap := cbShowDetailedHeapData.Checked;
   Settings.SuspendProcess := cbSuspendProcess.Checked;
+  Settings.UseScannerFilter := cbUseFilter.Checked;
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.SaveSettings;
@@ -258,6 +265,7 @@ begin
   cbShowColors.Checked := Settings.ShowColors;
   cbShowDetailedHeapData.Checked := Settings.ShowDetailedHeap;
   cbSuspendProcess.Checked := Settings.SuspendProcess;
+  cbUseFilter.Checked := Settings.UseScannerFilter;
   for I := 0 to 7 do
   begin
     Colors[I] := Settings.GetColor(I);

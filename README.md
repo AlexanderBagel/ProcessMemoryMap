@@ -31,6 +31,14 @@ Process Memory Map
 
 ###Обновления:
 
+1.2.16 от 31.10.2022
+* добавлен новый фремворк статического анализа памяти на предмет установленных перехватчиков (F8)
+* добавлен механизм генерации MML файлов на основе МАР файлов (таблица конктрольных сумм процесса)
+* добавлена частичная информация по структуре tagSOleTlsData (Teb->ReservedForOle)
+* добавлен вывод структур загрузчика Peb->LoaderData 
+* добавлен частичный вывод структур контекста активации Peb->ActivationContextData + Peb->SystemDefaultActivationContextData 
+* начат плановый перевод движка символов на новый, основанный на базе RawScanner (будет ускорен вывод дизассемблирования)
+
 1.1.14 от 24.07.2022
 * движок дизассемблера DiStorm обновлен до версии 3.5.3
 * добавлена поддержка вывода информации об 32 битных библиотеках в 64 битном процесе и наоборот.
@@ -87,8 +95,11 @@ Process Memory Map
 Включая вызовы через таблицу импорта.
 ![7.2](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/11.png?raw=true "CALL import hint")
 
+Присутствует модуль анализа процесса на предмет установленых перехватчиков фунций (F8)
+![8](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/14.png?raw=true "Hook scanner output")
+
 Ну и вот так выглядит список изменений в выделенных блоках с последней проверки (F5)
 
-![8](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/8.png?raw=true "Compare result")
+![9](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/8.png?raw=true "Compare result")
 
 Ну и много много чего еще интересного.

@@ -154,6 +154,17 @@ procedure TdlgKnownData.FormShow(Sender: TObject);
         Data.IsCode := True;
         Data.ImageIndex := 7;
       end;
+      tiOleTlsData:
+      begin
+        if Value.Wow64 then
+          Data.Caption := 'OleTlsData Wow'
+        else
+        begin
+          Data.Caption := 'OleTlsData';
+          if not MemoryMapCore.Process64 then
+            Data.OverlayIndex := Overlay64;
+        end;
+      end
     else
       Exit;
     end;

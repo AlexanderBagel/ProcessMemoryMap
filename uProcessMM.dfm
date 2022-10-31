@@ -267,7 +267,13 @@ object dlgProcessMM: TdlgProcessMM
         Caption = '-'
       end
       object FillAddrListInfo1: TMenuItem
-        Action = acFillMMList
+        Caption = 'MemoryMap CRC32 List'
+        object FillAddrListInfo2: TMenuItem
+          Action = acFillMMList
+        end
+        object GenerateMMLfromMAP1: TMenuItem
+          Action = acGenerateMML
+        end
       end
       object FindPatchedData1: TMenuItem
         Action = acFindPachedData
@@ -481,16 +487,24 @@ object dlgProcessMM: TdlgProcessMM
       Caption = 'About'
       OnExecute = acAboutExecute
     end
+    object acGenerateMML: TAction
+      Category = 'Utils'
+      Caption = 'Generate MML from MAP...'
+      OnExecute = acGenerateMMLExecute
+      OnUpdate = acGenerateMMLUpdate
+    end
     object acFillMMList: TAction
       Category = 'Utils'
-      Caption = 'Fill AddrList Info...'
+      Caption = 'Check MML...'
       OnExecute = acFillMMListExecute
       OnUpdate = acSaveUpdate
     end
     object acFindPachedData: TAction
       Category = 'Utils'
-      Caption = 'Find Patched Data...'
-      OnUpdate = acSaveUpdate
+      Caption = 'Hook Scanner...'
+      ShortCut = 119
+      OnExecute = acFindPachedDataExecute
+      OnUpdate = acFindPachedDataUpdate
     end
     object acShowKnown: TAction
       Category = 'View'

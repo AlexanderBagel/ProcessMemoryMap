@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.15
+//  * Version   : 1.2.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,6 +35,10 @@ uses
   MemoryMap.Symbols,
   MemoryMap.DebugMapData;
 
+const
+  MemoryMapVersionInt = $01021000;
+  MemoryMapVersionStr = '1.2 (revision 16)';
+
 type
   // Типы фильтров
   TFilters = (
@@ -50,6 +54,7 @@ type
 
   TModule = record
     Path: string;
+    Is64Image, LoadAsImage: Boolean;
     BaseAddr: ULONG_PTR;
   end;
 
@@ -74,16 +79,19 @@ type
   end;
 
   TOnGetWow64HeapsEvent = procedure(Value: THeap) of object;
+  TProgressEvent = procedure(const Step: string; APecent: Integer) of object;
 
   TMemoryMap = class
   private const
     HEADER = 'MemoryMap';
     Version = 2;
+    MM_HIGHEST_USER_ADDRESS32 = $7FFEFFFF;
+    MM_HIGHEST_USER_ADDRESS64 = $7FFFFFFF0000;
   private type
     TFriendlyRegionData = class(TRegionData);
   private
     FProcess: THandle;
-    FProcessName: string;
+    FProcessName, FProcessPath: string;
     FPID: Cardinal;
     FHighAddress: NativeUInt;
     FRegions: TObjectList<TRegionData>;
@@ -106,11 +114,13 @@ type
     FSuspendProcess: Boolean;
     FGetWow64Heaps: TOnGetWow64HeapsEvent;
     FDebugMapData: TDebugMap;
+    FProgress: TProgressEvent;
     function GetItem(Index: Integer): TRegionData;
     procedure SetShowEmpty(const Value: Boolean);
     procedure SetFilter(const Value: TFilters);
     procedure SetDetailedHeapData(const Value: Boolean);
   protected
+    procedure DoProgress(const Step: string; APecent: Integer);
     function GetFriendlyRegion(Index: Integer): TFriendlyRegionData;
     function GetPageAtAddr(Address: Pointer): TMemoryBasicInformation;
     function GetRegionAtAddr(Address: Pointer): TFriendlyRegionData;
@@ -161,11 +171,13 @@ type
     property PID: Cardinal read FPID;
     property Process64: Boolean read FProcess64;
     property ProcessName: string read FProcessName;
+    property ProcessPath: string read FProcessPath;
     property ShowEmpty: Boolean read FShowEmpty write SetShowEmpty;
     property SuspendProcessBeforeScan: Boolean read FSuspendProcess write FSuspendProcess;
     property TotalData: TTotalData read FTotalData;
     property OnGetWow64Heaps: TOnGetWow64HeapsEvent
       read FGetWow64Heaps write FGetWow64Heaps;
+    property OnProgress: TProgressEvent read FProgress write FProgress;
   end;
 
   // синглтон
@@ -305,6 +317,12 @@ begin
   inherited;
 end;
 
+procedure TMemoryMap.DoProgress(const Step: string; APecent: Integer);
+begin
+  if Assigned(FProgress) then
+    FProgress(Step, APecent);
+end;
+
 //
 //  Процедура получает инфорацию о всех регионах в открытом процессе
 // =============================================================================
@@ -317,10 +335,20 @@ var
   Shared, Is64Image: Boolean;
   SharedCount: Byte;
   Module: TModule;
+  LastPercent, CurrentPercent: Integer;
+  MaxAddr: ULONG64;
 begin
   FRegions.Clear;
   FRegionFilters.Clear;
   FHighAddress := 0;
+
+  // Инициализация параметров под калбэк прогресса
+  LastPercent := 0;
+  {$IFDEF WIN64}
+  MaxAddr := MM_HIGHEST_USER_ADDRESS64;
+  {$ELSE}
+  MaxAddr := MM_HIGHEST_USER_ADDRESS32;
+  {$ENDIF}
 
   // Перебираем в цикле все страницы памяти от нулевой,
   // до максимально доступной пользователю
@@ -371,6 +399,8 @@ begin
         begin
           // Если является - запоминаем его в списке модулей
           Module.BaseAddr := ULONG_PTR(MBI.BaseAddress);
+          Module.Is64Image := Is64Image;
+          Module.LoadAsImage := (MBI.State = MEM_COMMIT) and (MBI.Type_9 = MEM_IMAGE);
           FModules.Add(Module);
           // а самому региону назначаем тип rtExecutableImage
           if Is64Image then
@@ -379,7 +409,7 @@ begin
             RegionData.SetRegionType(rtExecutableImage);
           // до кучи получаем информацию по самому PE файлу
           PEImage.GetInfoFromImage(Module.Path, MBI.BaseAddress,
-            MBI.RegionSize, MBI.AllocationProtect = PAGE_READONLY);
+            MBI.RegionSize, Module.LoadAsImage);
           // и пробуем подтянуть его отладочную инфомацию, если есть MAP файл
           if FileExists(ChangeFileExt(Module.Path, '.map')) then
             DebugMapData.Init(ULONG_PTR(MBI.BaseAddress), Module.Path);
@@ -396,7 +426,17 @@ begin
     // данная переменная доступна извне и содержит адрес,
     // на котором заканчивается доступная процессу память
     Inc(FHighAddress, RegionData.MBI.RegionSize);
+
+    CurrentPercent := Round(FHighAddress / (MaxAddr / 100));
+    if CurrentPercent <> LastPercent then
+    begin
+      LastPercent := CurrentPercent;
+      DoProgress(Format('Loading regions data... (%d%%) 0x%x',
+        [CurrentPercent, FHighAddress]), CurrentPercent);
+    end;
   end;
+
+  DoProgress('All regions data loaded', 100);
 end;
 
 //
@@ -522,12 +562,16 @@ function TMemoryMap.InitFromProcess(PID: Cardinal;
 var
   ProcessLock: TProcessLockHandleList;
 begin
+
+  DoProgress('Open process: ' + IntToStr(PID), 0);
+
   Result := False;
   FRegions.Clear;
   FModules.Clear;
-  FDebugMapData.Clear;
+  FDebugMapData.Items.Clear;
   FFilter := fiNone;
   ProcessLock := nil;
+  FProcessPath := EmptyStr;
   // Открываем процесс на чтение
   FProcess := OpenProcess(
     PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
@@ -573,8 +617,12 @@ begin
 
           // добавляем данные о потоках
           AddThreadsData;
+
           // добавляем данные о кучах
           AddHeapsData;
+
+          DoProgress('Finalization...', 100);
+
           // добавляем данные о Process Environment Block
           AddPEBData;
           // добавляем данные о загруженых PE файлах
@@ -648,6 +696,9 @@ begin
       if Region.RegionType in [rtExecutableImage, rtExecutableImage64] then
       begin
         Module.Path := Region.Details;
+        Module.Is64Image := Region.RegionType = rtExecutableImage64;
+        Module.LoadAsImage :=
+          (Region.MBI.State = MEM_COMMIT) and (Region.MBI.Type_9 = MEM_IMAGE);
         Module.BaseAddr := NativeUInt(Region.MBI.BaseAddress);
         FModules.Add(Module);
       end;
@@ -884,7 +935,7 @@ procedure TMemoryMap.AddHeapsData;
 var
   Heap: THeap;
 begin
-  Heap := THeap.Create(FPID, FProcess);
+  Heap := THeap.Create(FPID, FProcess, FProgress);
   try
     AddHeapsData(Heap);
   finally
@@ -901,9 +952,24 @@ var
   ContainItem: TContainItem;
   HeapData: THeapData;
   Index: Integer;
+  Cursor, MaxCursor, LastPercent, CurrentPercent: Integer;
 begin
+  Cursor := 0;
+  LastPercent := 0;
+  MaxCursor := Value.Data.Count;
+
   for HeapData in Value.Data do
   begin
+
+    Inc(Cursor);
+    CurrentPercent := Round(Cursor / (MaxCursor / 100));
+    if CurrentPercent <> LastPercent then
+    begin
+      LastPercent := CurrentPercent;
+      DoProgress(Format('Loading heap data... (%d%%)',
+        [CurrentPercent]), CurrentPercent);
+    end;
+
     // если включена детализация, то добавляем все элементы кучи
     if DetailedHeapData then
       RegionData := GetRegionAtAddr(Pointer(HeapData.Entry.Address))
@@ -1132,6 +1198,11 @@ begin
     RaiseLastOSError;
   AddNewData('Process Environments', ProcessParameters.Environment);
 
+  SetLength(FProcessPath, ProcessParameters.ImagePathName.Length div SizeOf(Char));
+  if not ReadProcessMemory(FProcess, ProcessParameters.ImagePathName.Buffer,
+    @FProcessPath[1], ProcessParameters.ImagePathName.Length, ReturnLength) then
+    RaiseLastOSError;
+
   GetSystemInfo(SBI);
   AddNewData('KE_USER_SHARED_DATA',
     Pointer(NativeUInt(SBI.lpMaximumApplicationAddress) and $7FFF0000));
@@ -1144,6 +1215,7 @@ procedure TMemoryMap.AddThreadsData;
 var
   Threads: TThreads;
 begin
+  DoProgress('Take threads snapshot...', 0);
   Threads := TThreads.Create(FPID, FProcess);
   try
     AddThreadsData(Threads);
@@ -1169,10 +1241,33 @@ var
   ThreadStackEntry: TThreadStackEntry;
   Index: Integer;
   SEHEntry: TSEHEntry;
+  Cursor, MaxCursor, LastPercent, CurrentPercent: Integer;
+
+  procedure CalcProgress(const Value: string);
+  begin
+    Inc(Cursor);
+    CurrentPercent := Round(Cursor / (MaxCursor / 100));
+    if CurrentPercent <> LastPercent then
+    begin
+      LastPercent := CurrentPercent;
+      DoProgress(Format(Value, [CurrentPercent]), CurrentPercent);
+    end;
+  end;
+
 begin
+  Cursor := 0;
+  MaxCursor :=
+    Value.ThreadData.Count +
+    Value.ThreadStackEntries.Count +
+    Value.SEHEntries.Count;
+  LastPercent := 0;
+
   // сначала информацию о стеке, адресе потоковой процедуры и TEB
   for ThreadData in Value.ThreadData do
   begin
+
+    CalcProgress('Loading threads data... (%d%%)');
+
     if not CheckAddr(ThreadData.Address) then Continue;
 
     RegionData := GetRegionAtAddr(ThreadData.Address);
@@ -1228,6 +1323,9 @@ begin
   // потом информацию о CallStack
   for ThreadStackEntry in Value.ThreadStackEntries do
   begin
+
+    CalcProgress('Loading threads stack... (%d%%)');
+
     if not CheckAddr(ThreadStackEntry.Data.AddrFrame.Offset) then Continue;
 
     RegionData := GetRegionAtAddr(Pointer(ThreadStackEntry.Data.AddrFrame.Offset));
@@ -1257,6 +1355,9 @@ begin
   // и в завершение информацию о SEH фреймах
   for SEHEntry in Value.SEHEntries do
   begin
+
+    CalcProgress('Loading SEH data... (%d%%)');
+
     if not CheckAddr(SEHEntry.Address) then Continue;
     RegionData := GetRegionAtAddr(SEHEntry.Address);
     ContainItem.ItemType := itSEHFrame;

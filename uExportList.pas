@@ -202,6 +202,7 @@ begin
               begin
                 ExportData.dwAddress := NativeUInt(S.Objects[A]);
                 ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                {$MESSAGE 'Если адрес не принадлежит файлу - подсвечивать!'}
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
                 List.Add(ExportData);
