@@ -183,6 +183,7 @@ type
     procedure acGenerateMMLExecute(Sender: TObject);
     procedure acFindPachedDataUpdate(Sender: TObject);
     procedure acFindPachedDataExecute(Sender: TObject);
+    procedure imgProcessClick(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -825,7 +826,10 @@ end;
 
 procedure TdlgProcessMM.FormCreate(Sender: TObject);
 begin
+  {$IFDEF DEBUG}
   ReportMemoryLeaksOnShutdown := True;
+  Caption := Caption + ' [DEBUG]';
+  {$ENDIF}
   if CheckIsAdmin then
   begin
     Caption := 'Administrator: ' + Caption;
@@ -923,6 +927,11 @@ begin
   E := stMemoryMap.SelectedNodes.GetEnumerator;
   if E.MoveNext then
     Result := PNodeData(stMemoryMap.GetNodeData(E.Current)^);
+end;
+
+procedure TdlgProcessMM.imgProcessClick(Sender: TObject);
+begin
+  acSelectProcessExecute(nil);
 end;
 
 procedure TdlgProcessMM.InternalOpenProcess(AMap: TMemoryMap; PID: DWORD;

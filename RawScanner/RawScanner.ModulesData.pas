@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -30,7 +30,8 @@ uses
   RawScanner.ApiSet,
   RawScanner.SymbolStorage,
   RawScanner.Wow64,
-  RawScanner.Logger;
+  RawScanner.Logger,
+  RawScanner.Utils;
 
   // https://wasm.in/blogs/ot-zelenogo-k-krasnomu-glava-2-format-ispolnjaemogo-fajla-os-windows-pe32-i-pe64-sposoby-zarazhenija-ispolnjaemyx-fajlov.390/
 
@@ -99,6 +100,7 @@ type
       StartRVA, Size: DWORD;
     end;
   strict private
+    FIndex: Integer;
     FImageBase: ULONG_PTR64;
     FImagePath: string;
     FImage64: Boolean;
@@ -121,6 +123,7 @@ type
     FRelocationDelta: ULONG_PTR64;
     FRelocations: TList;
     FSections: array of TImageSectionHeader;
+    FStrings: TStringList;
     FSizeOfFileImage: Int64;
     FVirtualSizeOfImage: Int64;
     FTlsDir: TDirectoryData;
@@ -139,6 +142,7 @@ type
     function LoadImport(Raw: TStream): Boolean;
     function LoadDelayImport(Raw: TStream): Boolean;
     function LoadRelocations(Raw: TStream): Boolean;
+    function LoadStrings(Raw: TStream): Boolean;
     function LoadTLS(Raw: TStream): Boolean;
     procedure ProcessApiSetRedirect(const LibName: string;
       var RedirectTo: string);
@@ -148,7 +152,7 @@ type
     function VaToRva(VaAddr: ULONG_PTR64): DWORD;
   public
     constructor Create(const ImagePath: string; ImageBase: ULONG_PTR64); overload;
-    constructor Create(const ModuleData: TModuleData); overload;
+    constructor Create(const ModuleData: TModuleData; AModuleIndex: Integer); overload;
     destructor Destroy; override;
     function ExportIndex(const FuncName: string): Integer; overload;
     function ExportIndex(Ordinal: Word): Integer; overload;
@@ -156,7 +160,11 @@ type
     function FixAddrSize(AddrVA: ULONG_PTR64; var ASize: DWORD): Boolean;
     procedure ProcessRelocations(AStream: TStream);
     property ComPlusILOnly: Boolean read  FILOnly;
+    property DelayImportDirectory: TDirectoryData read FDelayDir;
     property EntryPoint: ULONG_PTR64 read FEntryPoint;
+    property EntryPointList: TList<TEntryPointChunk> read FEntryPoints;
+    property ExportList: TList<TExportChunk> read FExport;
+    property ExportDirectory: TDirectoryData read FExportDir;
     property Image64: Boolean read FImage64;
     property ImageBase: ULONG_PTR64 read FImageBase;
     property ImageName: string read FImageName;
@@ -164,15 +172,13 @@ type
     property ImportList: TList<TImportChunk> read FImport;
     property ImportAddressTable: TDirectoryData read FImportAddressTable;
     property ImportDirectory: TDirectoryData read FImportDir;
-    property DelayImportDirectory: TDirectoryData read FDelayDir;
-    property EntryPointList: TList<TEntryPointChunk> read FEntryPoints;
-    property ExportList: TList<TExportChunk> read FExport;
-    property ExportDirectory: TDirectoryData read FExportDir;
+    property ModuleIndex: Integer read FIndex;
     property NtHeader: TImageNtHeaders64 read FNtHeader;
     property OriginalName: string read FOriginalName;
     property Rebased: Boolean read FRebased;
     property Redirected: Boolean read FRedirected;
     property RelocatedImages: TList<TRawPEImage> read FRelocatedImages;
+    property Strings: TStringList read FStrings;
     property TlsDirectory: TDirectoryData read FTlsDir;
     property VirtualSizeOfImage: Int64 read FVirtualSizeOfImage;
   end;
@@ -259,7 +265,7 @@ begin
   if FuncName = EmptyStr then
     Result := Result + IntToStr(Ordinal)
   else
-    Result := Result + FuncName;
+    Result := Result + UnDecorateSymbolName(FuncName);
 end;
 
 { TExportChunk }
@@ -267,9 +273,9 @@ end;
 function TExportChunk.ToString: string;
 begin
   if FuncName = EmptyStr then
-    Result := 'ordinal ' + IntToStr(Ordinal)
+    Result := '#' + IntToStr(Ordinal)
   else
-    Result := FuncName;
+    Result := UnDecorateSymbolName(FuncName);
   if ForvardedTo <> EmptyStr then
     Result := Result + ' -> ' + ForvardedTo;
 end;
@@ -287,10 +293,12 @@ begin
   Result := AlignDown(Value - 1, Align) + Align;
 end;
 
-constructor TRawPEImage.Create(const ModuleData: TModuleData);
+constructor TRawPEImage.Create(const ModuleData: TModuleData;
+  AModuleIndex: Integer);
 begin
   FRebased := not ModuleData.IsBaseValid;
   FRedirected := ModuleData.IsRedirected;
+  FIndex := AModuleIndex;
   Create(ModuleData.ImagePath, ModuleData.ImageBase);
 end;
 
@@ -306,11 +314,13 @@ begin
   FRelocations := TList.Create;
   FEntryPoints := TList<TEntryPointChunk>.Create;
   FRelocatedImages := TList<TRawPEImage>.Create;
+  FStrings := TStringList.Create;
   LoadFromImage;
 end;
 
 destructor TRawPEImage.Destroy;
 begin
+  FStrings.Free;
   FRelocatedImages.Free;
   FEntryPoints.Free;
   FRelocations.Free;
@@ -394,6 +404,11 @@ begin
 
     SizeOfRawData := FSections[I].SizeOfRawData;
     VirtualSize := FSections[I].Misc.VirtualSize;
+    // если виртуальный размер секции не указан, то берем его из размера данных
+    // (см. LdrpSnapIAT или RelocateLoaderSections)
+    // к которому уже применяется SectionAlignment
+    if VirtualSize = 0 then
+      VirtualSize := SizeOfRawData;
     if FNtHeader.OptionalHeader.SectionAlignment >= DEFAULT_SECTION_ALIGNMENT then
     begin
       SizeOfRawData := AlignUp(SizeOfRawData, FNtHeader.OptionalHeader.FileAlignment);
@@ -418,6 +433,8 @@ begin
 end;
 
 procedure TRawPEImage.InitDirectories;
+var
+  SymbolData: TSymbolData;
 begin
   with FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT] do
   begin
@@ -441,6 +458,9 @@ begin
   begin
     FExportDir.VirtualAddress := RvaToVa(VirtualAddress);
     FExportDir.Size := Size;
+    SymbolData.AddrVA := FExportDir.VirtualAddress;
+    SymbolData.DataType := sdtExportDir;
+    SymbolStorage.Add(SymbolData);
   end;
 
   with FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS] do
@@ -560,6 +580,7 @@ var
   IAT, INT, IntData, OrdinalFlag: UInt64;
   DataSize: Integer;
   ImportChunk: TImportChunk;
+  SymbolData: TSymbolData;
 begin
   // Пример стабильно воспроизводящегося перехвата отложеного импорта
   // Адрес правится из kernelbase.dll
@@ -676,7 +697,11 @@ begin
         if DelayDescr.grAttrs = 0 then
           ImportChunk.DelayedIATData := RvaToVa(GetRva(ImportChunk.DelayedIATData));
 
-        FImport.Add(ImportChunk);
+        SymbolData.AddrVA := ImportChunk.ImportTableVA;
+        SymbolData.DataType := sdtImportTable;
+        SymbolData.Binary.ModuleIndex := ModuleIndex;
+        SymbolData.Binary.ListIndex := FImport.Add(ImportChunk);
+        SymbolStorage.Add(SymbolData);
 
         Inc(IAT, DataSize);
         Inc(INT, DataSize);
@@ -699,6 +724,7 @@ var
   FunctionsAddr, NamesAddr: array of DWORD;
   Ordinals: array of Word;
   ExportChunk: TExportChunk;
+  SymbolData: TSymbolData;
 begin
   Result := False;
   LastOffset := VaToRaw(ExportDirectory.VirtualAddress);
@@ -707,6 +733,8 @@ begin
   Raw.ReadBuffer(ImageExportDirectory, SizeOf(TImageExportDirectory));
 
   if ImageExportDirectory.NumberOfFunctions = 0 then Exit;
+
+  SymbolData.Binary.ModuleIndex := ModuleIndex;
 
   // читаем префикс для перенаправления через ApiSet,
   // он не обязательно будет равен имени библиотеки
@@ -834,15 +862,23 @@ begin
       // Такие функции отмечаем отдельно, их нужно пропускать при проверке кода
       ExportChunk.Executable := IsExecutable(ExportChunk.FuncAddrRVA);
 
-      {$MESSAGE 'Нужен преобразовывать имена через декоратор'}
-      {$MESSAGE 'С символьным хранилищем работать через ключ!!!'}
-      // Если нет форварда, добавляем в список известных функций
-      if ExportChunk.Executable and ExportChunk.OriginalForvardedTo.IsEmpty then
-        SymbolStorage.AddExport(ExportChunk.FuncAddrVA,
-          ChangeFileExt(ImageName, '.' + ExportChunk.FuncName));
-
       // добавляем в общий список для анализа снаружи
       Index := FExport.Add(ExportChunk);
+
+      // Добавляем адрес в таблице в список символов
+      SymbolData.DataType := sdtExportTable;
+      SymbolData.AddrVA := ExportChunk.ExportTableVA;
+      SymbolData.Binary.ListIndex := Index;
+      SymbolStorage.Add(SymbolData);
+
+      // Если нет форварда, добавляем адрес функции в список символов
+      if ExportChunk.Executable and ExportChunk.OriginalForvardedTo.IsEmpty then
+      begin
+        SymbolData.DataType := sdtExport;
+        SymbolData.AddrVA := ExportChunk.FuncAddrVA;
+        SymbolData.Binary.ListIndex := Index;
+        SymbolStorage.Add(SymbolData);
+      end;
 
       // vcl270.bpl спокойно декларирует 4 одинаковых функции
       // вот эти '@$xp$39System@%TArray__1$p17System@TMetaClass%'
@@ -871,9 +907,11 @@ begin
       ExportChunk.Executable := IsExecutable(ExportChunk.FuncAddrRVA);
       ExportChunk.Ordinal := ImageExportDirectory.Base + DWORD(I);
       ExportChunk.FuncName := EmptyStr;
+
       // сами значения рассчитываются как есть, без пересчета в ординал
       ExportChunk.ExportTableVA := RvaToVa(
         ImageExportDirectory.AddressOfFunctions + DWORD(I shl 2));
+
       ExportChunk.FuncAddrVA := RvaToVa(ExportChunk.FuncAddrRVA);
       ExportChunk.FuncAddrRaw := RvaToRaw(ExportChunk.FuncAddrRVA);
       if IsExportForvarded(ExportChunk.FuncAddrRVA) then
@@ -889,10 +927,14 @@ begin
         ExportChunk.OriginalForvardedTo := EmptyStr;
         ExportChunk.ForvardedTo := EmptyStr;
 
-        // Если нет форварда, добавляем в список известных функций
+        // Если нет форварда, добавляем адрес функции в список символов
         if ExportChunk.Executable then
-          SymbolStorage.AddExport(ExportChunk.FuncAddrVA,
-            ChangeFileExt(ImageName, '.' + ExportChunk.FuncName));
+        begin
+          SymbolData.DataType := sdtExport;
+          SymbolData.AddrVA := ExportChunk.FuncAddrVA;
+          SymbolData.Binary.ListIndex := FExport.Count;
+          SymbolStorage.Add(SymbolData);
+        end;
       end;
 
       // добавляем в общий список для анализа снаружи
@@ -900,6 +942,12 @@ begin
 
       // имени нет, поэтому добавляем только в индекс ординалов
       FExportOrdinalIndex.Add(ExportChunk.Ordinal, Index);
+
+      // Добавляем адрес в таблице в список символов
+      SymbolData.DataType := sdtExportTable;
+      SymbolData.AddrVA := ExportChunk.ExportTableVA;
+      SymbolData.Binary.ListIndex := Index;
+      SymbolStorage.Add(SymbolData);
     end;
 
   Result := True;
@@ -909,6 +957,7 @@ procedure TRawPEImage.LoadFromImage;
 var
   Raw: TMemoryStream;
   IDH: TImageDosHeader;
+  SymbolData: TSymbolData;
 begin
   Raw := TMemoryStream.Create;
   try
@@ -951,7 +1000,12 @@ begin
       Chunk.EntryPointName := 'EntryPoint';
       Chunk.AddrRaw := VaToRaw(FEntryPoint);
       Chunk.AddrVA := FEntryPoint;
-      FEntryPoints.Add(Chunk);
+
+      SymbolData.AddrVA := Chunk.AddrVA;
+      SymbolData.DataType := sdtEntryPoint;
+      SymbolData.Binary.ModuleIndex := ModuleIndex;
+      SymbolData.Binary.ListIndex := FEntryPoints.Add(Chunk);
+      SymbolStorage.Add(SymbolData);
     end;
 
     // читаем COM+ заголовок (если есть)
@@ -983,6 +1037,9 @@ begin
     // читаем дескрипторы отложеного импорта
     LoadDelayImport(Raw);
 
+    // читаем все строки
+    LoadStrings(Raw);
+
   finally
     Raw.Free;
   end;
@@ -995,6 +1052,7 @@ var
   IatData, OrdinalFlag, OriginalFirstThunk: UInt64;
   IatDataSize, Index: Integer;
   ImportChunk: TImportChunk;
+  SymbolData: TSymbolData;
 begin
   Result := False;
   Raw.Position := VaToRaw(FImportDir.VirtualAddress);
@@ -1081,7 +1139,13 @@ begin
           ImportChunk.FuncName := EmptyStr;
           ImportChunk.Ordinal := IatData and not OrdinalFlag;
         end;
-        FImport.Add(ImportChunk);
+
+        SymbolData.AddrVA := ImportChunk.ImportTableVA;
+        SymbolData.DataType := sdtImportTable;
+        SymbolData.Binary.ModuleIndex := ModuleIndex;
+        SymbolData.Binary.ListIndex := FImport.Add(ImportChunk);
+        SymbolStorage.Add(SymbolData);
+
         Inc(ImportChunk.ImportTableVA, IatDataSize);
         Inc(OriginalFirstThunk, IatDataSize);
         Inc(Index);
@@ -1221,6 +1285,12 @@ begin
   end;
 end;
 
+function TRawPEImage.LoadStrings(Raw: TStream): Boolean;
+begin
+  Result := False;
+  {$MESSAGE 'Добавить список строк для дизассемблера'}
+end;
+
 function TRawPEImage.LoadTLS(Raw: TStream): Boolean;
 
   // TLS содержит VA записи с привязкой к ImageBase указаной в заголовке
@@ -1235,6 +1305,7 @@ var
   Chunk: TEntryPointChunk;
   TlsCallbackRva: ULONG_PTR64;
   Counter: Integer;
+  SymbolData: TSymbolData;
 begin
   Result := False;
   Raw.Position := VaToRaw(TlsDirectory.VirtualAddress);
@@ -1260,7 +1331,13 @@ begin
       Chunk.EntryPointName := 'Tls Callback ' + IntToStr(Counter);
       Chunk.AddrVA := RvaToVa(TlsVaToRva(TlsCallbackRva));
       Chunk.AddrRaw := VaToRaw(Chunk.AddrVA);
-      FEntryPoints.Add(Chunk);
+
+      SymbolData.AddrVA := Chunk.AddrVA;
+      SymbolData.DataType := sdtEntryPoint;
+      SymbolData.Binary.ModuleIndex := ModuleIndex;
+      SymbolData.Binary.ListIndex := FEntryPoints.Add(Chunk);
+      SymbolStorage.Add(SymbolData);
+
       Inc(Counter);
     end;
   until TlsCallbackRva = 0;
@@ -1360,7 +1437,7 @@ var
   AItem: TRawPEImage;
   PreviosItemIndex: Integer;
 begin
-  AItem := TRawPEImage.Create(AModule);
+  AItem := TRawPEImage.Create(AModule, FItems.Count);
   Result := FItems.Add(AItem);
   FImageBaseIndex.Add(AModule.ImageBase, Result);
 

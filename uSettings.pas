@@ -54,6 +54,8 @@ type
     cbSuspendProcess: TCheckBox;
     cbReconnect: TCheckBox;
     cbUseFilter: TCheckBox;
+    Label9: TLabel;
+    cbScannerMode: TComboBox;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -62,6 +64,8 @@ type
     Colors: array [0..7] of TColorRef;
     procedure ShowSettings;
   end;
+
+  TScannerMode = (smNoUpdate, smDefault, smForceUpdate);
 
   TSettings = class
   strict private const
@@ -78,6 +82,7 @@ type
     FSuspendProcess: Boolean;
     FReconnect: Boolean;
     FUseScannerFilter: Boolean;
+    FScannerMode: TScannerMode;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -100,6 +105,7 @@ type
     property ShowFreeRegions: Boolean read FShowFreeRegions write FShowFreeRegions;
     property SuspendProcess: Boolean read FSuspendProcess write FSuspendProcess;
     property UseScannerFilter: Boolean read FUseScannerFilter write FUseScannerFilter;
+    property ScannerMode: TScannerMode read FScannerMode write FScannerMode;
   end;
 
   function Settings: TSettings;
@@ -150,6 +156,7 @@ begin
   ShowFreeRegions := False;
   SuspendProcess := False;
   UseScannerFilter := False;
+  ScannerMode := smDefault;
 end;
 
 procedure TSettings.LoadSettings;
@@ -175,6 +182,7 @@ begin
       ShowFreeRegions := R.ReadBool('ShowFreeRegions');
       SuspendProcess := R.ReadBool('SuspendProcess');
       UseScannerFilter := R.ReadBool('UseScannerFilter');
+      ScannerMode := TScannerMode(R.ReadInteger('ScannerMode'));
       for I := 0 to 7 do
         FColors[I] := R.ReadInteger(RegKeys[I]);
     except
@@ -202,6 +210,7 @@ begin
     R.WriteBool('ShowFreeRegions', ShowFreeRegions);
     R.WriteBool('SuspendProcess', SuspendProcess);
     R.WriteBool('UseScannerFilter', UseScannerFilter);
+    R.WriteInteger('ScannerMode', Integer(ScannerMode));
     for I := 0 to 7 do
       R.WriteInteger(RegKeys[I], FColors[I]);
   finally
@@ -233,6 +242,7 @@ begin
   Settings.ShowDetailedHeap := cbShowDetailedHeapData.Checked;
   Settings.SuspendProcess := cbSuspendProcess.Checked;
   Settings.UseScannerFilter := cbUseFilter.Checked;
+  Settings.ScannerMode := TScannerMode(cbScannerMode.ItemIndex);
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.SaveSettings;
@@ -266,6 +276,7 @@ begin
   cbShowDetailedHeapData.Checked := Settings.ShowDetailedHeap;
   cbSuspendProcess.Checked := Settings.SuspendProcess;
   cbUseFilter.Checked := Settings.UseScannerFilter;
+  cbScannerMode.ItemIndex := Integer(Settings.ScannerMode);
   for I := 0 to 7 do
   begin
     Colors[I] := Settings.GetColor(I);

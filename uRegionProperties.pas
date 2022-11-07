@@ -5,8 +5,8 @@
 //  * Unit Name : uRegionProperties.pas
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.02
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
+//  * Version   : 1.2.17
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -27,13 +27,12 @@ uses
   MemoryMap.Utils,
   MemoryMap.Core,
   MemoryMap.RegionData,
-  MemoryMap.Symbols,
   MemoryMap.Threads,
   MemoryMap.NtDll,
   MemoryMap.Workset,
 
   RawScanner.Core,
-  {$MESSAGE 'По идее SymbolStorage тут должен использоваться - но не используется'}
+  RawScanner.ModulesData,
   RawScanner.SymbolStorage,
 
   uDumpDisplayUtils;
@@ -192,10 +191,13 @@ procedure TdlgRegionProps.ShowInfoFromMBI(Process: THandle;
 var
   OwnerName: array [0..MAX_PATH - 1] of Char;
   Path, DescriptionAtAddr: string;
-  Symbols: TSymbols;
   Workset: TWorkset;
   Shared: Boolean;
   SharedCount: Byte;
+  ExpData: TSymbolData;
+  Module: TRawPEImage;
+  Index: Integer;
+  AddrVA: ULONG64;
 begin
   Add('AllocationBase: ' + UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
   Add('RegionSize: ' + SizeToStr(MBI.RegionSize));
@@ -226,14 +228,30 @@ begin
       Add('Function: ' + DescriptionAtAddr)
     else
     begin
-      Symbols := TSymbols.Create(Process);
-      try
-        DescriptionAtAddr := Symbols.GetDescriptionAtAddr(
-          ULONG_PTR(Address), ULONG_PTR(MBI.AllocationBase), Path);
-        if DescriptionAtAddr <> '' then
-          Add('Function: ' + DescriptionAtAddr);
-      finally
-        Symbols.Free;
+      // вернет запись или sdtExport или sdtEntryPoint
+      if SymbolStorage.GetExportAtAddr(ULONG_PTR(Address), False, ExpData) then
+      begin
+        Module := RawScannerCore.Modules.Items[ExpData.Binary.ModuleIndex];
+        DescriptionAtAddr := 'Function: ' + Module.ImageName + '!';
+        Index := ExpData.Binary.ListIndex;
+
+        if ExpData.DataType = sdtEntryPoint then
+        begin
+          DescriptionAtAddr := DescriptionAtAddr +
+            Module.EntryPointList.List[Index].EntryPointName;
+          AddrVA := Module.EntryPointList.List[Index].AddrVA;
+        end
+        else  // sdtExport
+        begin
+          DescriptionAtAddr := DescriptionAtAddr +
+            Module.ExportList.List[Index].ToString;
+          AddrVA := Module.ExportList.List[Index].FuncAddrVA;
+        end;
+
+        if AddrVA <> ULONG_PTR(Address) then
+          DescriptionAtAddr := DescriptionAtAddr + ' + 0x' +
+            IntToHex(ULONG_PTR(Address) - AddrVA, 1);
+        Add(DescriptionAtAddr);
       end;
     end;
   end;
@@ -303,6 +321,7 @@ var
 begin
   CurerntAddr := Value;
   ProcessLock := nil;
+  KnownHint.Clear;
   Process := OpenProcessWithReconnect;
   try
     Caption := Format(DefCaption, [ULONG_PTR(Value)]);

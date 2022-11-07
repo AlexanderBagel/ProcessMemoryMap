@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,10 @@ type
     sdtCtxProcess, sdtCtxSystem, sdtCtxToc, sdtCtxTocEntry,
     sdtCtxExtToc, sdtCtxExtTocEntry, sdtCtxAssemblyRoster,
     sdtCtxAssemblyRosterEntry, sdtCtxStrSecHeader, sdtCtxStrSecEntry,
-    // эскпорт
-    sdtExport
+    // типы адресов заполняемые из ModulesData
+    sdtExport, sdtExportTable, sdtImportTable, sdtEntryPoint, sdtString,
+    // структуры известные ModulesData
+    sdtExportDir
     );
 
   TContextData = record
@@ -46,12 +48,17 @@ type
     sdtCtxAssemblyRosterEntry: (ContextVA: ULONG_PTR64);
   end;
 
+  TModuleKey = record
+    ModuleIndex: Integer;
+    ListIndex: Integer;
+  end;
+
   TSymbolData = record
     AddrVA: ULONG_PTR64;
     DataType: TSymbolDataType;
     case TSymbolDataType of
       sdtCtxProcess: (Ctx: TContextData);
-      sdtExport: (FuncIndex: Integer);
+      sdtExport: (Binary: TModuleKey);
   end;
 
   TRawScannerSymbolStorage = class
@@ -62,18 +69,17 @@ type
     FActive: Boolean;
     FItems, FAddrList: TList<TSymbolData>;
     FItemIndex: TDictionary<ULONG_PTR64, Integer>;
-    FExport: TStringList;
   public
     constructor Create; virtual;
     destructor Destroy; override;
     class function GetInstance: TRawScannerSymbolStorage;
     procedure Add(Value: TSymbolData);
-    procedure AddExport(AddrVA: ULONG_PTR64; const FuncName: string);
     procedure Clear;
     procedure PrepareForWork;
-    function GetExportAtAddr(AddrVA: ULONG_PTR64): string;
     function GetDataTypeAtAddr(AddrVA: ULONG_PTR64): TSymbolDataType;
     function GetDataAtAddr(AddrVA: ULONG_PTR64; var Data: TSymbolData): Boolean;
+    function GetExportAtAddr(AddrVA: ULONG_PTR64; ExactMatch: Boolean;
+      var Data: TSymbolData): Boolean;
     function GetKnownAddrList(AddrVA: ULONG_PTR64; Size: Cardinal): TList<TSymbolData>;
     property Active: Boolean read FActive;
   end;
@@ -105,17 +111,6 @@ begin
   FItems.Add(Value);
 end;
 
-procedure TRawScannerSymbolStorage.AddExport(AddrVA: ULONG_PTR64;
-  const FuncName: string);
-var
-  Value: TSymbolData;
-begin
-  Value.AddrVA := AddrVA;
-  Value.DataType := sdtExport;
-  Value.FuncIndex := FExport.Add(FuncName);
-  Add(Value);
-end;
-
 class destructor TRawScannerSymbolStorage.ClassDestroy;
 begin
   FreeAndNil(FInstance);
@@ -134,12 +129,10 @@ begin
   FItems := TList<TSymbolData>.Create;
   FAddrList := TList<TSymbolData>.Create;
   FItemIndex := TDictionary<ULONG_PTR64, Integer>.Create;
-  FExport := TStringList.Create;
 end;
 
 destructor TRawScannerSymbolStorage.Destroy;
 begin
-  FExport.Free;
   FItemIndex.Free;
   FAddrList.Free;
   FItems.Free;
@@ -167,15 +160,35 @@ begin
     Result := sdtNone;
 end;
 
-function TRawScannerSymbolStorage.GetExportAtAddr(AddrVA: ULONG_PTR64): string;
+function TRawScannerSymbolStorage.GetExportAtAddr(AddrVA: ULONG_PTR64;
+  ExactMatch: Boolean; var Data: TSymbolData): Boolean;
 var
-  Index: Integer;
+  I, Index: Integer;
+  MinLimit: ULONG_PTR64;
+  Item: TSymbolData;
 begin
-  if FItemIndex.TryGetValue(AddrVA, Index) and
-    (FItems.List[Index].DataType = sdtExport) then
-    Result := FExport[FItems.List[Index].FuncIndex]
-  else
-    Result := EmptyStr;
+  Result := FItemIndex.TryGetValue(AddrVA, Index);
+  if Result then
+  begin
+    Data := FItems.List[Index];
+    Result := Data.DataType in [sdtExport, sdtEntryPoint];
+    if Result then
+      Exit;
+  end;
+  if ExactMatch then Exit;
+  MinLimit := (AddrVA - $1000) and not $FFF;
+  Index := -1;
+  for I := FItems.Count - 1 downto 0 do
+  begin
+    Item := FItems.List[I];
+    if (Item.AddrVA >= MinLimit) and (Item.AddrVA < AddrVA) and
+      (Item.DataType in [sdtExport, sdtEntryPoint]) then
+    begin
+      Data := Item;
+      Result := True;
+      Break;
+    end;
+  end;
 end;
 
 class function TRawScannerSymbolStorage.GetInstance: TRawScannerSymbolStorage;

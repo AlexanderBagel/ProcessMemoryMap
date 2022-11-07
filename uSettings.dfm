@@ -3,7 +3,7 @@ object dlgSettings: TdlgSettings
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Process Memory Map - Settings'
-  ClientHeight = 461
+  ClientHeight = 476
   ClientWidth = 318
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -16,6 +16,13 @@ object dlgSettings: TdlgSettings
   OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
+  object Label9: TLabel
+    Left = 17
+    Top = 124
+    Width = 109
+    Height = 13
+    Caption = 'Scanner update mode:'
+  end
   object cbShowFreeRegions: TCheckBox
     Left = 16
     Top = 55
@@ -25,8 +32,8 @@ object dlgSettings: TdlgSettings
     TabOrder = 0
   end
   object cbShowColors: TCheckBox
-    Left = 16
-    Top = 147
+    Left = 17
+    Top = 166
     Width = 185
     Height = 17
     Caption = 'Show colors'
@@ -34,7 +41,7 @@ object dlgSettings: TdlgSettings
   end
   object GroupBox1: TGroupBox
     Left = 16
-    Top = 171
+    Top = 187
     Width = 289
     Height = 249
     Caption = 'Color scheme:'
@@ -193,7 +200,7 @@ object dlgSettings: TdlgSettings
   end
   object Button1: TButton
     Left = 230
-    Top = 426
+    Top = 442
     Width = 75
     Height = 25
     Cancel = True
@@ -203,7 +210,7 @@ object dlgSettings: TdlgSettings
   end
   object btnOk: TButton
     Left = 149
-    Top = 426
+    Top = 442
     Width = 75
     Height = 25
     Caption = 'OK'
@@ -212,7 +219,7 @@ object dlgSettings: TdlgSettings
   end
   object btnReset: TButton
     Left = 16
-    Top = 426
+    Top = 442
     Width = 75
     Height = 25
     Caption = 'Reset'
@@ -252,12 +259,26 @@ object dlgSettings: TdlgSettings
     TabOrder = 9
   end
   object cbUseFilter: TCheckBox
-    Left = 16
-    Top = 124
-    Width = 184
+    Left = 17
+    Top = 143
+    Width = 128
     Height = 17
     Caption = 'Use Scanner Filter'
     TabOrder = 10
+  end
+  object cbScannerMode: TComboBox
+    Left = 132
+    Top = 120
+    Width = 92
+    Height = 21
+    Style = csDropDownList
+    ItemIndex = 1
+    TabOrder = 11
+    Text = 'Default'
+    Items.Strings = (
+      'No update'
+      'Default'
+      'Force update')
   end
   object ColorDialog: TColorDialog
     Left = 232

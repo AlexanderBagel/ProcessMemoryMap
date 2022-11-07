@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для обработки ApiSet редиректа импорта/экспорта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -156,12 +156,12 @@ type
     procedure Init6;
     procedure Init;
   public
-    constructor Create(AStream: TCustomMemoryStream = nil);
+    constructor Create;
     destructor Destroy; override;
-    procedure Reinit(AStream: TCustomMemoryStream = nil);
     class function GetInstance: TApiSetRedirector;
     function SchemaPresent(const LibName: string;
       var RedirectTo: string): Boolean;
+    procedure LoadApiSet(AStream: TCustomMemoryStream = nil);
     property Version: ULONG read FApiSetVer;
     property Count: Integer read FUniqueCount;
   end;
@@ -202,12 +202,11 @@ begin
   FInstance.Free;
 end;
 
-constructor TApiSetRedirector.Create(AStream: TCustomMemoryStream);
+constructor TApiSetRedirector.Create;
 begin
   if FInstance = nil then
     FInstance := Self;
   FData := TDictionary<string, string>.Create;
-  Reinit(AStream);
 end;
 
 destructor TApiSetRedirector.Destroy;
@@ -389,7 +388,7 @@ begin
     'ApiSet V6 initialized. Entries count: ' + IntToStr(FUniqueCount));
 end;
 
-procedure TApiSetRedirector.Reinit(AStream: TCustomMemoryStream);
+procedure TApiSetRedirector.LoadApiSet(AStream: TCustomMemoryStream);
 begin
   FApiSetVer := 0;
   FUniqueCount := 0;

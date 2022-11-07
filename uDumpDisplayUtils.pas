@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.16
+//  * Version   : 1.2.17
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -30,9 +30,10 @@ uses
   PsAPI,
   uUtils,
   MemoryMap.Core,
-  MemoryMap.Symbols,
   MemoryMap.Utils,
   RawScanner.Core,
+  RawScanner.LoaderData,
+  RawScanner.ModulesData,
   RawScanner.SymbolStorage,
   distorm,
   mnemonics;
@@ -74,8 +75,7 @@ type
     AMode: TDasmMode; KnownHint: TKnownHint; out Dasm64Mode: Boolean;
     nSize: Integer = 0): string;
   function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
-    Symbols: TSymbols; Address, AllocationBase: Pointer;
-    const ModuleName: string; Is64: Boolean; nSize: NativeUInt;
+    Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt;
     KnownHint: TKnownHint): string;
 
 const
@@ -159,6 +159,8 @@ const
     '------------------------------- ACTIVATION_CONTEXT_STRING_SECTION_HEADER ---------------------------------';
   ACTX_STRING_ENTRY =
     '-------------------------------- ACTIVATION_CONTEXT_STRING_SECTION_ENTRY ---------------------------------';
+  IMAGE_EXPORT_DIRECTORY_STR =
+    '---------------------------------------- IMAGE_EXPORT_DIRECTORY ------------------------------------------';
 
 type
   TDataType = (dtByte, dtWord, dtDword,
@@ -1203,15 +1205,15 @@ end;
 function DumpThread64(Process: THandle; Address: Pointer): string;
 var
   Buff: TMemoryDump;
-  Size, RegionSize, Cursor: NativeUInt;
+  RegionSize, Cursor: NativeUInt;
   ValueBuff: DWORD;
 begin
   Result := '';
   CurerntAddr := Address;
-  Size := 8192;
-  SetLength(Buff, Size);
+  MaxSize := 8192;
+  SetLength(Buff, MaxSize);
   if not ReadProcessData(Process, Address, @Buff[0],
-    Size, RegionSize, rcReadAllwais) then Exit;
+    MaxSize, RegionSize, rcReadAllwais) then Exit;
   Cursor := 0;
   AddString(Result, TIB64_Header);
   AddString(Result, 'ExceptionList', @Buff[Cursor], dtInt64, Cursor);
@@ -1462,8 +1464,7 @@ begin
     AddString(Result, 'BooleanSpare', @Buff[Cursor], dtBuff, 3, Cursor);
   end;
 
-  AddString(Result, MemoryDumpHeader);
-  AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor], Size - Cursor));
+  DumpMemoryFromBuffWithCheckRawData(Result, Process, Address, Buff, Cursor);
 end;
 
 function DumpThread32(Process: THandle; Address: Pointer): string;
@@ -2349,6 +2350,59 @@ begin
   DumpMemoryFromBuffWithCheckRawData(Result, Process, Address, Buff, Cursor);
 end;
 
+function LdrFlagToStr(Value: DWORD): string;
+
+  procedure AddResult(const Value: string);
+  begin
+    if Result = EmptyStr then
+      Result := Value
+    else
+      Result := Result + '|' + Value;
+  end;
+
+const
+  FlagName: array [0..31] of string = (
+    'PackagedBinary',
+    'MarkedForRemoval',
+    'ImageDll',
+    'LoadNotificationsSent',
+    'TelemetryEntryProcessed',
+    'ProcessStaticImport',
+    'InLegacyLists',
+    'InIndexes',
+    'ShimDll',
+    'InExceptionTable',
+    'ReservedFlags10',
+    'ReservedFlags11',
+    'LoadInProgress',
+    'LoadConfigProcessed',
+    'EntryProcessed',
+    'ProtectDelayLoad',
+    'ReservedFlags16',
+    'ReservedFlags17',
+    'DontCallForThreads',
+    'ProcessAttachCalled',
+    'ProcessAttachFailed',
+    'CorDeferredValidate',
+    'CorImage',
+    'DontRelocate',
+    'CorILOnly',
+    'ChpeImage',
+    'ChpeEmulatorImage',
+    'ReservedFlags27',
+    'Redirected',
+    'ReservedFlags29',
+    'ReservedFlags30',
+    'CompatDatabaseProcessed'
+  );
+
+begin
+  Result := '';
+  for var I := 0 to 31 do
+    if Value and (1 shl I) <> 0 then
+      AddResult(FlagName[I]);
+end;
+
 procedure DumpLoaderData(
   var OutString: string; Process: THandle;
   DataType: TSymbolDataType; Address: Pointer;
@@ -2413,7 +2467,7 @@ begin
         @Buff[Cursor], dtUnicodeString32, Cursor);
       AddString(OutString, 'BaseDllName = ' + ExtractUnicodeString32(Process, Buff, Cursor),
         @Buff[Cursor], dtUnicodeString32, Cursor);
-      AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor, LdrFlagToStr(PDWORD(@Buff[Cursor])^));
       AddString(OutString, 'LoadCount', @Buff[Cursor], dtWord, Cursor);
       AddString(OutString, 'TlsIndex', @Buff[Cursor], dtWord, Cursor);
       AddString(OutString, 'HashLinks.FLink', @Buff[Cursor], dtDword, Cursor);
@@ -2462,7 +2516,7 @@ begin
         @Buff[Cursor], dtUnicodeString64, Cursor);
       AddString(OutString, 'BaseDllName = ' + ExtractUnicodeString64(Process, Buff, Cursor),
         @Buff[Cursor], dtUnicodeString64, Cursor);
-      AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor, LdrFlagToStr(PDWORD(@Buff[Cursor])^));
       AddString(OutString, 'LoadCount', @Buff[Cursor], dtWord, Cursor);
       AddString(OutString, 'TlsIndex', @Buff[Cursor], dtWord, Cursor);
       AddString(OutString, 'HashLinks.FLink', @Buff[Cursor], dtInt64, Cursor);
@@ -2641,16 +2695,45 @@ begin
   end;
 end;
 
+procedure DumpModulesKnownStruct(
+  var OutString: string; Process: THandle;
+  const Data: TSymbolData; Address: Pointer;
+  Buff: TMemoryDump; var Cursor: NativeUInt);
+begin
+  case Data.DataType of
+    sdtExportDir:
+    begin
+      {$MESSAGE 'Надо придумать вариант пересчета RvaToVA для хинтов, например через ModulesData'}
+      AddString(OutString, IMAGE_EXPORT_DIRECTORY_STR);
+      AddString(OutString, 'Characteristics', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
+        FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
+      AddString(OutString, 'MajorVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'MinorVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'Name', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Base', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'NumberOfFunctions', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'NumberOfNames', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'AddressOfFunctions', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'AddressOfNames', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'AddressOfNameOrdinals', @Buff[Cursor], dtDword, Cursor);
+    end;
+  end;
+end;
+
 procedure DumpMemoryFromBuffWithCheckRawData(var OutString: string;
   Process: THandle; Address: Pointer; RawBuff: TMemoryDump; Cursor: NativeUInt);
 var
   UnknownSize: ULONG_PTR;
   DataList: TList<TSymbolData>;
   ptrData: TSymbolData;
+  FuncName: string;
+  SkipHeader: Boolean;
 begin
   MaxSize := Length(RawBuff);
 
   // проверка всех известных данных, полученых от RawScanner-а
+  SkipHeader := False;
   DataList := SymbolStorage.GetKnownAddrList(ULONG_PTR(Address) + Cursor, MaxSize - Cursor);
   while DataList.Count > 0 do
   begin
@@ -2665,10 +2748,13 @@ begin
     UnknownSize := ptrData.AddrVA - (ULONG_PTR(Address) + Cursor);
     if UnknownSize > 0 then
     begin
-      AddString(OutString, MemoryDumpHeader);
+      if not SkipHeader then
+        AddString(OutString, MemoryDumpHeader);
       AddString(OutString, ByteToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], UnknownSize));
       Inc(Cursor, UnknownSize);
     end;
+
+    SkipHeader := False;
 
     // дальше вызываем обработчик под каждый конкретный тип блока
     try
@@ -2677,6 +2763,18 @@ begin
           DumpLoaderData(OutString, Process, ptrData.DataType, Address, RawBuff, Cursor);
         sdtCtxProcess..sdtCtxStrSecEntry:
           DumpActivationContext(OutString, Process, ptrData, Address, RawBuff, Cursor);
+        sdtExport..sdtEntryPoint:
+        begin
+          FuncName := GetExportString(ptrData);
+          if OutString = EmptyStr then
+            AddString(OutString, MemoryDumpHeader)
+          else
+            FuncName := FuncName + ' ' + StringOfChar('-', 105 - Length(FuncName));
+          AddString(OutString, FuncName);
+          SkipHeader := True;
+        end;
+        sdtExportDir:
+          DumpModulesKnownStruct(OutString, Process, ptrData, Address, RawBuff, Cursor);
       end;
     except
       on E: EAbort do  // вывод структуры может попасть в конец страницы
@@ -2687,7 +2785,8 @@ begin
   // ну и в завершение выводим все что остается
   if Cursor < MaxSize then
   begin
-    AddString(OutString, MemoryDumpHeader);
+    if not SkipHeader then
+      AddString(OutString, MemoryDumpHeader);
     AddString(OutString, ByteToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], MaxSize - Cursor));
   end;
 end;
@@ -2700,11 +2799,8 @@ function Disassembly(Process: THandle; Address: Pointer;
 var
   Buff: TMemoryDump;
   Size, RegionSize: NativeUInt;
-  Symbols: TSymbols;
   dwLength: DWORD;
   MBI: TMemoryBasicInformation;
-  OwnerName: array [0..MAX_PATH - 1] of Char;
-  Path: string;
 begin
   Result := '';
   if nSize = 0 then
@@ -2720,35 +2816,21 @@ begin
      Address, MBI, dwLength) <> dwLength then Exit;
 
   case AMode of
-    dmAuto: Dasm64Mode := MemoryMapCore.Process64;
+    dmAuto:
+      if not CheckPEImage(Process, MBI.AllocationBase, Dasm64Mode) then
+        Dasm64Mode := MemoryMapCore.Process64;
     dmX86: Dasm64Mode := False;
   else
     Dasm64Mode := True;
   end;
 
-  if GetMappedFileName(Process, MBI.AllocationBase,
-    @OwnerName[0], MAX_PATH) > 0 then
-  begin
-    Path := NormalizePath(string(OwnerName));
-    if AMode = dmAuto then
-      CheckPEImage(Process, MBI.AllocationBase, Dasm64Mode);
-    Symbols := TSymbols.Create(Process);
-    try
-      Result := DisassemblyFromBuff(Process, Buff, Symbols,
-        Address, MBI.AllocationBase, Path, Dasm64Mode, Size, KnownHint);
-    finally
-      Symbols.Free;
-    end;
-  end
-  else
-    Result :=
-      DisassemblyFromBuff(Process, Buff, nil,
-        Address, MBI.AllocationBase, '', Dasm64Mode, Size, KnownHint);
+  Result :=
+    DisassemblyFromBuff(Process, Buff,
+      Address, MBI.AllocationBase, Dasm64Mode, Size, KnownHint);
 end;
 
 function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
-  Symbols: TSymbols; Address, AllocationBase: Pointer;
-  const ModuleName: string; Is64: Boolean; nSize: NativeUInt;
+  Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt;
   KnownHint: TKnownHint): string;
 
   function HexUpperCase(const Value: string): string;
@@ -2783,8 +2865,7 @@ var
     end;
   end;
 
-  function GetCallType(const Value: string; Inst: TDInst;
-    out Address: Int64): TCallType;
+  function GetCallType(Inst: TDInst; out Address: Int64): TCallType;
   var
     I: Integer;
   begin
@@ -2816,37 +2897,47 @@ var
     end;
   end;
 
-  function GetCallHint(CallAddr: Int64): string;
+  function GetCallHint(const Operands: string; CallAddr: Int64): string;
   var
     MBI: TMemoryBasicInformation;
     dwLength: Cardinal;
     OwnerName: array [0..MAX_PATH - 1] of Char;
-    Path: string;
+    Path, HexAddr: string;
+    ExpData: TSymbolData;
   begin
     Result := EmptyStr;
     if CallAddr <> 0 then
     begin
+      if Operands = EmptyStr then
+        HexAddr := EmptyStr
+      else
+      begin
+        {$MESSAGE 'Помоему это не правильно и не тут должно быть а в RIP + Pointer only!!!'}
+        HexAddr := IntToHex(CallAddr, 2);
+        if Pos(HexAddr, Operands) = 0 then
+          HexAddr := '(0x' + HexAddr + ')'
+        else
+          HexAddr := EmptyStr;
+      end;
+
       Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(CallAddr));
       if Result = EmptyStr then
       begin
-        if Symbols <> nil then
+        if SymbolStorage.GetExportAtAddr(ULONG_PTR(CallAddr), True, ExpData) then
+          Result := GetExportString(ExpData)
+        else
         begin
           dwLength := SizeOf(TMemoryBasicInformation);
           if VirtualQueryEx(Process,
              Pointer(CallAddr), MBI, dwLength) <> dwLength then Exit;
-          if Symbols.BaseAddress = ULONG_PTR(MBI.AllocationBase) then
-            Result := Symbols.GetDescriptionAtAddr(ULONG_PTR(CallAddr))
-          else
+          if AllocationBase <> MBI.AllocationBase then
           begin
             if not CheckPEImage(Process, MBI.AllocationBase) then Exit;
             if GetMappedFileName(Process, MBI.AllocationBase,
               @OwnerName[0], MAX_PATH) = 0 then Exit;
             Path := NormalizePath(string(OwnerName));
-            Result := Symbols.GetDescriptionAtAddr2(
-              ULONG_PTR(CallAddr), ULONG_PTR(MBI.AllocationBase), Path);
-            if Result = EmptyStr then
-              Result := ExtractFileName(Path) + '+' +
-                IntToHex(ULONG_PTR(CallAddr) - ULONG_PTR(MBI.AllocationBase));
+            Result := ExtractFileName(Path) + '+' +
+              IntToHex(ULONG_PTR(CallAddr) - ULONG_PTR(MBI.AllocationBase), 1);
           end;
         end;
       end;
@@ -2856,6 +2947,7 @@ var
 
       if Result <> EmptyStr then
         Result := ' // ' + Result;
+      Result := HexAddr + Result;
     end;
   end;
 
@@ -2866,20 +2958,19 @@ var
   DecodedInst: array [0..14] of TDInst;
   usedInstructionsCount: UInt32;
   decodedInstruction: TDecodedInst;
-  Line, mnemonic, HintStr: string;
+  Line, mnemonic, operands, HintStr, OffsetStr: string;
   LastInsruction, CurrentInstruction: TInsructionType;
   CallType: TCallType;
   CallAddr: Int64;
   OffsetAddr: Uint64;
   Size, RegionSize: NativeUInt;
+  ExpData: TSymbolData;
 begin
   Result := '';
   Cursor := 0;
   LastInsruction := itOther;
   AddString(Result, DisasmDumpHeader);
-  if Symbols <> nil then
-    Symbols.Init(ULONG_PTR(AllocationBase), ModuleName);
-  try
+
     while Cursor < nSize do
     begin
       ZeroMemory(@ci, SizeOf(TCodeInfo));
@@ -2911,8 +3002,10 @@ begin
 
         distorm_format(@ci, @DecodedInst[I], @decodedInstruction);
         mnemonic := HexUpperCase(GET_WString(decodedInstruction.mnemonic));
+        operands :=  HexUpperCase(GET_WString(decodedInstruction.operands));
         CurrentInstruction := GetInstructionType(DecodedInst[I]);
-        HintStr := '';
+        HintStr := EmptyStr;
+        OffsetStr := EmptyStr;
         CallType := ctUnknown;
         case CurrentInstruction of
           itOther:
@@ -2931,10 +3024,9 @@ begin
           begin
             if LastInsruction in [itNop, itInt, itRet, itUndefined, itBreak] then
               AddString(Result, '');
-            CallType :=
-              GetCallType(GET_WString(decodedInstruction.operands), DecodedInst[I], CallAddr);
+            CallType := GetCallType(DecodedInst[I], CallAddr);
             case CallType of
-              ctAddress: HintStr := GetCallHint(CallAddr);
+              ctAddress: HintStr := GetCallHint(operands, CallAddr);
               ctRipOffset:
               begin
                 {$OVERFLOWCHECKS OFF}
@@ -2943,9 +3035,10 @@ begin
                   DecodedInst[I].size + NativeUInt(CallAddr);
                 {$OVERFLOWCHECKS ON}
                 Size := 8;
+                OffsetStr := '(0x' + IntToHex(OffsetAddr, 1) + ')';
                 if ReadProcessData(Process, Pointer(OffsetAddr), @CallAddr,
                   Size, RegionSize, rcReadAllwais) then
-                  HintStr := GetCallHint(CallAddr);
+                  HintStr := HintStr + GetCallHint(EmptyStr, CallAddr);
               end;
               ctPointer4, ctPointer8:
               begin
@@ -2955,24 +3048,23 @@ begin
                   Size := 8;
                 if ReadProcessData(Process, Pointer(CallAddr), @CallAddr,
                   Size, RegionSize, rcReadAllwais) then
-                  HintStr := GetCallHint(CallAddr);
+                  HintStr := GetCallHint(operands, CallAddr);
               end;
             end;
           end;
         end;
         LastInsruction := CurrentInstruction;
 
+        // детект начала функции
         Line := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
+        if Line = EmptyStr then
+          if SymbolStorage.GetExportAtAddr(ULONG_PTR(Address) + Cursor, True, ExpData) then
+            Line := GetExportString(ExpData);
         if Line <> EmptyStr then
-          AddString(Result, Line)
-        else
         begin
-          if Symbols <> nil then
-          begin
-            Line := Symbols.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
-            if Line <> EmptyStr then
-              AddString(Result, Line);
-          end;
+          if Cursor <> 0 then
+            Line := Line + ' ' + StringOfChar('-', 105 - Length(Line));
+          AddString(Result, Line);
         end;
 
         if (HintStr = EmptyStr) and (CallType = ctRipOffset) then
@@ -2990,17 +3082,13 @@ begin
             IntToHex(decodedInstruction.offset, 8),
             AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], decodedInstruction.size),
             mnemonic,
-            HexUpperCase(GET_WString(decodedInstruction.operands)),
-            HintStr
+            operands,
+            OffsetStr + HintStr
           ]));
         Inc(Cursor, DecodedInst[I].size);
       end;
 
     end;
-  finally
-    if Symbols <> nil then
-      Symbols.Release;
-  end;
 end;
 
 end.

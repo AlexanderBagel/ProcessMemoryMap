@@ -10,7 +10,7 @@
 //  *           : 64 битных библиотеках.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -33,34 +33,33 @@ uses
   RawScanner.Wow64,
   RawScanner.Utils;
 
+const
+  LDRP_STATIC_LINK                = $00000002;
+  LDRP_IMAGE_DLL                  = $00000004;
+  LDRP_SHIMENG_SUPPRESSED_ENTRY   = $00000008; // ReactOS https://doxygen.reactos.org/d1/d97/ldrtypes_8h_source.html
+  LDRP_IMAGE_INTEGRITY_FORCED     = $00000020; // ReactOS https://doxygen.reactos.org/d1/d97/ldrtypes_8h_source.html
+  LDRP_LOAD_IN_PROGRESS           = $00001000;
+  LDRP_UNLOAD_IN_PROGRESS         = $00002000;
+  LDRP_ENTRY_PROCESSED            = $00004000;
+  LDRP_ENTRY_INSERTED             = $00008000;
+  LDRP_CURRENT_LOAD               = $00010000;
+  LDRP_FAILED_BUILTIN_LOAD        = $00020000;
+  LDRP_DONT_CALL_FOR_THREADS      = $00040000;
+  LDRP_PROCESS_ATTACH_CALLED      = $00080000;
+  LDRP_DEBUG_SYMBOLS_LOADED       = $00100000;
+  LDRP_IMAGE_NOT_AT_BASE          = $00200000;
+  LDRP_COR_IMAGE                  = $00400000;
+  LDRP_COR_OWNS_UNMAP             = $00800000;
+  LDRP_SYSTEM_MAPPED              = $01000000;
+  LDRP_IMAGE_VERIFYING            = $02000000;
+  LDRP_DRIVER_DEPENDENT_DLL       = $04000000;
+  LDRP_ENTRY_NATIVE               = $08000000;
+  LDRP_REDIRECTED                 = $10000000;
+  LDRP_NON_PAGED_DEBUG_INFO       = $20000000;
+  LDRP_MM_LOADED                  = $40000000;
+
 type
   TLoaderData = class
-  private const
-    LDRP_STATIC_LINK                = $00000002;
-    LDRP_IMAGE_DLL                  = $00000004;
-    LDRP_LOAD_IN_PROGRESS           = $00001000;
-    LDRP_UNLOAD_IN_PROGRESS         = $00002000;
-    LDRP_ENTRY_PROCESSED            = $00004000;
-    LDRP_ENTRY_INSERTED             = $00008000;
-    LDRP_CURRENT_LOAD               = $00010000;
-    LDRP_FAILED_BUILTIN_LOAD        = $00020000;
-    LDRP_DONT_CALL_FOR_THREADS      = $00040000;
-    LDRP_PROCESS_ATTACH_CALLED      = $00080000;
-    LDRP_DEBUG_SYMBOLS_LOADED       = $00100000;
-    LDRP_IMAGE_NOT_AT_BASE          = $00200000;
-    LDRP_COR_IMAGE                  = $00400000;
-    LDRP_COR_OWNS_UNMAP             = $00800000;
-    LDRP_SYSTEM_MAPPED              = $01000000;
-    LDRP_IMAGE_VERIFYING            = $02000000;
-    LDRP_DRIVER_DEPENDENT_DLL       = $04000000;
-    LDRP_ENTRY_NATIVE               = $08000000;
-    LDRP_REDIRECTED                 = $10000000;
-    LDRP_NON_PAGED_DEBUG_INFO       = $20000000;
-
-//    LDRP_IMAGE_DLL =          $00000004;
-//    LDRP_IMAGE_NOT_AT_BASE =  $00200000;
-//    LDRP_COR_IMAGE =          $00400000;
-//    LDRP_REDIRECTED =         $10000000;
   private
     FProcess: THandle;
     FRootModule: TModuleData;
@@ -242,7 +241,7 @@ begin
       @Module.ImagePath[1], Entry.FullDllName.Length) then
     begin
       RawScannerLogger.Error(llLoader,
-        Format(ReadError, ['Entry.FullDllName',
+        Format(ReadError, ['Entry32.FullDllName',
         Entry.FullDllName.Buffer, GetLastError, SysErrorMessage(GetLastError)]));
       Continue;
     end;
@@ -325,7 +324,7 @@ begin
       @Module.ImagePath[1], Entry.FullDllName.Length) then
     begin
       RawScannerLogger.Error(llLoader,
-        Format(ReadError, ['Entry.FullDllName',
+        Format(ReadError, ['Entry64.FullDllName',
         Entry.FullDllName.Buffer, GetLastError, SysErrorMessage(GetLastError)]));
       Exit;
     end;

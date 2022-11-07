@@ -8,7 +8,7 @@
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -86,6 +86,7 @@ type
     class function GetInstance: TRawScanner;
     function Active: Boolean;
     procedure InitFromProcess(AProcessID: Cardinal);
+    function IsActualState: Boolean;
     function GetDataTypeAtAddr(AdrrVA: ULONG_PTR64): TSymbolDataType;
     property Analizer: TPatchAnalyzer read FAnalizer;
     property InitializationResult: TInitializationResult read FInitResult;
@@ -194,7 +195,6 @@ begin
   FreeAndNil(FSystemContext);
   FModules.Clear;
   SymbolStorage.Clear;
-  ApiSetRedirector.Reinit;
 end;
 
 constructor TRawScanner.Create;
@@ -365,6 +365,8 @@ begin
 
   Clear;
 
+  ApiSetRedirector.LoadApiSet;
+
   FProcess := OpenProcess(
     PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
     False, AProcessID);
@@ -528,6 +530,35 @@ begin
 {$ELSE}
 begin
 {$ENDIF}
+end;
+
+function TRawScanner.IsActualState: Boolean;
+var
+  Loader: TLoaderData;
+  Module: TModuleData;
+  I: Integer;
+begin
+  Result := Active;
+  if not Result then Exit;
+  Loader := TLoaderData.Create(FProcess, FIsWow64Mode);
+  try
+    if FInitResult.Loader32 <> Loader.Load32LoaderData(FPEB32.LoaderData) then
+      Exit(False);
+    if FInitResult.Loader64 <> Loader.Load64LoaderData(FPEB64.LoaderData) then
+      Exit(False);
+    if FInitResult.Loader32 + FInitResult.Loader64 = 0 then Exit;
+    if FModules.Items[0].ImageBase <> Loader.RootModule.ImageBase then
+      Exit(False);
+    I := 1;
+    for Module in Loader.Modules do
+    begin
+      if Module.ImageBase <> FModules.Items[I].ImageBase then
+        Exit(False);
+      Inc(I);
+    end;
+  finally
+    Loader.Free;
+  end;
 end;
 
 end.

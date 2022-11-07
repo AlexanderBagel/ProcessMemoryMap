@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль для работы с контекстами активации процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -188,7 +188,7 @@ type
 //  GUID comparisons.
 //
 
-
+ {$MESSAGE 'Контекст активации не доделан'}
 
 type
   TActivationContext = class

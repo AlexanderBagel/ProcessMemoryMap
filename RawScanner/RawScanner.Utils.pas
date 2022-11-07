@@ -6,7 +6,7 @@
 //  * Purpose   : Набор утилитарных методов общих для модулей RawScanner.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -23,6 +23,8 @@ uses
   Windows,
   SysUtils,
   PsApi,
+  ImageHlp,
+  StrUtils,
   RawScanner.Types,
   RawScanner.Wow64;
 
@@ -35,6 +37,7 @@ uses
   function VirtualQueryEx64(hProcess: THandle; lpAddress: ULONG_PTR64;
     var lpBuffer: TMemoryBasicInformation64; dwLength: NativeUInt): DWORD;
   function GetMappedModule(ProcessHandle: THandle; AddrVa: ULONG_PTR64): string;
+  function UnDecorateSymbolName(const Value: string): string;
 
 implementation
 
@@ -379,6 +382,37 @@ begin
     Result := ExtractFileName(Copy(Result, 1, MapedFilePathLen))
   else
     Result := EmptyStr;
+end;
+
+function UnDecorateSymbolName(const Value: string): string;
+const
+  BuffLen = 4096;
+var
+  Index, Index2: Integer;
+  TmpDecName, UnDecName: AnsiString;
+begin
+  // аналог функции SymUnDNameInternal используемой символами
+  Result := Value;
+  if Result = EmptyStr then Exit;
+  if (Result[1] = '?') or Result.StartsWith('.?') or Result.StartsWith('..?') then
+  begin
+    Index := Pos('?', Value);
+    TmpDecName := AnsiString(PChar(@Value[Index]));
+    SetLength(UnDecName, BuffLen);
+    SetLength(UnDecName, ImageHlp.UnDecorateSymbolName(@TmpDecName[1],
+      @UnDecName[1], BuffLen, UNDNAME_NAME_ONLY));
+    if Length(UnDecName) > 0 then
+      Result := StringOfChar('.', Index - 1) + string(UnDecName);
+    Exit;
+  end;
+  Index := 1;
+  if CharInSet(Value[1], ['_', '.', '@']) then
+    Inc(Index);
+  Index2 := PosEx('@', Value, Index);
+  if Index2 <> 0 then
+    Index := Index2 + 1;
+  if Index > 1 then
+    Result := Copy(Value, Index, Length(Value));
 end;
 
 end.

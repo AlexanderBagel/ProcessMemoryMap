@@ -6,7 +6,7 @@
 //  * Purpose   : Сканирование памяти процесса на основе адресов и контрольных сумм
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.16
+//  * Version   : 1.2.17
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -28,7 +28,6 @@ uses
   MemoryMap.Core,
   MemoryMap.Utils,
   MemoryMap.WorkSet,
-  MemoryMap.Symbols,
   MemoryMap.DebugMapData,
   uDumpDisplayUtils;
 
@@ -59,7 +58,6 @@ type
     Process: THandle;
     Workset: TWorkset;
     DumpList: TStringList;
-    Symbols: TSymbols;
     NotSharedCount, WrongCRCCount, DumpFailed: Integer;
     procedure LoadMMLData;
     function ReadMMLRecord(Data: TStringList; Index: Integer): Integer;
@@ -242,12 +240,10 @@ var
   MMLRecord: TMMLRecord;
   MBI: TMemoryBasicInformation;
   dwLength, CRC: DWORD;
-  Shared, DumpSaved: Boolean;
+  Shared, DumpSaved, Dasm64Mode: Boolean;
   SharedCount: Byte;
   RawBuff: TMemoryDump;
   Size, RegionSize: NativeUInt;
-  OwnerName: array [0..MAX_PATH - 1] of Char;
-  Path: string;
 begin
   MMLRecord := MMLData[Index];
   dlgProgress.ProgressBar.Position := Index + 1;
@@ -323,19 +319,12 @@ begin
   if ScanSettings.ShowDump then
     Add(DumpMemoryFromBuff(Process, MMLRecord.Addr, RawBuff, ScanSettings.DumpSize));
 
+  if not CheckPEImage(Process, MBI.AllocationBase, Dasm64Mode) then
+    Dasm64Mode := MemoryMapCore.Process64;
+
   if ScanSettings.ShowDisasm then
-  begin
-    if GetMappedFileName(Process, MBI.AllocationBase,
-      @OwnerName[0], MAX_PATH) > 0 then
-    begin
-      Path := NormalizePath(string(OwnerName));
-      Add(DisassemblyFromBuff(Process, RawBuff, Symbols,  MMLRecord.Addr,
-        MBI.AllocationBase, Path, MemoryMapCore.Process64, ScanSettings.DumpSize, nil));
-    end
-    else
-      Add(DisassemblyFromBuff(Process, RawBuff, nil, nil, MMLRecord.Addr,
-        '', MemoryMapCore.Process64, ScanSettings.DumpSize, nil));
-  end;
+    Add(DisassemblyFromBuff(Process, RawBuff, MMLRecord.Addr,
+      MBI.AllocationBase, Dasm64Mode, ScanSettings.DumpSize, nil));
 end;
 
 function TdlgMemoryMapListInfo.ReadMMLRecord(
@@ -491,13 +480,8 @@ begin
               NotSharedCount := 0;
               WrongCRCCount := 0;
               DumpFailed := 0;
-              Symbols := TSymbols.Create(Process);
-              try
-                for I := 0 to MMLData.Count - 1 do
-                  ProcessMMLRecord(I);
-              finally
-                Symbols.Free;
-              end;
+              for I := 0 to MMLData.Count - 1 do
+                ProcessMMLRecord(I);
             finally
               Workset.Free;
             end;

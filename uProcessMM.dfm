@@ -28,6 +28,8 @@ object dlgProcessMM: TdlgProcessMM
     Top = 8
     Width = 32
     Height = 32
+    Cursor = crHandPoint
+    OnClick = imgProcessClick
   end
   object lblProcessName: TLabel
     Left = 56

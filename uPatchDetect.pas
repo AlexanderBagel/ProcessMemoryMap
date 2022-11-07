@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.16
+//  * Version   : 1.2.17
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -81,7 +81,8 @@ type
     function InitCalculateHookData: TCalculateHookData; overload;
     function InitCalculateHookData(const Data: THookData): TCalculateHookData; overload;
     function InitCalculateHookData(const CodeData: TCodeHookData): TCalculateHookData; overload;
-    function GetHintString(var chd: TCalculateHookData; Inst: TInstruction): string;
+    function GetHintString(var chd: TCalculateHookData;
+      Inst: TInstruction; var ShortJmp: Boolean): string;
     procedure ReleaseCalculateHookData(const Value: TCalculateHookData);
   private
     // форматирование
@@ -168,7 +169,7 @@ var
   Inst: TInstructionArray;
   I: Integer;
   HintString: string;
-  AddHeader: Boolean;
+  AddHeader, ShortJmp: Boolean;
 begin
   Result := False;
   SetLength(Buff, DefaultBuffSize);
@@ -192,7 +193,7 @@ begin
       (Inst[I].AddrVa <= chd.LimitMax) then Break;
     if Inst[I].JmpAddrVa <> 0 then
     begin
-      HintString := GetHintString(chd, Inst[I]);
+      HintString := GetHintString(chd, Inst[I], ShortJmp);
       Result := CheckHookHandler(chd);
       if Result then
         Break;
@@ -255,6 +256,7 @@ procedure TdlgPatches.FormShow(Sender: TObject);
 var
   ir: TInitializationResult;
   ar: TAnalizeResult;
+  ActualState: Boolean;
 begin
   RawScannerLogger.OnLog := OnLog;
   try
@@ -271,6 +273,26 @@ begin
           FImportError := 0;
           FExportError := 0;
           FCodeError := 0;
+
+          ActualState := RawScannerCore.IsActualState;
+          case Settings.ScannerMode of
+            smNoUpdate: Add('Actual State: ' + BoolToStr(ActualState, True));
+            smDefault:
+            begin
+              if ActualState then
+                Add('Actual State: True')
+              else
+              begin
+                Add('Actual State: False - Updated');
+                RawScannerCore.InitFromProcess(MemoryMapCore.PID);
+              end;
+            end;
+            smForceUpdate:
+            begin
+              Add('Actual State: Force Updated');
+              RawScannerCore.InitFromProcess(MemoryMapCore.PID);
+            end;
+          end;
 
           ir := RawScannerCore.InitializationResult;
 
@@ -334,7 +356,7 @@ begin
 end;
 
 function TdlgPatches.GetHintString(var chd: TCalculateHookData;
-  Inst: TInstruction): string;
+  Inst: TInstruction; var ShortJmp: Boolean): string;
 var
   MBI: TMemoryBasicInformation64;
   dwLength: NativeUInt;
@@ -355,6 +377,8 @@ begin
   chd.HookHandlerModule := GetMappedModule(chd.ProcessHandle, MBI.AllocationBase);
   if not chd.HookHandlerModule.IsEmpty then
     Result := ' --> ' + Result + chd.HookHandlerModule;
+
+  ShortJmp := chd.ImageBase = ULONG64(MBI.AllocationBase);
 end;
 
 function TdlgPatches.InitCalculateHookData: TCalculateHookData;
@@ -424,6 +448,7 @@ procedure TdlgPatches.OnLog(ALevel: TLogLevel; AType: TLogType; const FuncName,
 
 begin
   if ALevel = llContext then Exit; // контекст пока не закончен
+  if ALevel = llApiSet then Exit; // данные по аписету не нужны
   if (ALevel = llAnalizer) and (AType = ltNotify) then Exit;
   if AType <> ltNotify then
     EmptyLine;
@@ -472,7 +497,7 @@ var
   Disasm: TDisassembler;
   RawDecodedInst, RemoteDecodedInst: TInstructionArray;
   I, RawCount, RemoteCount, RawIndex, RemoteIndex: Integer;
-  Modified: Boolean;
+  Modified, ShortJmp: Boolean;
   Cursor, MaxAddr: ULONG_PTR64;
   Pfx, RawOut, RemoteOut, HintString: string;
   ExternalJmps: TList<ULONG_PTR64>;
@@ -599,16 +624,19 @@ begin
           if Modified and (RemoteDecodedInst[RemoteIndex].JmpAddrVa <> 0) then
           begin
             HintString :=
-              GetHintString(chd, RemoteDecodedInst[RemoteIndex]);
+              GetHintString(chd, RemoteDecodedInst[RemoteIndex], ShortJmp);
 
             // если определен модуль перехода, проверяем фильтр
             if CheckHookHandler(chd) then
               Exit;
 
-            if HintString.IsEmpty then
-              ExternalJmps.Add(RemoteDecodedInst[RemoteIndex].JmpAddrVa)
-            else
+            // добавляем подсказку
+            if not HintString.IsEmpty then
               RemoteOut := RemoteOut + HintString;
+
+            // и запоминаем возможный адрес перехода для последующей обработки
+            if ShortJmp or HintString.IsEmpty then
+              ExternalJmps.Add(RemoteDecodedInst[RemoteIndex].JmpAddrVa);
           end;
 
           Inc(RemoteIndex);

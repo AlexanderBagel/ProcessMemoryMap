@@ -15,7 +15,7 @@
 //  ****************************************************************************
 //
 
-unit MemoryMap.Symbols deprecated 'use RawScanner.SymbolStorage';
+unit MemoryMap.Symbols;
 
 interface
 
