@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.1
+//  * Version   : 1.0.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -32,14 +32,27 @@ type
     sdtNone,
     // типы адресов полученые от таблиц загрузчика
     sdtLdrData32, sdtLdrEntry32, sdtLdrData64, sdtLdrEntry64,
+
     // типы адресов полученые от таблиц контекста активации
     sdtCtxProcess, sdtCtxSystem, sdtCtxToc, sdtCtxTocEntry,
     sdtCtxExtToc, sdtCtxExtTocEntry, sdtCtxAssemblyRoster,
     sdtCtxAssemblyRosterEntry, sdtCtxStrSecHeader, sdtCtxStrSecEntry,
+
     // типы адресов заполняемые из ModulesData
-    sdtExport, sdtExportTable, sdtImportTable, sdtEntryPoint, sdtString,
+    sdtExport, sdtEntryPoint,
+    sdtString, // <<< строки только для дизассемблера, в Raw не выводятся
+    // табличные данные экспорта
+    sdtEATAddr, sdtEATName, sdtEATOrdinal,
+    // табличные данные импорта
+    sdtImportTable, sdtImportTable64, sdtImportNameTable, sdtImportNameTable64,
+    sdtDelayedImportTable, sdtDelayedImportTable64,
+    sdtDelayedImportNameTable, sdtDelayedImportNameTable64,
+    // табличные данные TLS каллбэков
+    sdtTlsCallback32, sdtTlsCallback64,
     // структуры известные ModulesData
-    sdtExportDir
+    sdtExportDir, sdtImportDescriptor, sdtDelayedImportDescriptor,
+    sdtLoadConfig32, sdtLoadConfig64,
+    sdtTLSDir32, sdtTLSDir64
     );
 
   TContextData = record
@@ -49,7 +62,8 @@ type
   end;
 
   TModuleKey = record
-    ModuleIndex: Integer;
+    DelayedNameEmpty: Boolean;
+    ModuleIndex: Word;
     ListIndex: Integer;
   end;
 
@@ -59,6 +73,7 @@ type
     case TSymbolDataType of
       sdtCtxProcess: (Ctx: TContextData);
       sdtExport: (Binary: TModuleKey);
+      sdtTlsCallback32: (TLS: Integer);
   end;
 
   TRawScannerSymbolStorage = class

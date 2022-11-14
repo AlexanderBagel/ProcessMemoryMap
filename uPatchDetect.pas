@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.17
+//  * Version   : 1.2.18
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -180,7 +180,7 @@ begin
   Disasm := TDisassembler.Create(chd.ProcessHandle, chd.AddrVA,
     DefaultBuffSize, chd.Is64Code);
   try
-    Inst := Disasm.DecodeBuff(@Buff[0], True);
+    Inst := Disasm.DecodeBuff(@Buff[0], dmUntilUndefined);
     if Length(Inst) = 0 then Exit;
   finally
     Disasm.Free;
@@ -507,10 +507,10 @@ begin
     Data.ProcessHandle, Data.AddrVA, Data.BufSize, Data.Image64);
   try
 
-    RawDecodedInst := Disasm.DecodeBuff(Data.Raw, True);
+    RawDecodedInst := Disasm.DecodeBuff(Data.Raw, dmUntilUndefined);
     RawCount := Length(RawDecodedInst);
 
-    RemoteDecodedInst := Disasm.DecodeBuff(Data.Remote, False);
+    RemoteDecodedInst := Disasm.DecodeBuff(Data.Remote, dmUntilRet);
     RemoteCount := Length(RemoteDecodedInst);
   finally
     Disasm.Free;

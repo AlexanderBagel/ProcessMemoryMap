@@ -7,7 +7,7 @@
 //  *           : на основе Distorm 3.5.3
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Version   : 1.0.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -32,8 +32,15 @@ uses
   RawScanner.Logger;
 
 type
+  TAddrType = (atUnknown, atAddress, atRipOffset, atPointer4, atPointer8, atSegment);
+  TInstructionType =
+    (itOther, itNop, itInt, itRet, itCall, itJmp, itMov, itPush, itPrivileged, itUndefined);
+
   TInstruction = record
+    InstType: TInstructionType;
+    AddrType: TAddrType;
     AddrVa,
+    RipAddrVA,
     JmpAddrVa: ULONG_PTR64;
     Opcodes: array [0..14] of Byte;
     OpcodesLen: Byte;
@@ -42,17 +49,16 @@ type
   end;
   TInstructionArray = array of TInstruction;
 
+  TDecodeMode = (dmFull, dmUntilRet, dmUntilUndefined);
+
   TDisassembler = class
-  private type
-    TInstructionType = (itOther, itRet, itCall, itJmp, itMov, itPush, itBreak, itUndefined);
-    TCallType = (ctUnknown, ctAddress, ctRipOffset, ctPointer4, ctPointer8);
   private
     FAddrVA: ULONG_PTR64;
     FBufferSize: Integer;
     FCode64: Boolean;
     FProcessHandle: THandle;
     function FixAddr(AddrVA: ULONG_PTR64): ULONG_PTR64;
-    function GetCallType(Inst: TDInst; out Address: ULONG_PTR64): TCallType;
+    function GetAddrType(Inst: TDInst; out Address: ULONG_PTR64): TAddrType;
     function GetInstructionType(Value: TDInst): TInstructionType;
     function GET_WString(w: _WString): string;
     function HexUpperCase(const Value: string): string;
@@ -60,7 +66,7 @@ type
   public
     constructor Create(AProcessHandle: THandle; AAddrVA: ULONG_PTR64;
       ABufferSize: Integer;  ACode64: Boolean);
-    function DecodeBuff(pBuff: PByte; StopOnUndefined: Boolean): TInstructionArray;
+    function DecodeBuff(pBuff: PByte; DecodeMode: TDecodeMode): TInstructionArray;
   end;
 
 implementation
@@ -87,7 +93,7 @@ begin
 end;
 
 function TDisassembler.DecodeBuff(pBuff: PByte;
-  StopOnUndefined: Boolean): TInstructionArray;
+  DecodeMode: TDecodeMode): TInstructionArray;
 var
   DecodeResult: TDecodeResult;
   InstList: array of TDInst;
@@ -95,7 +101,7 @@ var
   I, Count: Integer;
   Instruction: TDecodedInst;
   HintStr: string;
-  OffsetAddr, CallAddr: ULONG_PTR64;
+  OffsetAddr, AddrVA: ULONG_PTR64;
   NeedStop: Boolean;
 begin
   SetLength(InstList, FBufferSize);
@@ -121,7 +127,8 @@ begin
       HexUpperCase(GET_WString(Instruction.mnemonic)) + Space +
       HexUpperCase(GET_WString(Instruction.operands)) + HintStr;
 
-    if StopOnUndefined and (_InstructionType(InstList[I].opcode) = I_ADD) then
+    if (DecodeMode = dmUntilUndefined) and
+      (_InstructionType(InstList[I].opcode) = I_ADD) then
     begin
       case Result[I].OpcodesLen of
         1: NeedStop := PByte(pBuff)^ = 0;
@@ -141,34 +148,42 @@ begin
     Inc(pBuff, Result[I].OpcodesLen);
 
     HintStr := EmptyStr;
-    case GetInstructionType(InstList[I]) of
+    Result[I].InstType := GetInstructionType(InstList[I]);
+    case Result[I].InstType of
       itRet:
       begin
-        SetLength(Result, I + 1);
-        Exit;
+        if DecodeMode <> dmFull then
+        begin
+          SetLength(Result, I + 1);
+          Exit;
+        end;
       end;
       itCall, itJmp, itMov, itPush:
       begin
-        case GetCallType(InstList[I], CallAddr) of
-          ctAddress: Result[I].JmpAddrVa := CallAddr;
-          ctRipOffset:
+        Result[I].AddrType := GetAddrType(InstList[I], AddrVA);
+        case Result[I].AddrType of
+          atAddress, atSegment: Result[I].JmpAddrVa := AddrVA;
+          atRipOffset:
           begin
             {$OVERFLOWCHECKS OFF}
-            OffsetAddr := InstList[I].addr + InstList[I].size + CallAddr;
+            OffsetAddr := InstList[I].addr + InstList[I].size + AddrVA;
             {$OVERFLOWCHECKS ON}
-            if ReadRemoteMemory(FProcessHandle, OffsetAddr, @CallAddr, 8) then
-              Result[I].JmpAddrVa := CallAddr;
+            Result[I].RipAddrVA := OffsetAddr;
+            if ReadRemoteMemory(FProcessHandle, OffsetAddr, @AddrVA, 8) then
+              Result[I].JmpAddrVa := AddrVA;
           end;
-          ctPointer4:
-            if ReadRemoteMemory(FProcessHandle, CallAddr, @CallAddr, 4) then
-              Result[I].JmpAddrVa := CallAddr;
-          ctPointer8:
-            if ReadRemoteMemory(FProcessHandle, CallAddr, @CallAddr, 8) then
-              Result[I].JmpAddrVa := CallAddr;
+          atPointer4:
+            if ReadRemoteMemory(FProcessHandle, AddrVA, @AddrVA, 4) then
+              Result[I].JmpAddrVa := AddrVA;
+          atPointer8:
+            if ReadRemoteMemory(FProcessHandle, AddrVA, @AddrVA, 8) then
+              Result[I].JmpAddrVa := AddrVA;
         end;
+        if (Result[I].AddrType <> atSegment) and (Result[I].JmpAddrVa = 0) then
+          Result[I].AddrType := atUnknown;
       end;
-      itUndefined, itBreak:
-        if StopOnUndefined then
+      itUndefined, itPrivileged:
+        if DecodeMode = dmUntilUndefined then
         begin
           SetLength(Result, I);
           Exit;
@@ -186,14 +201,14 @@ begin
     Result := DWORD(AddrVA);
 end;
 
-function TDisassembler.GetCallType(Inst: TDInst;
-  out Address: ULONG_PTR64): TCallType;
+function TDisassembler.GetAddrType(Inst: TDInst;
+  out Address: ULONG_PTR64): TAddrType;
 var
   I: Integer;
 begin
-  Result := ctUnknown;
+  Result := atUnknown;
   Address := 0;
-  I := Inst.opsNo;
+  I := Inst.opsNo - 1;
   while I >= 0  do
   begin
     case _OperandType(Inst.ops[I]._type) of
@@ -207,7 +222,7 @@ begin
             Address := FixAddr(Inst.imm.udword)
           else
             Address := FixAddr(Inst.imm.uqword);
-        Exit(ctAddress);
+        Exit(atAddress);
       end;
       O_PC:
       begin
@@ -215,17 +230,24 @@ begin
         Address := FixAddr(ULONG_PTR64(Inst.addr +
           Inst.size + ULONG_PTR64(Inst.imm.sqword)));
         {$OVERFLOWCHECKS ON}
-        Exit(ctAddress);
+        Exit(atAddress);
       end;
       O_DISP, O_SMEM:
       begin
         Address := FixAddr(Inst.disp);
         if Inst.flags and FLAG_RIP_RELATIVE <> 0 then
-          Exit(ctRipOffset)
+          Exit(atRipOffset)
         else
+          // детект обрашения к TEB
+          if not SEGMENT_IS_DEFAULT_OR_NONE(Inst.segment) then
+            case _RegisterType(SEGMENT_GET(Inst.segment)) of
+              R_FS: if not FCode64 then Exit(atSegment);
+              R_GS: if FCode64 then Exit(atSegment);
+            end;
+
           case Inst.dispSize of
-            64: Exit(ctPointer8);
-            32: Exit(ctPointer4);
+            64: Exit(atPointer8);
+            32: Exit(atPointer4);
           end;
       end;
     end;
@@ -236,19 +258,22 @@ end;
 function TDisassembler.GetInstructionType(Value: TDInst): TInstructionType;
 begin
   Result := itOther;
-  case _InstructionType(Value.opcode) of
-    I_RET, I_RETF, I_IRET: Result := itRet;
-    I_CALL, I_CALL_FAR: Result := itCall;
-    I_JA, I_JAE, I_JB, I_JBE, I_JCXZ, I_JECXZ, I_JG, I_JGE,
-    I_JL, I_JLE, I_JMP, I_JMP_FAR, I_JNO, I_JNP, I_JNS, I_JNZ,
-    I_JO, I_JP, I_JRCXZ, I_JS, I_JZ: Result := itJmp;
-    I_MOV: Result := itMov;
-    I_PUSH: Result := itPush;
-    I_UNDEFINED: Result := itUndefined;
-    I_INT, I_INT1, I_INT3, I_INTO, I_IN, I_OUT,
-    I_RDMSR, I_WRMSR, I_CLI, I_STI, I_HLT:
-      Result := itBreak;
-  end;
+  if Value.flags and FLAG_PRIVILEGED_INSTRUCTION <> 0 then
+    Result := itPrivileged
+  else
+    case _InstructionType(Value.opcode) of
+      I_NOP, I_FNOP: Result := itNop;
+      I_INT, I_INT1, I_INT3, I_INTO:
+        Result := itInt;
+      I_RET, I_RETF, I_IRET: Result := itRet;
+      I_CALL, I_CALL_FAR: Result := itCall;
+      I_JA, I_JAE, I_JB, I_JBE, I_JCXZ, I_JECXZ, I_JG, I_JGE,
+      I_JL, I_JLE, I_JMP, I_JMP_FAR, I_JNO, I_JNP, I_JNS, I_JNZ,
+      I_JO, I_JP, I_JRCXZ, I_JS, I_JZ: Result := itJmp;
+      I_MOV: Result := itMov;
+      I_PUSH: Result := itPush;
+      I_UNDEFINED: Result := itUndefined;
+    end;
 end;
 
 function TDisassembler.GET_WString(w: _WString): string;

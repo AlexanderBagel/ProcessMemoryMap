@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
-//  * Version   : 1.2.17
+//  * Version   : 1.2.18
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,6 +38,7 @@ uses
   uDumpDisplayUtils;
 
 type
+  TDumpFunc = reference to function (Process: THandle; Address: Pointer): string;
   TdlgRegionProps = class(TForm)
     edProperties: TRichEdit;
     mnuPopup: TPopupMenu;
@@ -70,7 +71,8 @@ type
     ShowAsDisassembly: Boolean;
     KnownHint: TKnownHint;
     DAsmMode: TDasmMode;
-    procedure Add(const Value: string);
+    procedure Add(const Value: string); overload;
+    procedure Add(AFunc: TDumpFunc; Process: THandle; Address: Pointer); overload;
     procedure StartQuery(Value: Pointer);
     procedure ShowInfoFromMBI(Process: THandle;
       MBI: TMemoryBasicInformation; Address: Pointer);
@@ -94,6 +96,22 @@ const
 {$R *.dfm}
 
 { TdlgRegionProps }
+
+procedure TdlgRegionProps.Add(AFunc: TDumpFunc;
+  Process: THandle; Address: Pointer);
+var
+  Value: string;
+begin
+  try
+    Value := AFunc(Process, Address);
+  except
+    on E: EAbort do
+      Value := Value + '...no more data';
+    on E: Exception do
+      Value := Value + sLineBreak + E.ClassName + ': ' + E.Message;
+  end;
+  edProperties.Lines.Add(Value);
+end;
 
 procedure TdlgRegionProps.Add(const Value: string);
 begin
@@ -281,24 +299,24 @@ const
       tiTEB:
       begin
         {$IFDEF WIN32}
-        Add(DumpThread32(Process, Value));
+        Add(DumpThread32, Process, Value);
         {$ELSE}
         if Use32AddrMode then
-          Add(DumpThread32(Process, Value))
+          Add(DumpThread32, Process, Value)
         else
-          Add(DumpThread64(Process, Value));
+          Add(DumpThread64 ,Process, Value);
         {$ENDIF}
         Result := True;
       end;
       tiOleTlsData:
       begin
         {$IFDEF WIN32}
-        Add(DumpOleTlsData32(Process, Value, False));
+        Add(DumpOleTlsData32, Process, Value);
         {$ELSE}
         if Use32AddrMode then
-          Add(DumpOleTlsData32(Process, Value, True))
+          Add(DumpOleTlsData32, Process, Value)
         else
-          Add(DumpOleTlsData64(Process, Value));
+          Add(DumpOleTlsData64, Process, Value);
         {$ENDIF}
         Result := True;
       end;
@@ -345,7 +363,7 @@ begin
 
       if Value = KUSER_SHARED_DATA_ADDR then
       begin
-        Add(DumpKUserSharedData(Process, Value));
+        Add(DumpKUserSharedData, Process, Value);
         Caption := Caption + ' KUSER_SHARED_DATA';
         Exit;
       end;
@@ -353,7 +371,7 @@ begin
       {$IFDEF WIN64}
       if Value = MemoryMapCore.PebWow64BaseAddress then
       begin
-        Add(DumpPEB32(Process, Value));
+        Add(DumpPEB32, Process, Value);
         Caption := Caption + ' PebWow64';
         Exit;
       end;
@@ -362,10 +380,10 @@ begin
       if Value = MemoryMapCore.PebBaseAddress then
       begin
         {$IFDEF WIN32}
-        Add(DumpPEB32(Process, Value));
+        Add(DumpPEB32 ,Process, Value);
         Caption := Caption + ' Peb32';
         {$ELSE}
-        Add(DumpPEB64(Process, Value));
+        Add(DumpPEB64, Process, Value);
         Caption := Caption + ' Peb64';
         {$ENDIF}
         Exit;
@@ -373,7 +391,7 @@ begin
 
       if CheckPEImage(Process, Value) then
       begin
-        Add(DumpPEHeader(Process, Value));
+        Add(DumpPEHeader, Process, Value);
         Exit;
       end;
 
@@ -405,7 +423,7 @@ begin
       {$IFDEF WIN64}
       if Value = Pointer(MemoryMapCore.PEBWow64.ProcessParameters) then
       begin
-        Add(DumpProcessParameters32(Process, Value));
+        Add(DumpProcessParameters32, Process, Value);
         Caption := Caption + ' ProcessParameters32';
         Exit;
       end;
@@ -414,16 +432,16 @@ begin
       if Value = MemoryMapCore.PEB.ProcessParameters then
       begin
         {$IFDEF WIN32}
-        Add(DumpProcessParameters32(Process, Value));
+        Add(DumpProcessParameters32, Process, Value);
         Caption := Caption + ' ProcessParameters32';
         {$ELSE}
-        Add(DumpProcessParameters64(Process, Value));
+        Add(DumpProcessParameters64, Process, Value);
         Caption := Caption + ' ProcessParameters64';
         {$ENDIF}
         Exit;
       end;
 
-      Add(DumpMemory(Process, Value));
+      Add(DumpMemory, Process, Value);
     finally
       edProperties.SelStart := 0;
       if Settings.SuspendProcess then

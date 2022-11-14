@@ -5,8 +5,8 @@
 //  * Unit Name : uUtils.pas
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.01
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
+//  * Version   : 1.2.18
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -48,7 +48,6 @@ type
   procedure ShowErrorHint(AHandle: THandle);
   function CRC32(RawBuff: TMemoryDump): DWORD;
   function HexValueToInt64(Value: string; out HexValue: Int64): Boolean;
-  function GetExportString(const ExpData: TSymbolData): string;
 
 type
   TReadCondition = (
@@ -410,25 +409,6 @@ begin
     Result := TryStrToInt64(Value, HexValue)
   else
     Result := TryStrToInt64('$' + Value, HexValue);
-end;
-
-function GetExportString(const ExpData: TSymbolData): string;
-var
-  Module: TRawPEImage;
-  Index: Integer;
-begin
-  Module := RawScannerCore.Modules.Items[ExpData.Binary.ModuleIndex];
-  Result := Module.ImageName + '!';
-  Index := ExpData.Binary.ListIndex;
-  case ExpData.DataType of
-    sdtExport: Result := Result + Module.ExportList.List[Index].ToString;
-    sdtExportTable:
-      Result := 'exp: ' + Result + Module.ExportList.List[Index].ToString;
-    sdtImportTable:
-      Result := 'imp: ' + Result + Module.ImportList.List[Index].ToString;
-    sdtEntryPoint:
-      Result := Result + Module.EntryPointList.List[Index].EntryPointName;
-  end;
 end;
 
 function OpenProcessWithReconnect: THandle;

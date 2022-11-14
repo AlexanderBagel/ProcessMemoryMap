@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.17
+//  * Version   : 1.2.18
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -28,6 +28,7 @@ uses
   Generics.Collections,
   Classes,
   PsAPI,
+  Math,
   uUtils,
   MemoryMap.Core,
   MemoryMap.Utils,
@@ -35,20 +36,14 @@ uses
   RawScanner.LoaderData,
   RawScanner.ModulesData,
   RawScanner.SymbolStorage,
+  RawScanner.Disassembler,
   distorm,
   mnemonics;
 
-  // описывает IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG
-  {$MESSAGE 'IMAGE_LOAD_CONFIG_DIRECTORY'}
-  
-  // добавить tagSOleTlsData из "E:\Windows Sources\XPSP1\NT\com\ole32\ih\tls.h"
-  // она мапится на TEB::ReservedForOle
-  // подробнее тут https://dennisbabkin.com/blog/?t=things-you-thought-you-knew-how-to-get-com-concurrency-model-for-current-thread
-  
   // Process Parameters (32) под Xp кривой
   // EnvironmentSize в конце соответствует началу блока данных из CurrentDirectory.DosPath = [20290]
 
-  function DumpMemory(Process: THandle; Address: Pointer; nSize: Integer = 0): string;
+  function DumpMemory(Process: THandle; Address: Pointer): string;
   function DumpMemoryFromBuff(Process: THandle; Address: Pointer;
     RawBuff: TMemoryDump; nSize: Integer): string;
   procedure DumpMemoryFromBuffWithCheckRawData(var OutString: string;
@@ -61,10 +56,8 @@ uses
   function DumpKUserSharedData(Process: THandle; Address: Pointer): string;
   function DumpProcessParameters32(Process: THandle; Address: Pointer): string;
   function DumpProcessParameters64(Process: THandle; Address: Pointer): string;
-  function DumpOleTlsData32(Process: THandle; Address: Pointer; IsWow64: Boolean): string;
+  function DumpOleTlsData32(Process: THandle; Address: Pointer): string;
   function DumpOleTlsData64(Process: THandle; Address: Pointer): string;
-//  function DumpLoaderData(Process: THandle; Address: Pointer): string;
-//  function DumpActivationContext(Process: THandle; Address: Pointer; SystemCtx: Boolean): string;
 
 type
   TKnownHint = TDictionary<string, ULONG_PTR>;
@@ -77,6 +70,8 @@ type
   function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
     Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt;
     KnownHint: TKnownHint): string;
+
+  function GetTebHint(Value: ULONG; Is64: Boolean): string;
 
 const
   EmptyHeader =
@@ -161,6 +156,8 @@ const
     '-------------------------------- ACTIVATION_CONTEXT_STRING_SECTION_ENTRY ---------------------------------';
   IMAGE_EXPORT_DIRECTORY_STR =
     '---------------------------------------- IMAGE_EXPORT_DIRECTORY ------------------------------------------';
+  IMAGE_IMPORT_DESCRIPTOR_STR =
+    '--------------------------------------- IMAGE_IMPORT_DESCRIPTOR ------------------------------------------';
 
 type
   TDataType = (dtByte, dtWord, dtDword,
@@ -168,6 +165,23 @@ type
     dtUnicodeString64);
 
   Pointer32 = DWORD;
+
+function MakeHeader(const Value: string): string;
+const
+  Space = ' ';
+  Line = '-';
+  LineWidth = 106;
+var
+  LeftLine, Header, RightLine: Integer;
+begin
+  Header := Length(Value) + 2;
+  LeftLine := (LineWidth - Header) div 2;
+  RightLine := LineWidth - LeftLine - Header;
+  Result :=
+    StringOfChar(Line, LeftLine) +
+    Space + Value + Space +
+    StringOfChar(Line, RightLine);
+end;
 
 function GET_WString(w: _WString): string;
 begin
@@ -216,18 +230,18 @@ begin
   I := 0;
   Octets := Base;
   PartOctets := 0;
-  Result := '';
+  Result := EmptyStr;
   CommentAdded := False;
   while I < Len do
   begin
     case PartOctets of
-      0: Result := Result + UInt64ToStr(Octets) + ' ';
+      0: Result := Result + UInt64ToStr(Octets) + ': ';
       9: Result := Result + '| ';
       18:
       begin
         Inc(Octets, 16);
         PartOctets := -1;
-        if Comment <> '' then
+        if Comment <> EmptyStr then
         begin
           if CommentAdded then
             Result := Result + sLineBreak
@@ -239,7 +253,7 @@ begin
         end
         else
           Result := Result + '    ' + DumpData + sLineBreak;
-        DumpData := '';
+        DumpData := EmptyStr;
       end;
     else
       begin
@@ -258,7 +272,7 @@ begin
     PartOctets := (16 - Length(DumpData)) * 3;
     if PartOctets >= 24 then Inc(PartOctets, 2);
     Inc(PartOctets, 4);
-    if Comment <> '' then
+    if Comment <> EmptyStr then
     begin
       if not CommentAdded then
         Result := Result + StringOfChar(' ', PartOctets) + Comment;
@@ -268,12 +282,12 @@ begin
   end;
 end;
 
-function AsmToHexStr(Base: NativeUInt; Data: Pointer;
+function AsmToHexStr(Data: Pointer;
   Len: Integer): string;
 var
   I: Integer;
 begin
-  Result := '';
+  Result := EmptyStr;
   for I := 0 to Len - 1 do
     Result := Result + IntToHex(TByteArray(Data^)[I], 2) + ' ';
   Result := Result + StringOfChar(' ', (14 - Len) * 3);
@@ -284,7 +298,7 @@ var
   Line: string;
   sLineBreakOffset, SubCommentOffset: Integer;
 begin
-  if SubComment = '' then
+  if SubComment = EmptyStr then
     OutValue := OutValue + NewString + sLineBreak
   else
   begin
@@ -306,26 +320,51 @@ end;
 
 procedure AddString(var OutValue: string; const NewString: string); overload;
 begin
-  AddString(OutValue, NewString, '');
+  AddString(OutValue, NewString, EmptyStr);
 end;
 
 var
   CurerntAddr: Pointer;
   MaxSize: NativeUInt;
 
-procedure AddString(var OutValue: string; const Comment: string; Address: Pointer;
-  DataType: TDataType; Size: Integer; var Cursor: NativeUInt;
-  const SubComment: string = ''); overload;
+// не вызывать напрямую - делать обертки
+procedure InternalAddString(
+  Address: PByte;
+  RvaRecalculate: ULONG64;
+  DataType: TDataType;
+  Size: Integer;
+  var Cursor: NativeUInt;
+  const Comment: string;
+  const SubComment: string;
+  var OutValue: string);
 var
   UString: string;
   AString: AnsiString;
 begin
-  UString := '';
+  // для известных типов отсечку сделаем здесь
+  // а буфер будем контролировать размером
+  if (DataType <> dtBuff) and (Cursor + Uint(Size) >= MaxSize) then
+    Abort;
+  UString := EmptyStr;
   case DataType of
     dtByte: UString := IntToHex(PByte(Address)^, 1);
     dtWord: UString := IntToHex(PWord(Address)^, 1);
-    dtDword: UString := IntToHex(PDWORD(Address)^, 1);
-    dtInt64: UString := IntToHex(PInt64(Address)^, 1);
+    dtDword:
+      if PDWORD(Address)^ <> 0 then
+        UString := IntToHex(PDWORD(Address)^ + RvaRecalculate, 1)
+      else
+      begin
+        UString := '0';
+        RvaRecalculate := 0;
+      end;
+    dtInt64:
+      if PUInt64(Address)^ <> 0 then
+        UString := IntToHex(PUInt64(Address)^ + RvaRecalculate, 1)
+      else
+      begin
+        UString := '0';
+        RvaRecalculate := 0;
+      end;
     dtGUID: UString := GUIDToString(PGUID(Address)^);
     dtString:
     begin
@@ -340,52 +379,76 @@ begin
       UString := '"' + string(PAnsiChar(AString)) + '"';
     end;
   end;
-  if UString = '' then
+  if UString = EmptyStr then
     AddString(OutValue, ByteToHexStr(NativeUInt(CurerntAddr) + Cursor,
-      Address, Size, Comment), SubComment)
+      Address, Min(Size, MaxSize - Cursor), Comment), SubComment)
   else
+  begin
+    if RvaRecalculate <> 0 then
+      UString := ' = [' + UString + ']'
+    else
+      UString := ' = ' + UString;
     AddString(OutValue, ByteToHexStr(NativeUInt(CurerntAddr) + Cursor,
-      Address, Size, Comment + ' = ' + UString), SubComment);
-  Inc(Cursor, Size);
-  if Cursor >= MaxSize then
-    Abort;
+      Address, Min(Size, MaxSize - Cursor), Comment + UString), SubComment);
+  end;
+
+  if Cursor + Uint(Size) >= MaxSize then
+    Abort
+  else
+    Inc(Cursor, Size);
+end;
+
+procedure AddString(var OutValue: string; const Comment: string; Address: Pointer;
+  DataType: TDataType; Size: Integer; var Cursor: NativeUInt; RvaRecalculate: ULONG64;
+  const SubComment: string = ''); overload;
+begin
+  InternalAddString(Address, RvaRecalculate, DataType, Size, Cursor, Comment, SubComment, OutValue);
+end;
+
+procedure AddString(var OutValue: string; const Comment: string; Address: Pointer;
+  DataType: TDataType; Size: Integer; var Cursor: NativeUInt;
+  const SubComment: string = ''); overload;
+begin
+  AddString(OutValue, Comment, Address, DataType, Size, Cursor, 0, SubComment);
+end;
+
+procedure AddString(var OutValue: string; const Comment: string; Address: Pointer;
+  DataType: TDataType; var Cursor: NativeUInt; RvaRecalculate: ULONG64;
+  const SubComment: string = ''); overload;
+begin
+  case DataType of
+    dtByte: AddString(OutValue, Comment, Address, DataType, 1, Cursor, RvaRecalculate, SubComment);
+    dtWord: AddString(OutValue, Comment, Address, DataType, 2, Cursor, RvaRecalculate, SubComment);
+    dtDword: AddString(OutValue, Comment, Address, DataType, 4, Cursor, RvaRecalculate, SubComment);
+    dtInt64: AddString(OutValue, Comment, Address, DataType, 8, Cursor, RvaRecalculate, SubComment);
+    dtGUID: AddString(OutValue, Comment, Address, DataType, 16, Cursor, RvaRecalculate, SubComment);
+    dtUnicodeString32: AddString(OutValue, Comment, Address, DataType, 8, Cursor, RvaRecalculate, SubComment);
+    dtUnicodeString64: AddString(OutValue, Comment, Address, DataType, 16, Cursor, RvaRecalculate, SubComment);
+  end;
 end;
 
 procedure AddString(var OutValue: string; const Comment: string; Address: Pointer;
   DataType: TDataType; var Cursor: NativeUInt;
   const SubComment: string = ''); overload;
 begin
-  case DataType of
-    dtByte: AddString(OutValue, Comment, Address, DataType, 1, Cursor, SubComment);
-    dtWord: AddString(OutValue, Comment, Address, DataType, 2, Cursor, SubComment);
-    dtDword: AddString(OutValue, Comment, Address, DataType, 4, Cursor, SubComment);
-    dtInt64: AddString(OutValue, Comment, Address, DataType, 8, Cursor, SubComment);
-    dtGUID: AddString(OutValue, Comment, Address, DataType, 16, Cursor, SubComment);
-    dtUnicodeString32: AddString(OutValue, Comment, Address, DataType, 8, Cursor, SubComment);
-    dtUnicodeString64: AddString(OutValue, Comment, Address, DataType, 16, Cursor, SubComment);
-  end;
+  AddString(OutValue,Comment, Address, DataType, Cursor, 0, SubComment);
 end;
 
-function DumpMemory(Process: THandle; Address: Pointer; nSize: Integer): string;
+function DumpMemory(Process: THandle; Address: Pointer): string;
 var
   Buff: TMemoryDump;
   RegionSize: NativeUInt;
   Data: TSymbolData;
 begin
-  Result := '';
-  if nSize = 0 then
-  begin
-    MaxSize := 4096;
-    // смотрим, известен ли размер страницы?
-    if SymbolStorage.GetDataAtAddr(UInt64(Address), Data) then
-      case Data.DataType of
-        // если известен, запрашиваем столько, сколько требуется
-        sdtCtxProcess, sdtCtxSystem:
-          MaxSize := Data.Ctx.TotalSize
-      end;
-  end
-  else
-    MaxSize := nSize;
+  Result := EmptyStr;
+  MaxSize := 4096;
+  // смотрим, известен ли размер страницы?
+  if SymbolStorage.GetDataAtAddr(UInt64(Address), Data) then
+    case Data.DataType of
+      // если известен, запрашиваем столько, сколько требуется
+      sdtCtxProcess, sdtCtxSystem:
+        MaxSize := Data.Ctx.TotalSize
+    end;
   SetLength(Buff, MaxSize);
   if not ReadProcessData(Process, Address, @Buff[0],
     MaxSize, RegionSize, rcReadAllwais) then Exit;
@@ -405,7 +468,7 @@ function PebBitFieldToStr(Value: Byte): string;
 
   procedure AddToResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + ', ' + Value;
@@ -426,7 +489,7 @@ function PebTracingFlagsToStr(Value: Byte): string;
 
   procedure AddToResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + ', ' + Value;
@@ -445,7 +508,7 @@ var
   Address: Pointer;
   Size, Dummy: NativeUInt;
 begin
-  Result := '';
+  Result := EmptyStr;
   if Cursor >= MaxSize - 8 then Exit;
   Size := PWord(@Buff[Cursor])^;
   Address := Pointer(PDWORD(@Buff[Cursor + 4])^);
@@ -464,7 +527,7 @@ var
   Address: Pointer;
   Size, Dummy: NativeUInt;
 begin
-  Result := '';
+  Result := EmptyStr;
   if Cursor >= MaxSize - 16 then Exit;
   Size := PDWORD(@Buff[Cursor])^;
   Address := @Buff[Cursor + 8];
@@ -515,18 +578,36 @@ begin
       IntToHex(ULONG_PTR(Data), 1) + '"';
 end;
 
+function ExtractPAnsiChar(Process: THandle; const Buff: TMemoryDump;
+  Cursor, RvaRecalc: NativeUInt): string;
+var
+  Address: Pointer;
+  Size, Dummy: NativeUInt;
+  ByteBuff: array of Byte;
+begin
+  Result := EmptyStr;
+  if Cursor >= MaxSize - 4 then Exit;
+  Address := Pointer(RvaRecalc + PDWORD(@Buff[Cursor])^);
+  Size := MAX_PATH;
+  SetLength(ByteBuff, Size);
+  ReadProcessData(Process, Address, @ByteBuff[0],
+    Size, Dummy, rcReadAllwais);
+  Result := '[' + IntToHex(ULONG_PTR(Address), 1) + '] "' +
+    string(PAnsiChar(@ByteBuff[0])) + '"';
+end;
+
 function CrossProcessFlagsToStr(Value: ULONG): string;
 
   procedure AddToResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + '|' + Value;
   end;
 
 begin
-  Result := '';
+  Result := EmptyStr;
   if Value and 1 <> 0 then AddToResult('ProcessInJob');
   if Value and 2 <> 0 then AddToResult('ProcessInitializing');
   if Value and 4 <> 0 then AddToResult('ProcessUsingVEH');
@@ -539,7 +620,7 @@ var
   Dummy, Cursor: NativeUInt;
   ValueBuff: DWORD;
 begin
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
@@ -689,7 +770,7 @@ var
   RegionSize, Cursor: NativeUInt;
   ValueBuff: DWORD;
 begin
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
@@ -862,6 +943,7 @@ function FileHeaderTimeStampToStr(Value: DWORD): string;
 var
   D: TDateTime;
 begin
+  if Value = 0 then Exit(EmptyStr);
   D := EncodeDateTime(1970, 1, 1, 0, 0, 0, 0);
   D := IncSecond(D, Value);
   Result := DateTimeToStr(D);
@@ -871,14 +953,14 @@ function FileHeaderCharacteristicsToStr(Value: Word): string;
 
   procedure AddResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + '|' + Value;
   end;
 
 begin
-  Result := '';
+  Result := EmptyStr;
   if Value and IMAGE_FILE_RELOCS_STRIPPED <> 0 then
     AddResult('RELOCS_STRIPPED');
   if Value and IMAGE_FILE_EXECUTABLE_IMAGE <> 0 then
@@ -918,7 +1000,7 @@ begin
     IMAGE_NT_OPTIONAL_HDR64_MAGIC: Result := 'IMAGE_NT_OPTIONAL_HDR64_MAGIC';
     IMAGE_ROM_OPTIONAL_HDR_MAGIC: Result := 'IMAGE_ROM_OPTIONAL_HDR_MAGIC';
   else
-    Result := '';
+    Result := EmptyStr;
   end;
 end;
 
@@ -945,14 +1027,14 @@ function SectionCharacteristicsToStr(Value: DWORD): string;
 
   procedure AddResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + '|' + Value;
   end;
 
 begin
-  Result := '';
+  Result := EmptyStr;
   if Value and IMAGE_SCN_CNT_CODE <> 0 then
     AddResult('CNT_CODE');
   if Value and IMAGE_SCN_CNT_INITIALIZED_DATA <> 0 then
@@ -1020,11 +1102,14 @@ var
   Optional32: Boolean;
   I: Integer;
   NumberOfSections: Word;
+  MBI: TMemoryBasicInformation;
+  dwLength: DWORD;
 
   procedure DumpDataDirectory(Index: Integer);
   begin
     AddString(Result, DataDirectoriesName[Index] +
-      ' Directory Address', @Buff[Cursor], dtDword, Cursor);
+      ' Directory Address', @Buff[Cursor], dtDword, Cursor,
+      ULONG64(MBI.AllocationBase));
     AddString(Result, DataDirectoriesName[Index] +
       ' Directory Size', @Buff[Cursor], dtDword, Cursor);
   end;
@@ -1046,13 +1131,16 @@ var
   end;
 
 begin
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
   if not ReadProcessData(Process, Address, @Buff[0],
     MaxSize, RegionSize, rcReadAllwais) then Exit;
   Cursor := 0;
+
+  dwLength := SizeOf(TMemoryBasicInformation);
+  VirtualQueryEx(Process, Address, MBI, dwLength);
 
   // IMAGE_DOS_HEADER
   AddString(Result, PEHeader);
@@ -1118,7 +1206,8 @@ begin
   AddString(Result, 'SizeOfCode', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'SizeOfInitializedData', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'SizeOfUninitializedData', @Buff[Cursor], dtDword, Cursor);
-  AddString(Result, 'AddressOfEntryPoint', @Buff[Cursor], dtDword, Cursor);
+  AddString(Result, 'AddressOfEntryPoint', @Buff[Cursor], dtDword, Cursor,
+    ULONG64(MBI.AllocationBase));
   AddString(Result, 'BaseOfCode', @Buff[Cursor], dtDword, Cursor);
   if Optional32 then
   begin
@@ -1187,7 +1276,7 @@ const
 
   procedure AddResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + '|' + Value;
@@ -1196,7 +1285,7 @@ const
 var
   I: Integer;
 begin
-  Result := '';
+  Result := EmptyStr;
   for I := 0 to 11 do
     if Value and (1 shl I) <> 0 then
       AddResult(SameTebFlags[I]);
@@ -1208,7 +1297,7 @@ var
   RegionSize, Cursor: NativeUInt;
   ValueBuff: DWORD;
 begin
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 8192;
   SetLength(Buff, MaxSize);
@@ -1473,7 +1562,7 @@ var
   RegionSize, Cursor: NativeUInt;
   ValueBuff: DWORD;
 begin
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
@@ -1730,7 +1819,7 @@ begin
     VER_NT_DOMAIN_CONTROLLER: Result := 'VER_NT_DOMAIN_CONTROLLER';
     VER_NT_SERVER: Result := 'VER_NT_SERVER';
   else
-    Result := '';
+    Result := EmptyStr;
   end;
 end;
 
@@ -1793,7 +1882,7 @@ begin
     1: Result := 'NEC98x86';
     2: Result := 'EndAlternatives';
   else
-    Result := '';
+    Result := EmptyStr;
   end;
 end;
 
@@ -1801,14 +1890,14 @@ function MitigationPoliciesToStr(Value: DWORD): string;
 
   procedure AddResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + '|' + Value;
   end;
 
 begin
-  Result := '';
+  Result := EmptyStr;
   (*
     union
     {
@@ -1831,7 +1920,7 @@ function DbgFlagToStr(Value: DWORD): string;
 
   procedure AddResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + '|' + Value;
@@ -1853,7 +1942,7 @@ const
   );
 
 begin
-  Result := '';
+  Result := EmptyStr;
   for var I := 0 to 10 do
     if Value and (1 shl I) <> 0 then
       AddResult(FlagName[I]);
@@ -1866,7 +1955,7 @@ var
   ValueBuff: DWORD;
 begin
   // validated on Windows 11
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
@@ -1994,7 +2083,7 @@ var
   RegionSize, Cursor: NativeUInt;
   I: Integer;
 begin
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
@@ -2070,7 +2159,7 @@ var
   RegionSize, Cursor: NativeUInt;
   I: Integer;
 begin
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
@@ -2156,7 +2245,7 @@ const
 
   procedure AddToResult(const Value: string);
   begin
-    if Result = '' then
+    if Result = EmptyStr then
       Result := Value
     else
       Result := Result + '|' + Value;
@@ -2185,12 +2274,17 @@ begin
 end;
 
 function DumpOleTlsData32(Process: THandle;
-  Address: Pointer; IsWow64: Boolean): string;
+  Address: Pointer): string;
 var
   Buff: TMemoryDump;
   RegionSize, Cursor: NativeUInt;
 begin
-  Result := '';
+
+  // tagSOleTlsData из "E:\Windows Sources\XPSP1\NT\com\ole32\ih\tls.h"
+  // она мапится на TEB::ReservedForOle
+  // подробнее тут https://dennisbabkin.com/blog/?t=things-you-thought-you-knew-how-to-get-com-concurrency-model-for-current-thread
+
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
@@ -2304,7 +2398,7 @@ var
   Buff: TMemoryDump;
   RegionSize, Cursor: NativeUInt;
 begin
-  Result := '';
+  Result := EmptyStr;
   CurerntAddr := Address;
   MaxSize := 4096;
   SetLength(Buff, MaxSize);
@@ -2397,7 +2491,7 @@ const
   );
 
 begin
-  Result := '';
+  Result := EmptyStr;
   for var I := 0 to 31 do
     if Value and (1 shl I) <> 0 then
       AddResult(FlagName[I]);
@@ -2445,7 +2539,10 @@ begin
         dtDword, Cursor, GetLinkTo32(16));
       AddString(OutString, 'EntryInProgress', @Buff[Cursor], dtDword, Cursor);
       if Len > Cursor then
+      begin
+        AddString(OutString, EmptyHeader);
         AddString(OutString, 'Unknown', @Buff[Cursor], dtBuff, Len - Cursor, Cursor);
+      end;
     end;
     sdtLdrEntry32:
     begin
@@ -2494,7 +2591,10 @@ begin
         dtInt64, Cursor, GetLinkTo64(32));
       AddString(OutString, 'EntryInProgress', @Buff[Cursor], dtInt64, Cursor);
       if Len > Cursor then
+      begin
+        AddString(OutString, EmptyHeader);
         AddString(OutString, 'Unknown', @Buff[Cursor], dtBuff, Len - Cursor, Cursor);
+      end;
     end;
     sdtLdrEntry64:
     begin
@@ -2542,7 +2642,7 @@ procedure DumpActivationContext(
       Inc(Value, UInt64(Address))
     else
       Inc(Value, Data.Ctx.ContextVA);
-    Result := 'jmp to: ' + IntToHex(Value, 1);
+    Result := 'VA: ' + IntToHex(Value, 1);
   end;
 
   procedure ReadCtxString(const Value: string);
@@ -2695,30 +2795,287 @@ begin
   end;
 end;
 
-procedure DumpModulesKnownStruct(
-  var OutString: string; Process: THandle;
-  const Data: TSymbolData; Address: Pointer;
-  Buff: TMemoryDump; var Cursor: NativeUInt);
+procedure DumpModulesKnownStruct(var OutString: string; Process: THandle;
+  const Data: TSymbolData; AllocationBase: ULONG64;
+  const Buff: TMemoryDump; var Cursor: NativeUInt);
+var
+  Len: DWORD;
 begin
   case Data.DataType of
     sdtExportDir:
     begin
-      {$MESSAGE 'Надо придумать вариант пересчета RvaToVA для хинтов, например через ModulesData'}
       AddString(OutString, IMAGE_EXPORT_DIRECTORY_STR);
       AddString(OutString, 'Characteristics', @Buff[Cursor], dtDword, Cursor);
       AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
         FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
       AddString(OutString, 'MajorVersion', @Buff[Cursor], dtWord, Cursor);
       AddString(OutString, 'MinorVersion', @Buff[Cursor], dtWord, Cursor);
-      AddString(OutString, 'Name', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Name', @Buff[Cursor], dtDword, Cursor,
+        ExtractPAnsiChar(Process, Buff, Cursor, AllocationBase));
       AddString(OutString, 'Base', @Buff[Cursor], dtDword, Cursor);
       AddString(OutString, 'NumberOfFunctions', @Buff[Cursor], dtDword, Cursor);
       AddString(OutString, 'NumberOfNames', @Buff[Cursor], dtDword, Cursor);
-      AddString(OutString, 'AddressOfFunctions', @Buff[Cursor], dtDword, Cursor);
-      AddString(OutString, 'AddressOfNames', @Buff[Cursor], dtDword, Cursor);
-      AddString(OutString, 'AddressOfNameOrdinals', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'AddressOfFunctions', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'AddressOfNames', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'AddressOfNameOrdinals', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+    end;
+    sdtImportDescriptor:
+    begin
+      AddString(OutString, IMAGE_IMPORT_DESCRIPTOR_STR);
+      AddString(OutString, 'OriginalFirstThunk', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
+        FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
+      AddString(OutString, 'ForwarderChain', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Name', @Buff[Cursor], dtDword, Cursor,
+        ExtractPAnsiChar(Process, Buff, Cursor, AllocationBase));
+      AddString(OutString, 'FirstThunk', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+    end;
+    sdtDelayedImportDescriptor:
+    begin
+      AddString(OutString, MakeHeader('ImgDelayDescriptor'));
+      AddString(OutString, 'Attributes', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Name', @Buff[Cursor], dtDword, Cursor,
+        ExtractPAnsiChar(Process, Buff, Cursor, AllocationBase));
+      AddString(OutString, 'ModuleInstance', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'IAT', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'INT', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'BoundIAT', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'UnloadIAT', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
+        FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
+    end;
+    sdtLoadConfig32:
+    begin
+      Len := PDWORD(@Buff[Cursor])^;
+      AddString(OutString, MakeHeader('IMAGE_LOAD_CONFIG_DIRECTORY32'));
+      AddString(OutString, 'Size', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
+        FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
+      AddString(OutString, 'MajorVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'MinorVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'GlobalFlagsClear', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'GlobalFlagsSet', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'CriticalSectionDefaultTimeout', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'DeCommitFreeBlockThreshold', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'DeCommitTotalFreeThreshold', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'LockPrefixTable', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'MaximumAllocationSize', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'VirtualMemoryThreshold', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'ProcessHeapFlags', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'ProcessAffinityMask', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'CSDVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'Reserved1', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'EditList', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'SecurityCookie', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'SEHandlerTable', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'SEHandlerCount', @Buff[Cursor], dtDword, Cursor);
+      if Len > Cursor then
+      begin
+        AddString(OutString, EmptyHeader);
+        AddString(OutString, 'Unknown', @Buff[Cursor], dtBuff, Len - Cursor, Cursor);
+      end;
+    end;
+    sdtLoadConfig64:
+    begin
+      Len := PDWORD(@Buff[Cursor])^;
+      AddString(OutString, MakeHeader('IMAGE_LOAD_CONFIG_DIRECTORY64'));
+      AddString(OutString, 'Size', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
+        FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
+      AddString(OutString, 'MajorVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'MinorVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'GlobalFlagsClear', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'GlobalFlagsSet', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'CriticalSectionDefaultTimeout', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'DeCommitFreeBlockThreshold', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'DeCommitTotalFreeThreshold', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'LockPrefixTable', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'MaximumAllocationSize', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'VirtualMemoryThreshold', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'ProcessHeapFlags', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'ProcessAffinityMask', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'CSDVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'Reserved1', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'EditList', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'SecurityCookie', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'SEHandlerTable', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'SEHandlerCount', @Buff[Cursor], dtInt64, Cursor);
+      if Len > Cursor then
+      begin
+        AddString(OutString, EmptyHeader);
+        AddString(OutString, 'Unknown', @Buff[Cursor], dtBuff, Len - Cursor, Cursor);
+      end;
+    end;
+    sdtTLSDir32:
+    begin
+      AddString(OutString, MakeHeader('IMAGE_TLS_DIRECTORY32'));
+      AddString(OutString, 'StartAddressOfRawData', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'EndAddressOfRawData', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'AddressOfIndex', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'AddressOfCallBacks', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'SizeOfZeroFill', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Characteristics', @Buff[Cursor], dtDword, Cursor);
+    end;
+    sdtTLSDir64:
+    begin
+      AddString(OutString, MakeHeader('IMAGE_TLS_DIRECTORY64'));
+      AddString(OutString, 'StartAddressOfRawData', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'EndAddressOfRawData', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'AddressOfIndex', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'AddressOfCallBacks', @Buff[Cursor], dtInt64, Cursor);
+      AddString(OutString, 'SizeOfZeroFill', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Characteristics', @Buff[Cursor], dtDword, Cursor);
     end;
   end;
+end;
+
+function GetSymbolDescription(const ExpData: TSymbolData): string;
+var
+  Module: TRawPEImage;
+  Index: Integer;
+begin
+  Module := RawScannerCore.Modules.Items[ExpData.Binary.ModuleIndex];
+  Result := Module.ImageName + '!';
+  Index := ExpData.Binary.ListIndex;
+  case ExpData.DataType of
+    sdtExport: Result := Result + Module.ExportList.List[Index].ToString;
+    sdtEATAddr:
+      with Module.ExportList.List[Index] do
+        Result := Format('EAT FuncAddr [%d] %s%s', [Ordinal, Result, ToString]);
+    sdtEATName:
+      with Module.ExportList.List[Index] do
+        Result := Format('EAT Name [%d] %s%s', [Ordinal, Result, ToString]);
+    sdtEATOrdinal:
+      with Module.ExportList.List[Index] do
+        Result := Format('EAT Ordinal [%d] %s%s', [Ordinal, Result, ToString]);
+    sdtImportTable, sdtImportTable64:
+      with Module.ImportList.List[Index] do
+        Result := Format('IAT [%d] %s', [Ordinal, ToString]);
+    sdtImportNameTable, sdtImportNameTable64:
+      with Module.ImportList.List[Index] do
+        Result := Format('INT [%d] %s', [Ordinal, ToString]);
+    sdtDelayedImportTable, sdtDelayedImportTable64:
+      with Module.ImportList.List[Index] do
+        Result := Format('DIAT [%d] %s', [Ordinal, ToString]);
+    sdtDelayedImportNameTable, sdtDelayedImportNameTable64:
+      with Module.ImportList.List[Index] do
+        Result := Format('DINT [%d] %s', [Ordinal, ToString]);
+    sdtEntryPoint:
+      Result := Result + Module.EntryPointList.List[Index].EntryPointName;
+    sdtTlsCallback32, sdtTlsCallback64:
+      Result := Format('TLS Callback Entry [%d]', [ExpData.TLS]);
+  end;
+end;
+
+procedure DumpTables(var OutString: string; Address: Pointer;
+  AllocationBase: ULONG64; ptrData: TSymbolData; DataList: TList<TSymbolData>;
+  const Buff: TMemoryDump; var Cursor: NativeUInt);
+var
+  I, ListCount, ItemSize: Integer;
+  ItemType: TDataType;
+  UnknownSize, RvaRecalc: ULONG64;
+  IsZeroBuff: Boolean;
+begin
+  // Ищем конец таблицы соответствующий переданому типу элемента
+  ListCount := 1;
+  for I := 0 to DataList.Count - 1 do
+    if DataList.List[I].DataType <> ptrData.DataType then
+      Break
+    else
+      Inc(ListCount);
+
+  // заголовок
+  RvaRecalc := 0;
+  case ptrData.DataType of
+    sdtImportTable, sdtImportTable64:
+      AddString(OutString, MakeHeader('Import Address Table (IAT)'));
+    sdtDelayedImportTable, sdtDelayedImportTable64:
+      AddString(OutString, MakeHeader('Delayed Import Address Table (DIAT)'));
+    sdtImportNameTable, sdtImportNameTable64:
+    begin
+      AddString(OutString, MakeHeader('Import Name Table (INT)'));
+      RvaRecalc := AllocationBase;
+    end;
+    sdtDelayedImportNameTable, sdtDelayedImportNameTable64:
+      AddString(OutString, MakeHeader('Delayed Import Name Table (DINT)'));
+    sdtEATAddr:
+    begin
+      AddString(OutString, MakeHeader('EAT AddressOfFunctions Array'));
+      RvaRecalc := AllocationBase;
+    end;
+    sdtEATName:
+    begin
+      AddString(OutString, MakeHeader('EAT AddressOfNames Array'));
+      RvaRecalc := AllocationBase;
+    end;
+    sdtEATOrdinal:
+      AddString(OutString, MakeHeader('EAT AddressOfNameOrdinals Array'));
+    sdtTlsCallback32, sdtTlsCallback64:
+      AddString(OutString, MakeHeader('Thread Local Storage Callback Array'));
+  end;
+
+  // размер элемента
+  case ptrData.DataType of
+    sdtEATOrdinal:
+      ItemType := dtWord;
+    sdtImportTable64, sdtImportNameTable64,
+    sdtTlsCallback64, sdtDelayedImportTable64,
+    sdtDelayedImportNameTable64:
+      ItemType := dtInt64;
+  else
+    ItemType := dtDword;
+  end;
+  ItemSize := 1 shl Byte(ItemType);
+
+  // вывод табличных данных
+  repeat
+
+    // конкретно у таблицы имен отложеного испорта запись может идти без
+    // указания на структуру, просто ввиде ординала, в этом случае
+    // не нжно делать преобразование в RVA, а нужно выводить как есть.
+    if ptrData.DataType in [sdtDelayedImportNameTable, sdtDelayedImportNameTable64] then
+    begin
+      if ptrData.Binary.DelayedNameEmpty then
+        RvaRecalc := 0
+      else
+        RvaRecalc := AllocationBase;
+    end;
+
+    AddString(OutString, GetSymbolDescription(ptrData),
+      @Buff[Cursor], ItemType, Cursor, RvaRecalc);
+
+    Dec(ListCount);
+    if ListCount = 0 then Exit;
+    ptrData := DataList.List[0];
+
+    // детект разрывов в списке данных
+    UnknownSize := ptrData.AddrVA - (ULONG_PTR(Address) + Cursor);
+    if UnknownSize > 0 then
+    begin
+      if UnknownSize <> ItemSize then
+        Exit;
+
+      // разделители в списке могут быть только у таблиц импорта
+      case ptrData.DataType of
+        sdtImportTable, sdtImportNameTable,
+        sdtDelayedImportTable, sdtDelayedImportNameTable:
+          IsZeroBuff := PDWORD(@Buff[Cursor])^ = 0;
+        sdtImportTable64, sdtImportNameTable64,
+        sdtDelayedImportTable64, sdtDelayedImportNameTable64:
+          IsZeroBuff := PInt64(@Buff[Cursor])^ = 0;
+      else
+        Exit;
+      end;
+
+      if IsZeroBuff then
+      begin
+        AddString(OutString, EmptyStr, @Buff[Cursor], dtBuff, ItemSize, Cursor);
+        AddString(OutString, EmptyStr);
+      end;
+    end;
+
+    DataList.Delete(0);
+  until ListCount = 0;
 end;
 
 procedure DumpMemoryFromBuffWithCheckRawData(var OutString: string;
@@ -2729,8 +3086,13 @@ var
   ptrData: TSymbolData;
   FuncName: string;
   SkipHeader: Boolean;
+  dwLength: DWORD;
+  MBI: TMemoryBasicInformation;
 begin
   MaxSize := Length(RawBuff);
+
+  dwLength := SizeOf(TMemoryBasicInformation);
+  VirtualQueryEx(Process, Address, MBI, dwLength);
 
   // проверка всех известных данных, полученых от RawScanner-а
   SkipHeader := False;
@@ -2741,7 +3103,7 @@ begin
     DataList.Delete(0);
 
     // проверка рассинхронизации (на всякий случай)
-    if ptrData.AddrVA < Cursor then
+    if ptrData.AddrVA < ULONG_PTR(Address) + Cursor then
       Continue;
 
     // первым делом заполняем неизвестные области памяти дампом
@@ -2757,28 +3119,29 @@ begin
     SkipHeader := False;
 
     // дальше вызываем обработчик под каждый конкретный тип блока
-    try
-      case ptrData.DataType of
-        sdtLdrData32..sdtLdrEntry64:
-          DumpLoaderData(OutString, Process, ptrData.DataType, Address, RawBuff, Cursor);
-        sdtCtxProcess..sdtCtxStrSecEntry:
-          DumpActivationContext(OutString, Process, ptrData, Address, RawBuff, Cursor);
-        sdtExport..sdtEntryPoint:
-        begin
-          FuncName := GetExportString(ptrData);
-          if OutString = EmptyStr then
-            AddString(OutString, MemoryDumpHeader)
-          else
-            FuncName := FuncName + ' ' + StringOfChar('-', 105 - Length(FuncName));
-          AddString(OutString, FuncName);
-          SkipHeader := True;
-        end;
-        sdtExportDir:
-          DumpModulesKnownStruct(OutString, Process, ptrData, Address, RawBuff, Cursor);
+    case ptrData.DataType of
+      sdtLdrData32..sdtLdrEntry64:
+        DumpLoaderData(OutString, Process, ptrData.DataType, Address, RawBuff, Cursor);
+      sdtCtxProcess..sdtCtxStrSecEntry:
+        DumpActivationContext(OutString, Process, ptrData, Address, RawBuff, Cursor);
+      sdtExport, sdtEntryPoint:
+      begin
+        FuncName := GetSymbolDescription(ptrData);
+        if OutString = EmptyStr then
+          AddString(OutString, MemoryDumpHeader)
+        else
+          FuncName := FuncName + ' ' + StringOfChar('-', 105 - Length(FuncName));
+        AddString(OutString, FuncName);
+        // имя экспортируемой функции или точки входа просто заменяет заголовок
+        // поэтому нужно выставить флаг о том что заголовок уже добавлен
+        SkipHeader := True;
       end;
-    except
-      on E: EAbort do  // вывод структуры может попасть в конец страницы
-        OutString := OutString + '...no more data';
+      sdtEATAddr..sdtTlsCallback64:
+        DumpTables(OutString, Address, ULONG64(MBI.AllocationBase),
+          ptrData, DataList, RawBuff, Cursor);
+      sdtExportDir..sdtTLSDir64:
+        DumpModulesKnownStruct(OutString, Process, ptrData,
+          ULONG64(MBI.AllocationBase), RawBuff, Cursor);
     end;
   end;
 
@@ -2802,7 +3165,7 @@ var
   dwLength: DWORD;
   MBI: TMemoryBasicInformation;
 begin
-  Result := '';
+  Result := EmptyStr;
   if nSize = 0 then
     Size := 4096
   else
@@ -2824,80 +3187,23 @@ begin
     Dasm64Mode := True;
   end;
 
-  Result :=
-    DisassemblyFromBuff(Process, Buff,
-      Address, MBI.AllocationBase, Dasm64Mode, Size, KnownHint);
+  try
+    Result :=
+      DisassemblyFromBuff(Process, Buff,
+        Address, MBI.AllocationBase, Dasm64Mode, Size, KnownHint);
+  except
+    on E: Exception do
+      Result := Result + sLineBreak + E.ClassName + ': ' + E.Message;
+  end;
 end;
 
 function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
   Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt;
   KnownHint: TKnownHint): string;
+const
+  DelimiterSet = [itNop, itInt, itRet, itUndefined, itPrivileged];
 
-  function HexUpperCase(const Value: string): string;
-  begin
-    Result := UpperCase(Value);
-    Result := StringReplace(Result, '0X', '0x', [rfReplaceAll]);
-  end;
-
-type
-  TInsructionType = (itOther, itNop, itInt, itRet, itCall,
-    itJmp, itMov, itUndefined, itBreak);
-  TCallType = (ctUnknown, ctAddress, ctRipOffset, ctPointer4, ctPointer8);
-
-var
-  AddrMask: UInt64;
-
-  function GetInstructionType(Value: TDInst): TInsructionType;
-  begin
-    Result := itOther;
-    case _InstructionType(Value.opcode) of
-      I_NOP, I_FNOP: Result := itNop;
-      I_INT, I_INT1, I_INT3, I_INTO, I_IN, I_OUT: Result := itInt;
-      I_RET, I_RETF, I_IRET: Result := itRet;
-      I_CALL, I_CALL_FAR: Result := itCall;
-      I_JA, I_JAE, I_JB, I_JBE, I_JCXZ, I_JECXZ, I_JG, I_JGE,
-      I_JL, I_JLE, I_JMP, I_JMP_FAR, I_JNO, I_JNP, I_JNS, I_JNZ,
-      I_JO, I_JP, I_JRCXZ, I_JS, I_JZ: Result := itJmp;
-      I_MOV: Result := itMov;
-      I_UNDEFINED: Result := itUndefined;
-      I_RDMSR, I_WRMSR, I_CLI, I_STI, I_HLT:
-        Result := itBreak;
-    end;
-  end;
-
-  function GetCallType(Inst: TDInst; out Address: Int64): TCallType;
-  var
-    I: Integer;
-  begin
-    Result := ctUnknown;
-    I := Inst.opsNo;
-    while I >= 0  do
-    begin
-      case _OperandType(Inst.ops[I]._type) of
-        O_PC:
-        begin
-          {$OVERFLOWCHECKS OFF}
-          Address := Int64((Inst.addr + Inst.size + UInt64(Inst.imm.sqword)) and AddrMask);
-          {$OVERFLOWCHECKS ON}
-          Exit(ctAddress);
-        end;
-        O_DISP, O_SMEM:
-        begin
-          Address := Int64(Inst.disp and AddrMask);
-          if Inst.flags and FLAG_RIP_RELATIVE <> 0 then
-            Exit(ctRipOffset)
-          else
-            case Inst.dispSize of
-              64: Exit(ctPointer8);
-              32: Exit(ctPointer4);
-            end;
-        end;
-      end;
-      Dec(I);
-    end;
-  end;
-
-  function GetCallHint(const Operands: string; CallAddr: Int64): string;
+  function GetCallHint(AddrVa: ULONG_PTR): string;
   var
     MBI: TMemoryBasicInformation;
     dwLength: Cardinal;
@@ -2906,30 +3212,18 @@ var
     ExpData: TSymbolData;
   begin
     Result := EmptyStr;
-    if CallAddr <> 0 then
+    if AddrVa <> 0 then
     begin
-      if Operands = EmptyStr then
-        HexAddr := EmptyStr
-      else
-      begin
-        {$MESSAGE 'Помоему это не правильно и не тут должно быть а в RIP + Pointer only!!!'}
-        HexAddr := IntToHex(CallAddr, 2);
-        if Pos(HexAddr, Operands) = 0 then
-          HexAddr := '(0x' + HexAddr + ')'
-        else
-          HexAddr := EmptyStr;
-      end;
-
-      Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(CallAddr));
+      Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(AddrVa));
       if Result = EmptyStr then
       begin
-        if SymbolStorage.GetExportAtAddr(ULONG_PTR(CallAddr), True, ExpData) then
-          Result := GetExportString(ExpData)
+        if SymbolStorage.GetExportAtAddr(ULONG_PTR(AddrVa), True, ExpData) then
+          Result := GetSymbolDescription(ExpData)
         else
         begin
           dwLength := SizeOf(TMemoryBasicInformation);
           if VirtualQueryEx(Process,
-             Pointer(CallAddr), MBI, dwLength) <> dwLength then Exit;
+             Pointer(AddrVa), MBI, dwLength) <> dwLength then Exit;
           if AllocationBase <> MBI.AllocationBase then
           begin
             if not CheckPEImage(Process, MBI.AllocationBase) then Exit;
@@ -2937,158 +3231,168 @@ var
               @OwnerName[0], MAX_PATH) = 0 then Exit;
             Path := NormalizePath(string(OwnerName));
             Result := ExtractFileName(Path) + '+' +
-              IntToHex(ULONG_PTR(CallAddr) - ULONG_PTR(MBI.AllocationBase), 1);
+              IntToHex(ULONG_PTR(AddrVa) - ULONG_PTR(MBI.AllocationBase), 1);
           end;
         end;
       end;
 
       if (Result <> EmptyStr) and Assigned(KnownHint) then
-        KnownHint.AddOrSetValue(Result, CallAddr);
+        KnownHint.AddOrSetValue(Result, AddrVa);
 
       if Result <> EmptyStr then
-        Result := ' // ' + Result;
+        Result := ' ; ' + Result;
       Result := HexAddr + Result;
     end;
   end;
 
 var
-  Cursor: NativeUInt;
+  Disassembler: TDisassembler;
+  inst: TInstructionArray;
+  LastInsruction: TInstructionType;
   I: Integer;
-  ci: TCodeInfo;
-  DecodedInst: array [0..14] of TDInst;
-  usedInstructionsCount: UInt32;
-  decodedInstruction: TDecodedInst;
-  Line, mnemonic, operands, HintStr, OffsetStr: string;
-  LastInsruction, CurrentInstruction: TInsructionType;
-  CallType: TCallType;
-  CallAddr: Int64;
-  OffsetAddr: Uint64;
-  Size, RegionSize: NativeUInt;
+  HintStr, OffsetStr, Line: string;
   ExpData: TSymbolData;
 begin
-  Result := '';
-  Cursor := 0;
-  LastInsruction := itOther;
+  Disassembler := TDisassembler.Create(Process, ULONG64(Address),
+    nSize, Is64);
+  try
+    inst := Disassembler.DecodeBuff(@RawBuff[0], dmFull);
+  finally
+    Disassembler.Free;
+  end;
+
   AddString(Result, DisasmDumpHeader);
+  LastInsruction := itOther;
 
-    while Cursor < nSize do
-    begin
-      ZeroMemory(@ci, SizeOf(TCodeInfo));
-      ci.codeOffset := UInt64(Address) + Cursor;
-      if Is64 then
+  for I := 0 to Length(inst) - 1 do
+  begin
+
+    OffsetStr := EmptyStr;
+    HintStr := EmptyStr;
+
+    case inst[I].InstType of
+      itOther:
+        if LastInsruction in DelimiterSet then
+          AddString(Result, EmptyStr);
+      itNop:
+        if LastInsruction <> itNop then
+          AddString(Result, EmptyStr);
+      itInt:
+        if LastInsruction <> itInt then
+          AddString(Result, EmptyStr);
+      itUndefined, itPrivileged:
+        if LastInsruction <> itUndefined then
+          AddString(Result, EmptyStr);
+      itCall, itJmp, itMov, itPush:
       begin
-        AddrMask := UInt64(-1);
-        ci.dt := Decode64Bits;
-      end
-      else
-      begin
-        AddrMask := UInt32(-1);
-        ci.dt := Decode32Bits;
-      end;
-      ci.addrMask := AddrMask;
-      ci.code := @RawBuff[Cursor];
-      ci.features := DF_USE_ADDR_MASK;
-      ci.codeLen := nSize - Cursor;
+        if LastInsruction in DelimiterSet then
+          AddString(Result, EmptyStr);
 
-      if distorm_decompose(
-        @ci, @DecodedInst[0], 15, @usedInstructionsCount) = DECRES_INPUTERR then
-      begin
-        AddString(Result, 'Disassembly input error. Halting!', EmptyStr);
-        Break;
-      end;
-
-      for I := 0 to usedInstructionsCount - 1 do
-      begin
-
-        distorm_format(@ci, @DecodedInst[I], @decodedInstruction);
-        mnemonic := HexUpperCase(GET_WString(decodedInstruction.mnemonic));
-        operands :=  HexUpperCase(GET_WString(decodedInstruction.operands));
-        CurrentInstruction := GetInstructionType(DecodedInst[I]);
-        HintStr := EmptyStr;
-        OffsetStr := EmptyStr;
-        CallType := ctUnknown;
-        case CurrentInstruction of
-          itOther:
-            if LastInsruction in [itNop, itInt, itRet, itUndefined, itBreak] then
-              AddString(Result, '');
-          itNop:
-            if LastInsruction in [itOther, itInt, itRet, itCall, itJmp, itUndefined, itBreak] then
-              AddString(Result, '');
-          itInt:
-            if LastInsruction in [itOther, itNop, itRet, itCall, itJmp, itUndefined, itBreak] then
-              AddString(Result, '');
-          itUndefined, itBreak:
-            if LastInsruction in [itOther, itNop, itRet, itCall, itJmp] then
-              AddString(Result, '');
-          itCall, itJmp, itMov:
-          begin
-            if LastInsruction in [itNop, itInt, itRet, itUndefined, itBreak] then
-              AddString(Result, '');
-            CallType := GetCallType(DecodedInst[I], CallAddr);
-            case CallType of
-              ctAddress: HintStr := GetCallHint(operands, CallAddr);
-              ctRipOffset:
-              begin
-                {$OVERFLOWCHECKS OFF}
-                OffsetAddr :=
-                  DecodedInst[I].addr +
-                  DecodedInst[I].size + NativeUInt(CallAddr);
-                {$OVERFLOWCHECKS ON}
-                Size := 8;
-                OffsetStr := '(0x' + IntToHex(OffsetAddr, 1) + ')';
-                if ReadProcessData(Process, Pointer(OffsetAddr), @CallAddr,
-                  Size, RegionSize, rcReadAllwais) then
-                  HintStr := HintStr + GetCallHint(EmptyStr, CallAddr);
-              end;
-              ctPointer4, ctPointer8:
-              begin
-                if CallType = ctPointer4 then
-                  Size := 4
-                else
-                  Size := 8;
-                if ReadProcessData(Process, Pointer(CallAddr), @CallAddr,
-                  Size, RegionSize, rcReadAllwais) then
-                  HintStr := GetCallHint(operands, CallAddr);
-              end;
-            end;
-          end;
-        end;
-        LastInsruction := CurrentInstruction;
-
-        // детект начала функции
-        Line := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(Address) + Cursor);
-        if Line = EmptyStr then
-          if SymbolStorage.GetExportAtAddr(ULONG_PTR(Address) + Cursor, True, ExpData) then
-            Line := GetExportString(ExpData);
-        if Line <> EmptyStr then
+        if inst[I].AddrType in [atRipOffset..atPointer8] then
         begin
-          if Cursor <> 0 then
-            Line := Line + ' ' + StringOfChar('-', 105 - Length(Line));
-          AddString(Result, Line);
+          if inst[I].AddrType = atRipOffset then
+            OffsetStr := IntToHex(inst[I].RipAddrVA, 1)
+          else
+            OffsetStr := IntToHex(inst[I].JmpAddrVa, 1);
+
+          if Pos(OffsetStr, inst[I].DecodedString) = 0 then
+            OffsetStr := '-> 0x' + OffsetStr
+          else
+            OffsetStr := EmptyStr;
         end;
 
-        if (HintStr = EmptyStr) and (CallType = ctRipOffset) then
-          HintStr := ' // 0x' + IntToHex(CallAddr, 8)
+        case inst[I].AddrType of
+          atUnknown: ;
+          atSegment:
+            HintStr := GetTebHint(inst[I].JmpAddrVa, Is64);
         else
-          // segments
-          if not SEGMENT_IS_DEFAULT_OR_NONE(DecodedInst[I].segment) then
-            case _RegisterType(SEGMENT_GET(DecodedInst[I].segment)) of
-              R_FS: if not Is64 then HintStr := ' // _TEB';
-              R_GS: if Is64 then HintStr := ' // _TEB';
-            end;
-
-        AddString(Result,
-          Format('%s: %s %s %s %s', [
-            IntToHex(decodedInstruction.offset, 8),
-            AsmToHexStr(ULONG_PTR(Address) + Cursor, @RawBuff[Cursor], decodedInstruction.size),
-            mnemonic,
-            operands,
-            OffsetStr + HintStr
-          ]));
-        Inc(Cursor, DecodedInst[I].size);
+          HintStr := GetCallHint(inst[I].JmpAddrVa)
+        end;
       end;
 
     end;
+
+    LastInsruction := inst[I].InstType;
+
+    // детект начала функции
+    Line := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(inst[I].AddrVa);
+    if Line = EmptyStr then
+      if SymbolStorage.GetExportAtAddr(inst[I].AddrVa, True, ExpData) then
+        Line := GetSymbolDescription(ExpData);
+    if Line <> EmptyStr then
+    begin
+      if I > 0 then
+        Line := Line + ' ' + StringOfChar('-', 105 - Length(Line));
+      AddString(Result, Line);
+    end;
+
+    AddString(Result,
+      Format('%s: %s %s %s', [
+        IntToHex(inst[I].AddrVa, 8),
+        AsmToHexStr(@inst[I].Opcodes[0], inst[I].OpcodesLen),
+        inst[I].DecodedString,
+        OffsetStr + HintStr
+      ]));
+
+  end;
+end;
+
+function GetTebHint(Value: ULONG; Is64: Boolean): string;
+const
+  StrData: array [0..23] of string = (
+    'ExceptionList',
+    'StackBase',
+    'StackLimit',
+    'SubSystemTib',
+    'FiberData',
+    'ArbitraryUserPointer',
+    'Self',
+    'EnvironmentPointer',
+    'ClientId.UniqueProcess',
+    'ClientId.UniqueThread',
+    'ActiveRpcHandle',
+    'ThreadLocalStoragePointer',
+    'ProcessEnvironmentBlock',
+    'LastErrorValue',
+    'CountOfOwnedCriticalSections',
+    'CsrClientThread',
+    'Win32ThreadInfo',
+    'User32Reserved',
+    'UserReserved',
+    'WOW32Reserved',
+    'CurrentLocale',
+    'FpSoftwareStatusRegister',
+    'SystemReserved1',
+    'ExceptionCode'
+  );
+
+  Teb32Offs: array [0..23] of ULONG = (
+    $000, $004, $008, $00C, $010, $014, $018, $01C, $020, $024, $028, $02C,
+    $030, $034, $038, $03C, $040, $044, $0AC, $0C0, $0C4, $0C8, $0CC, $1A4);
+
+  Teb64Offs: array [0..23] of ULONG = (
+    $0000, $0008, $0010, $0018, $0020, $0028, $0030, $0038, $0040, $0048,
+    $0050, $0058, $0060, $0068, $006C, $0070, $0078, $0080, $00E8, $0100,
+    $0108, $010C, $0110, $02C0);
+
+var
+  I: Integer;
+  TebOffset: ULONG;
+begin
+  Result := EmptyStr;
+  for I := 0 to 23 do
+  begin
+    TebOffset := IfThen(Is64, Teb64Offs[I], Teb32Offs[I]);
+    if TebOffset = Value then
+    begin
+      Result := StrData[I];
+      Break;
+    end;
+  end;
+  if Result = EmptyStr then
+    Result := ' ; _TEB ???'
+  else
+    Result := ' ; _TEB->' + Result;
 end;
 
 end.

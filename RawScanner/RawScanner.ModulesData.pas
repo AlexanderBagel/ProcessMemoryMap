@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.1
+//  * Version   : 1.0.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -44,6 +44,7 @@ type
   // Информация о записи в таблице импорта полученая из RAW модуля
   TImportChunk = record
     Delayed: Boolean;
+    OrigLibraryName,
     LibraryName,
     FuncName: string;
     Ordinal: Word;
@@ -132,6 +133,8 @@ type
     function DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
     function GetSectionData(RvaAddr: DWORD; var Data: TSectionData): Boolean;
     procedure InitDirectories;
+    procedure InternalProcessApiSetRedirect(
+      const LibName: string; var RedirectTo: string);
     function IsExportForvarded(RvaAddr: DWORD): Boolean;
     function IsExecutable(RvaAddr: DWORD): Boolean;
     procedure LoadFromImage;
@@ -145,7 +148,9 @@ type
     function LoadStrings(Raw: TStream): Boolean;
     function LoadTLS(Raw: TStream): Boolean;
     procedure ProcessApiSetRedirect(const LibName: string;
-      var RedirectTo: string);
+      var ImportChunk: TImportChunk); overload;
+    procedure ProcessApiSetRedirect(const LibName: string;
+      var ExportChunk: TExportChunk); overload;
     function RvaToRaw(RvaAddr: DWORD): DWORD;
     function RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
     function VaToRaw(VaAddr: ULONG_PTR64): DWORD;
@@ -196,7 +201,7 @@ type
     destructor Destroy; override;
     function AddImage(const AModule: TModuleData): Integer;
     procedure Clear;
-    function GetModule(ImageBase: ULONG_PTR64): Integer;
+    function GetModule(AddrVa: ULONG_PTR64): Integer;
     function GetProcData(const LibraryName, FuncName: string; Is64: Boolean;
       var ProcData: TExportChunk; CheckAddrVA: ULONG_PTR64): Boolean; overload;
     function GetProcData(const LibraryName: string; Ordinal: Word;
@@ -266,6 +271,8 @@ begin
     Result := Result + IntToStr(Ordinal)
   else
     Result := Result + UnDecorateSymbolName(FuncName);
+  if OrigLibraryName <> EmptyStr then
+    Result := OrigLibraryName + Arrow + Result;
 end;
 
 { TExportChunk }
@@ -276,8 +283,10 @@ begin
     Result := '#' + IntToStr(Ordinal)
   else
     Result := UnDecorateSymbolName(FuncName);
+  if OriginalForvardedTo <> EmptyStr then
+    Result := Result + Arrow + OriginalForvardedTo;
   if ForvardedTo <> EmptyStr then
-    Result := Result + ' -> ' + ForvardedTo;
+    Result := Result + Arrow + ForvardedTo;
 end;
 
 { TRawPEImage }
@@ -467,7 +476,42 @@ begin
   begin
     FTlsDir.VirtualAddress := RvaToVa(VirtualAddress);
     FTlsDir.Size := Size;
+    if FTlsDir.VirtualAddress <> 0 then
+    begin
+      SymbolData.AddrVA := FTlsDir.VirtualAddress;
+      if Image64 then
+        SymbolData.DataType := sdtTLSDir64
+      else
+        SymbolData.DataType := sdtTLSDir32;
+      SymbolStorage.Add(SymbolData);
+    end;
   end;
+
+  with FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG] do
+  begin
+    if VirtualAddress <> 0 then
+    begin
+      SymbolData.AddrVA := RvaToVa(VirtualAddress);
+      if Image64 then
+        SymbolData.DataType := sdtLoadConfig64
+      else
+        SymbolData.DataType := sdtLoadConfig32;
+      SymbolStorage.Add(SymbolData);
+    end;
+  end;
+end;
+
+procedure TRawPEImage.InternalProcessApiSetRedirect(const LibName: string;
+  var RedirectTo: string);
+var
+  ForvardLibraryName, FuncName: string;
+begin
+  // тут обрабатываем перенаправление системных библиотек через ApiSet
+  if not ParceForvardedLink(RedirectTo, ForvardLibraryName, FuncName) then
+    Exit;
+  ForvardLibraryName := ChangeFileExt(ForvardLibraryName, '');
+  if ApiSetRedirector.SchemaPresent(LibName, ForvardLibraryName) then
+    RedirectTo := ChangeFileExt(ForvardLibraryName, '.') + FuncName;
 end;
 
 function TRawPEImage.IsExecutable(RvaAddr: DWORD): Boolean;
@@ -577,7 +621,7 @@ var
 var
   Index: Integer;
   NextDescriptorRawAddr, LastOffset: Int64;
-  IAT, INT, IntData, OrdinalFlag: UInt64;
+  IAT, INT, IntData, OrdinalFlag, DescVA: UInt64;
   DataSize: Integer;
   ImportChunk: TImportChunk;
   SymbolData: TSymbolData;
@@ -588,7 +632,8 @@ begin
   // Expected: 00007FF8CA254FC8, present: 00007FF8E85C1EB0 --> KernelBase.dll
 
   Result := False;
-  Raw.Position := VaToRaw(DelayImportDirectory.VirtualAddress);
+  DescVA := DelayImportDirectory.VirtualAddress;
+  Raw.Position := VaToRaw(DescVA);
   if Raw.Position = 0 then Exit;
 
   IntData := 0;
@@ -603,6 +648,11 @@ begin
     // запоминаем адрес следующего дексриптора
     NextDescriptorRawAddr := Raw.Position;
 
+    // помещаем адрес дескриптора в символы
+    SymbolData.AddrVA := DescVA;
+    SymbolData.DataType := sdtDelayedImportDescriptor;
+    SymbolStorage.Add(SymbolData);
+
     // вычитываем имя библиотеки импорт из которой описывает дескриптор
     Raw.Position := RvaToRaw(GetRva(DelayDescr.szName));
     if Raw.Position = 0 then
@@ -613,10 +663,10 @@ begin
           NextDescriptorRawAddr - SizeOf(TImgDelayDescr)]));
       Exit;
     end;
-    ImportChunk.LibraryName := ReadString(Raw);
 
     // контроль перенаправления через ApiSet
-    ProcessApiSetRedirect(ImageName, ImportChunk.LibraryName);
+    ImportChunk.OrigLibraryName := ReadString(Raw);
+    ProcessApiSetRedirect(ImageName, ImportChunk);
 
     // VA адрес по которому будет расположен HInstance модуля,
     // из которого идет импорт функции после его инициализации
@@ -693,14 +743,25 @@ begin
 
         // Если данные в дескрипторе отложеного импорта находятся в виде VA,
         // то нужен ребейз значения на текущий инстанс модуля
-        // иначе будет ошибка проверки при неинициализированном отложеном импоре
+        // иначе будет ошибка проверки при неинициализированном отложеном импорте
         if DelayDescr.grAttrs = 0 then
           ImportChunk.DelayedIATData := RvaToVa(GetRva(ImportChunk.DelayedIATData));
 
         SymbolData.AddrVA := ImportChunk.ImportTableVA;
-        SymbolData.DataType := sdtImportTable;
+        if Image64 then
+          SymbolData.DataType := sdtDelayedImportTable64
+        else
+          SymbolData.DataType := sdtDelayedImportTable;
+        SymbolData.Binary.DelayedNameEmpty := IntData and OrdinalFlag <> 0;
         SymbolData.Binary.ModuleIndex := ModuleIndex;
         SymbolData.Binary.ListIndex := FImport.Add(ImportChunk);
+        SymbolStorage.Add(SymbolData);
+
+        SymbolData.AddrVA := RvaToVa(INT);
+        if Image64 then
+          SymbolData.DataType := sdtDelayedImportNameTable64
+        else
+          SymbolData.DataType := sdtDelayedImportNameTable;
         SymbolStorage.Add(SymbolData);
 
         Inc(IAT, DataSize);
@@ -713,10 +774,14 @@ begin
     // переходим к следующему дескриптору
     Raw.Position := NextDescriptorRawAddr;
     Raw.ReadBuffer(DelayDescr, SizeOf(TImgDelayDescr));
+    Inc(DescVA, SizeOf(TImgDelayDescr));
   end;
 end;
 
 function TRawPEImage.LoadExport(Raw: TStream): Boolean;
+const
+  InvalidStr =
+    'Invalid ImageExportDirectory.%s (0x%.1x) in "%s", offset: 0x%.1x';
 var
   I, Index: Integer;
   LastOffset: Int64;
@@ -745,8 +810,8 @@ begin
   if Raw.Position = 0 then
   begin
     RawScannerLogger.Error(llPE,
-      Format('Invalid ImageExportDirectory.Name (0x%.1x) in "%s", offset: 0x%.1x',
-        [ImageExportDirectory.Name, ImagePath, LastOffset]));
+      Format(InvalidStr, ['Name',
+        ImageExportDirectory.Name, ImagePath, LastOffset]));
     Exit;
   end;
   FOriginalName := ReadString(Raw);
@@ -757,8 +822,8 @@ begin
   if Raw.Position = 0 then
   begin
     RawScannerLogger.Error(llPE,
-      Format('Invalid ImageExportDirectory.AddressOfFunctions (0x%.1x) in "%s", offset: 0x%.1x',
-        [ImageExportDirectory.AddressOfFunctions, ImagePath, LastOffset]));
+      Format(InvalidStr, ['AddressOfFunctions',
+        ImageExportDirectory.AddressOfFunctions, ImagePath, LastOffset]));
     Exit;
   end;
   Raw.ReadBuffer(FunctionsAddr[0], ImageExportDirectory.NumberOfFunctions shl 2);
@@ -776,8 +841,8 @@ begin
     if Raw.Position = 0 then
     begin
       RawScannerLogger.Error(llPE,
-        Format('Invalid ImageExportDirectory.AddressOfNames (0x%.1x) in "%s", offset: 0x%.1x',
-          [ImageExportDirectory.AddressOfNames, ImagePath, LastOffset]));
+        Format(InvalidStr, ['AddressOfNames',
+          ImageExportDirectory.AddressOfNames, ImagePath, LastOffset]));
       Exit;
     end;
     Raw.ReadBuffer(NamesAddr[0], ImageExportDirectory.NumberOfNames shl 2);
@@ -789,8 +854,8 @@ begin
     if Raw.Position = 0 then
     begin
       RawScannerLogger.Error(llPE,
-        Format('Invalid ImageExportDirectory.AddressOfNameOrdinals (0x%.1x) in "%s", offset: 0x%.1x',
-          [ImageExportDirectory.AddressOfNameOrdinals, ImagePath, LastOffset]));
+        Format(InvalidStr, ['AddressOfNameOrdinals',
+          ImageExportDirectory.AddressOfNameOrdinals, ImagePath, LastOffset]));
       Exit;
     end;
     Raw.ReadBuffer(Ordinals[0], ImageExportDirectory.NumberOfNames shl 1);
@@ -834,12 +899,11 @@ begin
         Raw.Position := ExportChunk.FuncAddrRaw;
         if Raw.Position = 0 then Continue;
         ExportChunk.OriginalForvardedTo := ReadString(Raw);
-        ExportChunk.ForvardedTo := ExportChunk.OriginalForvardedTo;
 
         // у функций может быть ремап форвардлинков
         // например kernel32.GetModuleFileNameW -> api-ms-win-core-libraryloader-l1-1-0 -> KernelBase
         // такую ситуацию надо обрабатывать через ApiSet
-        ProcessApiSetRedirect(FOriginalName, ExportChunk.ForvardedTo);
+        ProcessApiSetRedirect(FOriginalName, ExportChunk);
       end
       else
       begin
@@ -865,10 +929,22 @@ begin
       // добавляем в общий список для анализа снаружи
       Index := FExport.Add(ExportChunk);
 
-      // Добавляем адрес в таблице в список символов
-      SymbolData.DataType := sdtExportTable;
+      // Добавляем адрес из таблицы в список символов
+      SymbolData.DataType := sdtEATAddr;
       SymbolData.AddrVA := ExportChunk.ExportTableVA;
       SymbolData.Binary.ListIndex := Index;
+      SymbolStorage.Add(SymbolData);
+
+      // Добавляем ординал из таблицы в список символов
+      SymbolData.DataType := sdtEATOrdinal;
+      SymbolData.AddrVA :=
+        RvaToVa(ImageExportDirectory.AddressOfNameOrdinals + Cardinal(I) * 2);
+      SymbolStorage.Add(SymbolData);
+
+      // Добавляем адрес из таблицы имен
+      SymbolData.DataType := sdtEATName;
+      SymbolData.AddrVA :=
+        RvaToVa(ImageExportDirectory.AddressOfNames + Cardinal(I) * 4);
       SymbolStorage.Add(SymbolData);
 
       // Если нет форварда, добавляем адрес функции в список символов
@@ -876,7 +952,6 @@ begin
       begin
         SymbolData.DataType := sdtExport;
         SymbolData.AddrVA := ExportChunk.FuncAddrVA;
-        SymbolData.Binary.ListIndex := Index;
         SymbolStorage.Add(SymbolData);
       end;
 
@@ -919,8 +994,7 @@ begin
         Raw.Position := ExportChunk.FuncAddrRaw;
         if Raw.Position = 0 then Continue;
         ExportChunk.OriginalForvardedTo := ReadString(Raw);
-        ExportChunk.ForvardedTo := ExportChunk.OriginalForvardedTo;
-        ProcessApiSetRedirect(FOriginalName, ExportChunk.ForvardedTo);
+        ProcessApiSetRedirect(FOriginalName, ExportChunk);
       end
       else
       begin
@@ -944,7 +1018,7 @@ begin
       FExportOrdinalIndex.Add(ExportChunk.Ordinal, Index);
 
       // Добавляем адрес в таблице в список символов
-      SymbolData.DataType := sdtExportTable;
+      SymbolData.DataType := sdtEATAddr;
       SymbolData.AddrVA := ExportChunk.ExportTableVA;
       SymbolData.Binary.ListIndex := Index;
       SymbolStorage.Add(SymbolData);
@@ -1049,18 +1123,27 @@ function TRawPEImage.LoadImport(Raw: TStream): Boolean;
 var
   ImageImportDescriptor: TImageImportDescriptor;
   NextDescriptorRawAddr, LastOffset: Int64;
-  IatData, OrdinalFlag, OriginalFirstThunk: UInt64;
+  IatData, OrdinalFlag, OriginalFirstThunk, OFTCursor: UInt64;
   IatDataSize, Index: Integer;
   ImportChunk: TImportChunk;
-  SymbolData: TSymbolData;
+  SymbolData, DescrData: TSymbolData;
 begin
   Result := False;
   Raw.Position := VaToRaw(FImportDir.VirtualAddress);
   if Raw.Position = 0 then Exit;
+
+  DescrData.DataType := sdtImportDescriptor;
+  DescrData.AddrVA := FImportDir.VirtualAddress;
+
+  SymbolData.Binary.ModuleIndex := ModuleIndex;
+
   ZeroMemory(@ImportChunk, SizeOf(TImportChunk));
   while (Raw.Read(ImageImportDescriptor, SizeOf(TImageImportDescriptor)) =
     SizeOf(TImageImportDescriptor)) and (ImageImportDescriptor.OriginalFirstThunk <> 0) do
   begin
+
+    SymbolStorage.Add(DescrData);
+    Inc(DescrData.AddrVA, SizeOf(TImageImportDescriptor));
 
     // запоминаем адрес следующего дексриптора
     NextDescriptorRawAddr := Raw.Position;
@@ -1075,10 +1158,10 @@ begin
           NextDescriptorRawAddr - SizeOf(TImageImportDescriptor)]));
       Exit;
     end;
-    ImportChunk.LibraryName := ReadString(Raw);
 
     // контроль перенаправления через ApiSet
-    ProcessApiSetRedirect(ImageName, ImportChunk.LibraryName);
+    ImportChunk.OrigLibraryName := ReadString(Raw);
+    ProcessApiSetRedirect(ImageName, ImportChunk);
 
     // инициализируем размер записей и флаги
     IatDataSize := IfThen(Image64, 8, 4);
@@ -1095,7 +1178,8 @@ begin
     // которые для 64 бит мало того, что могут быть далеко за пределами DWORD
     // так еще и не подойдут для RvaToRaw
     // пример такой ситуации "ntoskrnl.exe"
-    OriginalFirstThunk := RvaToVa(ImageImportDescriptor.OriginalFirstThunk);
+    OFTCursor := RvaToVa(ImageImportDescriptor.OriginalFirstThunk);
+    OriginalFirstThunk := OFTCursor;
     // правда OriginalFirstThunk может и не быть в некоторых случаях
     // в таком случае чтение будет идти из FirstThunk
     if OriginalFirstThunk = 0 then
@@ -1140,11 +1224,26 @@ begin
           ImportChunk.Ordinal := IatData and not OrdinalFlag;
         end;
 
+        // запоминаем в таблице символов информацию о IAT
+        if Image64 then
+          SymbolData.DataType := sdtImportTable64
+        else
+          SymbolData.DataType := sdtImportTable;
         SymbolData.AddrVA := ImportChunk.ImportTableVA;
-        SymbolData.DataType := sdtImportTable;
-        SymbolData.Binary.ModuleIndex := ModuleIndex;
         SymbolData.Binary.ListIndex := FImport.Add(ImportChunk);
         SymbolStorage.Add(SymbolData);
+
+        // запоминаем в таблице символов информацию о INT
+        if OFTCursor <> 0 then
+        begin
+          if Image64 then
+            SymbolData.DataType := sdtImportNameTable64
+          else
+            SymbolData.DataType := sdtImportNameTable;
+          SymbolData.AddrVA := OFTCursor;
+          SymbolStorage.Add(SymbolData);
+          Inc(OFTCursor, IatDataSize);
+        end;
 
         Inc(ImportChunk.ImportTableVA, IatDataSize);
         Inc(OriginalFirstThunk, IatDataSize);
@@ -1303,7 +1402,7 @@ function TRawPEImage.LoadTLS(Raw: TStream): Boolean;
 var
   AddrSize: Byte;
   Chunk: TEntryPointChunk;
-  TlsCallbackRva: ULONG_PTR64;
+  TlsCallbackRva, TlsCallbackPosVA: ULONG_PTR64;
   Counter: Integer;
   SymbolData: TSymbolData;
 begin
@@ -1315,14 +1414,16 @@ begin
   // StartAddressOfRawData + EndAddressOfRawData + AddressOfIndex
   // становясь, таким образом, сразу на позиции AddressOfCallBacks
   Raw.Position := Raw.Position + AddrSize * 3;
-  Counter := 1;
+  Counter := 0;
   TlsCallbackRva := 0;
   // зачитываем значение AddressOfCallBacks
   Raw.ReadBuffer(TlsCallbackRva, AddrSize);
   // если цепочка колбэков не назначена - выходим
   if TlsCallbackRva = 0 then Exit;
   // позиционируемся на начало цепочки калбэков
-  Raw.Position := RvaToRaw(TlsVaToRva(TlsCallbackRva));
+  TlsCallbackPosVA := TlsVaToRva(TlsCallbackRva);
+  Raw.Position := RvaToRaw(TlsCallbackPosVA);
+  TlsCallbackPosVA := RvaToVa(TlsCallbackPosVA);
   if Raw.Position = 0 then Exit;
   repeat
     Raw.ReadBuffer(TlsCallbackRva, AddrSize);
@@ -1332,28 +1433,54 @@ begin
       Chunk.AddrVA := RvaToVa(TlsVaToRva(TlsCallbackRva));
       Chunk.AddrRaw := VaToRaw(Chunk.AddrVA);
 
+      // добавляем в символы адрес записи о калбэке
+      SymbolData.AddrVA := TlsCallbackPosVA;
+      if Image64 then
+        SymbolData.DataType := sdtTlsCallback64
+      else
+        SymbolData.DataType := sdtTlsCallback32;
+      SymbolData.TLS := Counter;
+      SymbolStorage.Add(SymbolData);
+
+      // и адрес самого колбэка
       SymbolData.AddrVA := Chunk.AddrVA;
       SymbolData.DataType := sdtEntryPoint;
       SymbolData.Binary.ModuleIndex := ModuleIndex;
       SymbolData.Binary.ListIndex := FEntryPoints.Add(Chunk);
       SymbolStorage.Add(SymbolData);
 
+      Inc(TlsCallbackPosVA, AddrSize);
       Inc(Counter);
     end;
   until TlsCallbackRva = 0;
 end;
 
 procedure TRawPEImage.ProcessApiSetRedirect(const LibName: string;
-  var RedirectTo: string);
+  var ExportChunk: TExportChunk);
 var
-  ForvardLibraryName, FuncName: string;
+  Tmp: string;
 begin
-  // тут обрабатываем перенаправление системных библиотек через ApiSet
-  if not ParceForvardedLink(RedirectTo, ForvardLibraryName, FuncName) then
-    Exit;
-  ForvardLibraryName := ChangeFileExt(ForvardLibraryName, '');
-  if ApiSetRedirector.SchemaPresent(LibName, ForvardLibraryName) then
-    RedirectTo := ChangeFileExt(ForvardLibraryName, '.') + FuncName;
+  Tmp := ExportChunk.OriginalForvardedTo;
+  InternalProcessApiSetRedirect(LibName, Tmp);
+  if Tmp = ExportChunk.OriginalForvardedTo then
+    ExportChunk.OriginalForvardedTo := EmptyStr
+  else
+    ExportChunk.OriginalForvardedTo := ChangeFileExt(ExportChunk.OriginalForvardedTo, EmptyStr);
+  ExportChunk.ForvardedTo := Tmp;
+end;
+
+procedure TRawPEImage.ProcessApiSetRedirect(const LibName: string;
+  var ImportChunk: TImportChunk);
+var
+  Tmp: string;
+begin
+  Tmp := ImportChunk.OrigLibraryName;
+  InternalProcessApiSetRedirect(LibName, Tmp);
+  if Tmp = ImportChunk.OrigLibraryName then
+    ImportChunk.OrigLibraryName := EmptyStr
+  else
+    ImportChunk.OrigLibraryName := ChangeFileExt(ImportChunk.OrigLibraryName, EmptyStr);
+  ImportChunk.LibraryName := Tmp;
 end;
 
 procedure TRawPEImage.ProcessRelocations(AStream: TStream);
@@ -1525,10 +1652,12 @@ begin
     Result := nil;
 end;
 
-function TRawModules.GetModule(ImageBase: ULONG_PTR64): Integer;
+function TRawModules.GetModule(AddrVa: ULONG_PTR64): Integer;
 begin
-  if not FImageBaseIndex.TryGetValue(ImageBase, Result) then
+  if not FImageBaseIndex.TryGetValue(AddrVa, Result) then
+  begin
     Result := -1;
+  end;
 end;
 
 function TRawModules.GetProcData(const ForvardedFuncName: string; Is64: Boolean;

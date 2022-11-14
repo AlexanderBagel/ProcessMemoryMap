@@ -25,6 +25,7 @@ uses
 
 const
   Space = ' ';
+  Arrow = ' -> ';
   ReadError = 'Error reading %s at addr: 0x%.1x, code: %d, %s';
   ReadErrorIndex = 'Error reading %s[I] at addr: 0x%.1x, code: %d, %s';
 
