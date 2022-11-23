@@ -298,6 +298,9 @@ object dlgProcessMM: TdlgProcessMM
     end
     object mnuHelp: TMenuItem
       Caption = 'Help'
+      object Debugdata1: TMenuItem
+        Action = acDebugInfo
+      end
       object mnuAbout: TMenuItem
         Action = acAbout
       end
@@ -486,7 +489,7 @@ object dlgProcessMM: TdlgProcessMM
     end
     object acAbout: TAction
       Category = 'Help'
-      Caption = 'About'
+      Caption = 'About...'
       OnExecute = acAboutExecute
     end
     object acGenerateMML: TAction
@@ -514,6 +517,11 @@ object dlgProcessMM: TdlgProcessMM
       ShortCut = 113
       OnExecute = acShowKnownExecute
       OnUpdate = acSaveUpdate
+    end
+    object acDebugInfo: TAction
+      Category = 'Help'
+      Caption = 'Debug Info...'
+      OnExecute = acDebugInfoExecute
     end
   end
   object SaveDMPDialog: TSaveDialog

@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.2
+//  * Version   : 1.0.3
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -312,6 +312,8 @@ begin
 end;
 
 constructor TRawPEImage.Create(const ImagePath: string; ImageBase: ULONG_PTR64);
+var
+  SymbolData: TSymbolData;
 begin
   FImagePath := ImagePath;
   FImageBase := ImageBase;
@@ -324,6 +326,11 @@ begin
   FEntryPoints := TList<TEntryPointChunk>.Create;
   FRelocatedImages := TList<TRawPEImage>.Create;
   FStrings := TStringList.Create;
+  SymbolData.AddrVA := ImageBase;
+  SymbolData.DataType := sdtInstance;
+  SymbolData.Binary.ModuleIndex := ModuleIndex;
+  SymbolData.Binary.ListIndex := 0;
+  SymbolStorage.Add(SymbolData);
   LoadFromImage;
 end;
 
@@ -445,6 +452,9 @@ procedure TRawPEImage.InitDirectories;
 var
   SymbolData: TSymbolData;
 begin
+  SymbolData.Binary.ListIndex := 0;
+  SymbolData.Binary.ModuleIndex := ModuleIndex;
+
   with FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT] do
   begin
     FImportAddressTable.VirtualAddress := RvaToVa(VirtualAddress);
@@ -469,6 +479,7 @@ begin
     FExportDir.Size := Size;
     SymbolData.AddrVA := FExportDir.VirtualAddress;
     SymbolData.DataType := sdtExportDir;
+    SymbolData.Binary.ModuleIndex := ModuleIndex;
     SymbolStorage.Add(SymbolData);
   end;
 
@@ -476,7 +487,7 @@ begin
   begin
     FTlsDir.VirtualAddress := RvaToVa(VirtualAddress);
     FTlsDir.Size := Size;
-    if FTlsDir.VirtualAddress <> 0 then
+    if VirtualAddress <> 0 then
     begin
       SymbolData.AddrVA := FTlsDir.VirtualAddress;
       if Image64 then
@@ -624,7 +635,7 @@ var
   IAT, INT, IntData, OrdinalFlag, DescVA: UInt64;
   DataSize: Integer;
   ImportChunk: TImportChunk;
-  SymbolData: TSymbolData;
+  SymbolData, DescrData: TSymbolData;
 begin
   // Пример стабильно воспроизводящегося перехвата отложеного импорта
   // Адрес правится из kernelbase.dll
@@ -642,6 +653,9 @@ begin
   ImportChunk.Delayed := True;
   OrdinalFlag := IfThen(Image64, IMAGE_ORDINAL_FLAG64, IMAGE_ORDINAL_FLAG32);
 
+  DescrData.DataType := sdtDelayedImportDescriptor;
+  DescrData.Binary.ModuleIndex := ModuleIndex;
+
   Raw.ReadBuffer(DelayDescr, SizeOf(TImgDelayDescr));
   while DelayDescr.pIAT <> 0 do
   begin
@@ -649,9 +663,9 @@ begin
     NextDescriptorRawAddr := Raw.Position;
 
     // помещаем адрес дескриптора в символы
-    SymbolData.AddrVA := DescVA;
-    SymbolData.DataType := sdtDelayedImportDescriptor;
-    SymbolStorage.Add(SymbolData);
+    DescrData.AddrVA := DescVA;
+    DescrData.Binary.ListIndex := FImport.Count;
+    SymbolStorage.Add(DescrData);
 
     // вычитываем имя библиотеки импорт из которой описывает дескриптор
     Raw.Position := RvaToRaw(GetRva(DelayDescr.szName));
@@ -1134,7 +1148,7 @@ begin
 
   DescrData.DataType := sdtImportDescriptor;
   DescrData.AddrVA := FImportDir.VirtualAddress;
-
+  DescrData.Binary.ModuleIndex := ModuleIndex;
   SymbolData.Binary.ModuleIndex := ModuleIndex;
 
   ZeroMemory(@ImportChunk, SizeOf(TImportChunk));
@@ -1142,6 +1156,7 @@ begin
     SizeOf(TImageImportDescriptor)) and (ImageImportDescriptor.OriginalFirstThunk <> 0) do
   begin
 
+    DescrData.Binary.ListIndex := FImport.Count;
     SymbolStorage.Add(DescrData);
     Inc(DescrData.AddrVA, SizeOf(TImageImportDescriptor));
 
@@ -1439,13 +1454,13 @@ begin
         SymbolData.DataType := sdtTlsCallback64
       else
         SymbolData.DataType := sdtTlsCallback32;
-      SymbolData.TLS := Counter;
+      SymbolData.Binary.ModuleIndex := ModuleIndex;
+      SymbolData.Binary.ListIndex := Counter;
       SymbolStorage.Add(SymbolData);
 
       // и адрес самого колбэка
       SymbolData.AddrVA := Chunk.AddrVA;
       SymbolData.DataType := sdtEntryPoint;
-      SymbolData.Binary.ModuleIndex := ModuleIndex;
       SymbolData.Binary.ListIndex := FEntryPoints.Add(Chunk);
       SymbolStorage.Add(SymbolData);
 

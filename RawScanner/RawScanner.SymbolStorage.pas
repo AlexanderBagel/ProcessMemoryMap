@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.2
+//  * Version   : 1.0.3
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,9 +38,12 @@ type
     sdtCtxExtToc, sdtCtxExtTocEntry, sdtCtxAssemblyRoster,
     sdtCtxAssemblyRosterEntry, sdtCtxStrSecHeader, sdtCtxStrSecEntry,
 
-    // типы адресов заполняемые из ModulesData
-    sdtExport, sdtEntryPoint,
-    sdtString, // <<< строки только для дизассемблера, в Raw не выводятся
+    // отдельный тип под плагины
+    sdtPluginDescriptor,
+
+    // типы адресов использующие Binary (заполняются в ModulesData)
+    sdtInstance, sdtExport, sdtEntryPoint,
+    sdtUString, sdtAString, // <<< строки только для дизассемблера, в Raw не выводятся
     // табличные данные экспорта
     sdtEATAddr, sdtEATName, sdtEATOrdinal,
     // табличные данные импорта
@@ -49,6 +52,7 @@ type
     sdtDelayedImportNameTable, sdtDelayedImportNameTable64,
     // табличные данные TLS каллбэков
     sdtTlsCallback32, sdtTlsCallback64,
+
     // структуры известные ModulesData
     sdtExportDir, sdtImportDescriptor, sdtDelayedImportDescriptor,
     sdtLoadConfig32, sdtLoadConfig64,
@@ -67,14 +71,21 @@ type
     ListIndex: Integer;
   end;
 
+  TPluginData = record
+    PluginHandle,
+    DescriptorHandle: THandle;
+  end;
+
   TSymbolData = record
     AddrVA: ULONG_PTR64;
     DataType: TSymbolDataType;
     case TSymbolDataType of
       sdtCtxProcess: (Ctx: TContextData);
+      sdtPluginDescriptor: (Plugin: TPluginData);
       sdtExport: (Binary: TModuleKey);
-      sdtTlsCallback32: (TLS: Integer);
   end;
+
+  TSymbolType = (stExport, stExportExactMatch, stAll);
 
   TRawScannerSymbolStorage = class
   strict private
@@ -90,12 +101,14 @@ type
     class function GetInstance: TRawScannerSymbolStorage;
     procedure Add(Value: TSymbolData);
     procedure Clear;
+    function Count: Integer;
     procedure PrepareForWork;
     function GetDataTypeAtAddr(AddrVA: ULONG_PTR64): TSymbolDataType;
     function GetDataAtAddr(AddrVA: ULONG_PTR64; var Data: TSymbolData): Boolean;
-    function GetExportAtAddr(AddrVA: ULONG_PTR64; ExactMatch: Boolean;
+    function GetExportAtAddr(AddrVA: ULONG_PTR64; AType: TSymbolType;
       var Data: TSymbolData): Boolean;
     function GetKnownAddrList(AddrVA: ULONG_PTR64; Size: Cardinal): TList<TSymbolData>;
+    function UniqueCount: Integer;
     property Active: Boolean read FActive;
   end;
 
@@ -139,6 +152,11 @@ begin
   FActive := False;
 end;
 
+function TRawScannerSymbolStorage.Count: Integer;
+begin
+  Result := FItems.Count;
+end;
+
 constructor TRawScannerSymbolStorage.Create;
 begin
   FItems := TList<TSymbolData>.Create;
@@ -176,7 +194,7 @@ begin
 end;
 
 function TRawScannerSymbolStorage.GetExportAtAddr(AddrVA: ULONG_PTR64;
-  ExactMatch: Boolean; var Data: TSymbolData): Boolean;
+  AType: TSymbolType; var Data: TSymbolData): Boolean;
 var
   I, Index: Integer;
   MinLimit: ULONG_PTR64;
@@ -186,11 +204,12 @@ begin
   if Result then
   begin
     Data := FItems.List[Index];
-    Result := Data.DataType in [sdtExport, sdtEntryPoint];
+    if AType <> stAll then
+      Result := Data.DataType in [sdtExport, sdtEntryPoint];
     if Result then
       Exit;
   end;
-  if ExactMatch then Exit;
+  if AType <> stExport then Exit;
   MinLimit := (AddrVA - $1000) and not $FFF;
   Index := -1;
   for I := FItems.Count - 1 downto 0 do
@@ -265,6 +284,11 @@ begin
   for var I := 0 to FItems.Count - 1 do
     FItemIndex.TryAdd(FItems.List[I].AddrVA, I);
   FActive := FItemIndex.Count > 0;;
+end;
+
+function TRawScannerSymbolStorage.UniqueCount: Integer;
+begin
+  Result := FItemIndex.Count;
 end;
 
 end.

@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.18
+//  * Version   : 1.3.19
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -47,7 +47,8 @@ uses
   function DumpMemoryFromBuff(Process: THandle; Address: Pointer;
     RawBuff: TMemoryDump; nSize: Integer): string;
   procedure DumpMemoryFromBuffWithCheckRawData(var OutString: string;
-    Process: THandle; Address: Pointer; RawBuff: TMemoryDump; Cursor: NativeUInt);
+    Process: THandle; Address: Pointer; RawBuff: TMemoryDump;
+    Cursor: NativeUInt; Limit: NativeUInt = 0);
   function DumpPEB32(Process: THandle; Address: Pointer): string;
   function DumpPEB64(Process: THandle; Address: Pointer): string;
   function DumpPEHeader(Process: THandle; Address: Pointer): string;
@@ -60,16 +61,13 @@ uses
   function DumpOleTlsData64(Process: THandle; Address: Pointer): string;
 
 type
-  TKnownHint = TDictionary<string, ULONG_PTR>;
-
   TDasmMode = (dmAuto, dmX86, dmX64);
 
   function Disassembly(Process: THandle; Address: Pointer;
-    AMode: TDasmMode; KnownHint: TKnownHint; out Dasm64Mode: Boolean;
+    AMode: TDasmMode; out Dasm64Mode: Boolean;
     nSize: Integer = 0): string;
   function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
-    Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt;
-    KnownHint: TKnownHint): string;
+    Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt): string;
 
   function GetTebHint(Value: ULONG; Is64: Boolean): string;
 
@@ -80,6 +78,7 @@ const
 implementation
 
 uses
+  uPluginManager,
   RawScanner.ActivationContext;
 
 // Добавить гиперссылки
@@ -343,7 +342,7 @@ var
 begin
   // для известных типов отсечку сделаем здесь
   // а буфер будем контролировать размером
-  if (DataType <> dtBuff) and (Cursor + Uint(Size) >= MaxSize) then
+  if (DataType <> dtBuff) and (Cursor + Uint(Size) > MaxSize) then
     Abort;
   UString := EmptyStr;
   case DataType of
@@ -392,7 +391,7 @@ begin
       Address, Min(Size, MaxSize - Cursor), Comment + UString), SubComment);
   end;
 
-  if Cursor + Uint(Size) >= MaxSize then
+  if Cursor + Uint(Size) > MaxSize then
     Abort
   else
     Inc(Cursor, Size);
@@ -509,7 +508,7 @@ var
   Size, Dummy: NativeUInt;
 begin
   Result := EmptyStr;
-  if Cursor >= MaxSize - 8 then Exit;
+  if Cursor > MaxSize - 8 then Exit;
   Size := PWord(@Buff[Cursor])^;
   Address := Pointer(PDWORD(@Buff[Cursor + 4])^);
   if Size > 0 then
@@ -528,7 +527,7 @@ var
   Size, Dummy: NativeUInt;
 begin
   Result := EmptyStr;
-  if Cursor >= MaxSize - 16 then Exit;
+  if Cursor > MaxSize - 16 then Exit;
   Size := PDWORD(@Buff[Cursor])^;
   Address := @Buff[Cursor + 8];
   Address := Pointer(Address^);
@@ -586,7 +585,7 @@ var
   ByteBuff: array of Byte;
 begin
   Result := EmptyStr;
-  if Cursor >= MaxSize - 4 then Exit;
+  if Cursor > MaxSize - 4 then Exit;
   Address := Pointer(RvaRecalc + PDWORD(@Buff[Cursor])^);
   Size := MAX_PATH;
   SetLength(ByteBuff, Size);
@@ -1097,7 +1096,7 @@ const
     'Iat', 'Delay import', 'COM', 'Reserved');
 var
   Buff: TMemoryDump;
-  RegionSize, Cursor: NativeUInt;
+  RegionSize, Cursor, SavedMaxSize: NativeUInt;
   ValueBuff: DWORD;
   Optional32: Boolean;
   I: Integer;
@@ -1165,10 +1164,13 @@ begin
   ValueBuff := PLongInt(@Buff[Cursor])^;
   AddString(Result, '_lfanew', @Buff[Cursor], dtDword, Cursor, 'File address of new exe header');
 
-  AddString(Result, EmptyHeader);
-  AddString(Result, ByteToHexStr(ULONG_PTR(Address) + Cursor, @Buff[Cursor],
-    ValueBuff - SizeOf(TImageDosHeader)));
-
+  SavedMaxSize := MaxSize;
+  try
+    DumpMemoryFromBuffWithCheckRawData(Result, Process, Address,
+      Buff, Cursor, ValueBuff);
+  finally
+    MaxSize := SavedMaxSize;
+  end;
 
   // IMAGE_NT_HEADERS
   Cursor := ValueBuff;
@@ -2652,7 +2654,7 @@ procedure DumpActivationContext(
     Len,
     RegionSize: NativeUInt;
   begin
-    if Cursor >= MaxSize - 4 then Exit;
+    if Cursor > MaxSize - 4 then Exit;
     Len := PDWORD(@Buff[Cursor + 4])^;
     if Len = 0 then
       uStr := EmptyStr
@@ -2929,25 +2931,53 @@ begin
   end;
 end;
 
-function GetSymbolDescription(const ExpData: TSymbolData): string;
+function GetSymbolDescription(const ASymbol: TSymbolData;
+  IncludeModuleName: Boolean = True): string;
 var
   Module: TRawPEImage;
   Index: Integer;
+
+  function ModuleName: string;
+  begin
+    Result := Module.ImageName + '!';
+  end;
+
+var
+  DescriptorData: TDescriptorData;
 begin
-  Module := RawScannerCore.Modules.Items[ExpData.Binary.ModuleIndex];
-  Result := Module.ImageName + '!';
-  Index := ExpData.Binary.ListIndex;
-  case ExpData.DataType of
-    sdtExport: Result := Result + Module.ExportList.List[Index].ToString;
+  {$MESSAGE 'Добавить вывод остального'}
+
+//  case ExpData.DataType of
+//
+//  end;
+
+  // Обработка данных с типом Binary
+  if ASymbol.DataType < sdtInstance then Exit;
+  Module := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
+  Result := EmptyStr;
+  Index := ASymbol.Binary.ListIndex;
+  case ASymbol.DataType of
+    sdtPluginDescriptor:
+      if PluginManager.GetGetDescriptorData(ASymbol.Plugin.PluginHandle,
+        ASymbol.Plugin.DescriptorHandle, DescriptorData) then
+        Result := DescriptorData.Caption;
+    sdtInstance:
+      Exit('hInstance of ' + Module.ImagePath);
+    sdtExport:
+      Result := Module.ExportList.List[Index].ToString;
+    sdtEntryPoint:
+      Result := Module.EntryPointList.List[Index].EntryPointName;
+    sdtUString: Result := 'u_str: ' + Module.Strings[Index];
+    sdtAString: Result := 'a_str: ' + Module.Strings[Index];
     sdtEATAddr:
       with Module.ExportList.List[Index] do
-        Result := Format('EAT FuncAddr [%d] %s%s', [Ordinal, Result, ToString]);
+        Exit(Format('EAT FuncAddr [%d] %s%s', [Ordinal, ModuleName, ToString]));
     sdtEATName:
       with Module.ExportList.List[Index] do
-        Result := Format('EAT Name [%d] %s%s', [Ordinal, Result, ToString]);
+        Exit(Format('EAT Name [%d] %s%s', [Ordinal, ModuleName, ToString]));
     sdtEATOrdinal:
       with Module.ExportList.List[Index] do
-        Result := Format('EAT Ordinal [%d] %s%s', [Ordinal, Result, ToString]);
+        Exit(Format('EAT Ordinal [%d] %s%s', [Ordinal, ModuleName, ToString]));
     sdtImportTable, sdtImportTable64:
       with Module.ImportList.List[Index] do
         Result := Format('IAT [%d] %s', [Ordinal, ToString]);
@@ -2960,11 +2990,23 @@ begin
     sdtDelayedImportNameTable, sdtDelayedImportNameTable64:
       with Module.ImportList.List[Index] do
         Result := Format('DINT [%d] %s', [Ordinal, ToString]);
-    sdtEntryPoint:
-      Result := Result + Module.EntryPointList.List[Index].EntryPointName;
     sdtTlsCallback32, sdtTlsCallback64:
-      Result := Format('TLS Callback Entry [%d]', [ExpData.TLS]);
+      Result := Format('TLS Callback Entry [%d]', [Index]);
+    sdtExportDir:
+      Result := 'IMAGE_EXPORT_DIRECTORY';
+    sdtImportDescriptor:
+      with Module.ImportList.List[Index] do
+        Result := Format('IMAGE_IMPORT_DESCRIPTOR [%s]', [LibraryName]);
+    sdtDelayedImportDescriptor:
+      with Module.ImportList.List[Index] do
+        Result := Format('ImgDelayDescriptor [%s]', [LibraryName]);
+    sdtLoadConfig32, sdtLoadConfig64:
+      Result := 'IMAGE_LOAD_CONFIG_DIRECTORY';
+    sdtTLSDir32, sdtTLSDir64:
+      Result := 'IMAGE_TLS_DIRECTORY';
   end;
+  if IncludeModuleName and not Result.IsEmpty then
+    Result := ModuleName + Result;
 end;
 
 procedure DumpTables(var OutString: string; Address: Pointer;
@@ -2975,6 +3017,8 @@ var
   ItemType: TDataType;
   UnknownSize, RvaRecalc: ULONG64;
   IsZeroBuff: Boolean;
+  PluginData: TDescriptorData;
+  PluginHeader: string;
 begin
   // Ищем конец таблицы соответствующий переданому типу элемента
   ListCount := 1;
@@ -2986,6 +3030,7 @@ begin
 
   // заголовок
   RvaRecalc := 0;
+  PluginHeader := EmptyStr;
   case ptrData.DataType of
     sdtImportTable, sdtImportTable64:
       AddString(OutString, MakeHeader('Import Address Table (IAT)'));
@@ -3041,8 +3086,25 @@ begin
         RvaRecalc := AllocationBase;
     end;
 
-    AddString(OutString, GetSymbolDescription(ptrData),
-      @Buff[Cursor], ItemType, Cursor, RvaRecalc);
+    {$MESSAGE 'Для DIAT показывать галку если функция уже загружена!'}
+
+    if ptrData.DataType = sdtPluginDescriptor then
+    begin
+      if not PluginManager.GetGetDescriptorData(ptrData.Plugin.PluginHandle,
+        ptrData.Plugin.DescriptorHandle, PluginData) then
+        Exit;
+      if PluginHeader <> PluginData.NameSpace then
+      begin
+        PluginHeader := PluginData.NameSpace;
+        AddString(OutString, MakeHeader(PluginHeader));
+      end;
+      AddString(OutString, PluginData.Caption,
+        @Buff[Cursor], dtBuff, PluginData.Size, Cursor,
+        0, PluginData.Description);
+    end
+    else
+      AddString(OutString, GetSymbolDescription(ptrData, False),
+        @Buff[Cursor], ItemType, Cursor, RvaRecalc);
 
     Dec(ListCount);
     if ListCount = 0 then Exit;
@@ -3079,7 +3141,8 @@ begin
 end;
 
 procedure DumpMemoryFromBuffWithCheckRawData(var OutString: string;
-  Process: THandle; Address: Pointer; RawBuff: TMemoryDump; Cursor: NativeUInt);
+  Process: THandle; Address: Pointer; RawBuff: TMemoryDump;
+  Cursor: NativeUInt; Limit: NativeUInt);
 var
   UnknownSize: ULONG_PTR;
   DataList: TList<TSymbolData>;
@@ -3090,6 +3153,8 @@ var
   MBI: TMemoryBasicInformation;
 begin
   MaxSize := Length(RawBuff);
+  if (Limit > 0) and (Limit < MaxSize) then
+    MaxSize := Limit;
 
   dwLength := SizeOf(TMemoryBasicInformation);
   VirtualQueryEx(Process, Address, MBI, dwLength);
@@ -3124,6 +3189,12 @@ begin
         DumpLoaderData(OutString, Process, ptrData.DataType, Address, RawBuff, Cursor);
       sdtCtxProcess..sdtCtxStrSecEntry:
         DumpActivationContext(OutString, Process, ptrData, Address, RawBuff, Cursor);
+      sdtPluginDescriptor:
+      begin
+        // пока что вывод информации от плагина будет через таблицы
+        DumpTables(OutString, Address, ULONG64(MBI.AllocationBase),
+          ptrData, DataList, RawBuff, Cursor);
+      end;
       sdtExport, sdtEntryPoint:
       begin
         FuncName := GetSymbolDescription(ptrData);
@@ -3154,10 +3225,8 @@ begin
   end;
 end;
 
-// = Модули дизассеблирования, нужно вынести в отдельный модуль ================
-
 function Disassembly(Process: THandle; Address: Pointer;
-  AMode: TDasmMode; KnownHint: TKnownHint; out Dasm64Mode: Boolean;
+  AMode: TDasmMode; out Dasm64Mode: Boolean;
   nSize: Integer): string;
 var
   Buff: TMemoryDump;
@@ -3190,7 +3259,7 @@ begin
   try
     Result :=
       DisassemblyFromBuff(Process, Buff,
-        Address, MBI.AllocationBase, Dasm64Mode, Size, KnownHint);
+        Address, MBI.AllocationBase, Dasm64Mode, Size);
   except
     on E: Exception do
       Result := Result + sLineBreak + E.ClassName + ': ' + E.Message;
@@ -3198,8 +3267,7 @@ begin
 end;
 
 function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
-  Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt;
-  KnownHint: TKnownHint): string;
+  Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt): string;
 const
   DelimiterSet = [itNop, itInt, itRet, itUndefined, itPrivileged];
 
@@ -3217,7 +3285,7 @@ const
       Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(AddrVa));
       if Result = EmptyStr then
       begin
-        if SymbolStorage.GetExportAtAddr(ULONG_PTR(AddrVa), True, ExpData) then
+        if SymbolStorage.GetExportAtAddr(ULONG_PTR(AddrVa), stAll, ExpData) then
           Result := GetSymbolDescription(ExpData)
         else
         begin
@@ -3235,9 +3303,6 @@ const
           end;
         end;
       end;
-
-      if (Result <> EmptyStr) and Assigned(KnownHint) then
-        KnownHint.AddOrSetValue(Result, AddrVa);
 
       if Result <> EmptyStr then
         Result := ' ; ' + Result;
@@ -3317,7 +3382,7 @@ begin
     // детект начала функции
     Line := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(inst[I].AddrVa);
     if Line = EmptyStr then
-      if SymbolStorage.GetExportAtAddr(inst[I].AddrVa, True, ExpData) then
+      if SymbolStorage.GetExportAtAddr(inst[I].AddrVa, stExportExactMatch, ExpData) then
         Line := GetSymbolDescription(ExpData);
     if Line <> EmptyStr then
     begin

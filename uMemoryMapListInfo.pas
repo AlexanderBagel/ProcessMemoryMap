@@ -6,7 +6,7 @@
 //  * Purpose   : Сканирование памяти процесса на основе адресов и контрольных сумм
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.17
+//  * Version   : 1.3.19
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -324,7 +324,7 @@ begin
 
   if ScanSettings.ShowDisasm then
     Add(DisassemblyFromBuff(Process, RawBuff, MMLRecord.Addr,
-      MBI.AllocationBase, Dasm64Mode, ScanSettings.DumpSize, nil));
+      MBI.AllocationBase, Dasm64Mode, ScanSettings.DumpSize));
 end;
 
 function TdlgMemoryMapListInfo.ReadMMLRecord(

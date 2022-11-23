@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
-//  * Version   : 1.2.18
+//  * Version   : 1.3.19
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -60,8 +60,6 @@ type
     procedure mnuShowAsDisassemblyClick(Sender: TObject);
     procedure mnuGotoAddressClick(Sender: TObject);
     procedure mnuPopupPopup(Sender: TObject);
-    procedure FormDestroy(Sender: TObject);
-    procedure FormCreate(Sender: TObject);
     procedure mnuDasmModeAutoClick(Sender: TObject);
   private
     ACloseAction: TCloseAction;
@@ -69,7 +67,6 @@ type
     CurerntAddr: Pointer;
     SelectedAddr: ULONG_PTR;
     ShowAsDisassembly: Boolean;
-    KnownHint: TKnownHint;
     DAsmMode: TDasmMode;
     procedure Add(const Value: string); overload;
     procedure Add(AFunc: TDumpFunc; Process: THandle; Address: Pointer); overload;
@@ -123,16 +120,6 @@ begin
   Action := ACloseAction;
 end;
 
-procedure TdlgRegionProps.FormCreate(Sender: TObject);
-begin
-  KnownHint := TKnownHint.Create;
-end;
-
-procedure TdlgRegionProps.FormDestroy(Sender: TObject);
-begin
-  FreeAndNil(KnownHint);
-end;
-
 procedure TdlgRegionProps.FormKeyPress(Sender: TObject; var Key: Char);
 begin
   if Key = #27 then Close;
@@ -171,8 +158,6 @@ begin
       S := Trim(S);
     end;
     SelectedAddr := MemoryMapCore.DebugMapData.GetAddrFromDescription(S);
-    if SelectedAddr = 0 then
-      KnownHint.TryGetValue(S, SelectedAddr);
   end;
   mnuGotoAddress.Enabled := SelectedAddr <> 0;
 end;
@@ -188,7 +173,7 @@ begin
     StartQuery(CurerntAddr);
     SendMessage(edProperties.Handle, EM_LINESCROLL, 0, ThumbPos);
   finally
-    edProperties.Lines.EndUpdate;;
+    edProperties.Lines.EndUpdate;
   end;
 end;
 
@@ -238,7 +223,8 @@ begin
     Caption := Caption + ' "' + ExtractFileName(Path) + '"';
     Add('Mapped file: ' + Path);
     if CheckPEImage(Process, MBI.AllocationBase) then
-      Add('    Executable');
+      if RawScannerCore.Modules.GetModule(ULONG64(MBI.AllocationBase)) < 0 then
+        Add(' -> No Executable PE Image!!!');
 
     DescriptionAtAddr :=
       MemoryMapCore.DebugMapData.GetDescriptionAtAddrWithOffset(ULONG_PTR(Address));
@@ -247,7 +233,7 @@ begin
     else
     begin
       // вернет запись или sdtExport или sdtEntryPoint
-      if SymbolStorage.GetExportAtAddr(ULONG_PTR(Address), False, ExpData) then
+      if SymbolStorage.GetExportAtAddr(ULONG_PTR(Address), stExport, ExpData) then
       begin
         Module := RawScannerCore.Modules.Items[ExpData.Binary.ModuleIndex];
         DescriptionAtAddr := 'Function: ' + Module.ImageName + '!';
@@ -339,7 +325,6 @@ var
 begin
   CurerntAddr := Value;
   ProcessLock := nil;
-  KnownHint.Clear;
   Process := OpenProcessWithReconnect;
   try
     Caption := Format(DefCaption, [ULONG_PTR(Value)]);
@@ -356,10 +341,12 @@ begin
 
       if ShowAsDisassembly then
       begin
-        Add(Disassembly(Process, Value, DAsmMode, KnownHint, Dasm64Mode));
+        Add(Disassembly(Process, Value, DAsmMode, Dasm64Mode));
         Caption := Caption + ' Mode: ' + DAsmModeStr[Dasm64Mode];
         Exit;
       end;
+
+      {$MESSAGE 'Все структуры перенести в SymbolStorage'}
 
       if Value = KUSER_SHARED_DATA_ADDR then
       begin

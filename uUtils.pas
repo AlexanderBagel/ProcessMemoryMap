@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
-//  * Version   : 1.2.18
+//  * Version   : 1.3.19
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -106,10 +106,20 @@ begin
 end;
 
 function Run64App(const FilePath, Param: string): THandle;
+const
+  Space = ' ';
 var
   SEI: TShellExecuteInfo;
   R: TResourceStream;
+  ProcessParam: string;
+  I: Integer;
 begin
+  ProcessParam := EmptyStr;
+  for I := 1 to ParamCount do
+    ProcessParam := ProcessParam + Space + ParamStr(I);
+  if Length(ProcessParam) > 0 then
+    ProcessParam := Space + ProcessParam;
+
   if not FileExists(FilePath) then
   begin
     R := TResourceStream.Create(HInstance, 'PE64_IMAGE', RT_RCDATA);
@@ -123,7 +133,7 @@ begin
   SEI.cbSize := SizeOf(TShellExecuteInfo);
   SEI.lpFile := PChar(FilePath);
   SEI.lpDirectory := PChar(ExtractFilePath(FilePath));
-  SEI.lpParameters := PChar('"' + Param +'"');
+  SEI.lpParameters := PChar(Param + ProcessParam);
   SEI.lpVerb := PChar('open');
   SEI.fMask := SEE_MASK_NOCLOSEPROCESS;
   SEI.nShow := SW_SHOWNORMAL;

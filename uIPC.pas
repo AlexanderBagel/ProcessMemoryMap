@@ -5,8 +5,8 @@
 //  * Unit Name : uIPC.pas
 //  * Purpose   : Модуль для обмена данными о кучах между процессами
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2022.
+//  * Version   : 1.3.19
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -100,10 +100,9 @@ begin
   Randomize;
   // Директива SINGLE_INSTANCE не дает запускать 32 битному приложению 64 битный аналог
   // Сугубо для отладки
-  {$IFDEF SINGLE_INSTANCE}
-  FMMFName := 'Process Memory Map MMF';
-  {$ELSE}
-  FMMFName := 'Process Memory Map MMF ' + IntToHex(Random(MaxInt), 1);
+  FMMFName := 'Process_Memory_Map_MMF';
+  {$IFNDEF SINGLE_INSTANCE}
+  FMMFName := FMMFName + IntToHex(Random(MaxInt), 1);
   {$ENDIF}
   InitFileMapping;
 end;

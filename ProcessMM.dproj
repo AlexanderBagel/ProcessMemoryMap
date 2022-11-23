@@ -167,14 +167,14 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_RangeChecking>true</DCC_RangeChecking>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <DCC_RunTimeTypeInfo>true</DCC_RunTimeTypeInfo>
-        <Debugger_RunParams>3148</Debugger_RunParams>
+        <Debugger_RunParams>27992 $00540000</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_3_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
-        <Debugger_RunParams>10788</Debugger_RunParams>
+        <Debugger_RunParams>27992 $00540000</Debugger_RunParams>
         <DCC_DebugDCUs>true</DCC_DebugDCUs>
         <DCC_RangeChecking>true</DCC_RangeChecking>
         <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
@@ -265,6 +265,12 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCCReference Include="RawScanner\RawScanner.SymbolStorage.pas"/>
         <DCCReference Include="RawScanner\RawScanner.ActivationContext.pas"/>
         <DCCReference Include="Controls\FWProgressBar.pas"/>
+        <DCCReference Include="plugins\include\pmm_plugin.pas"/>
+        <DCCReference Include="uPluginManager.pas"/>
+        <DCCReference Include="uDebugInfoDlg.pas">
+            <Form>dlgDbgInfo</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -330,10 +336,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
                 <Source>
                     <Source Name="MainSource">ProcessMM.dpr</Source>
                 </Source>
-                <Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k270.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp270.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
-                </Excluded_Packages>
+                <Excluded_Packages/>
             </Delphi.Personality>
             <Deployment Version="3">
                 <DeployFile LocalName="Win32\Release\ProcessMM.exe" Configuration="Release" Class="ProjectOutput">

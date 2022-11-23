@@ -1,10 +1,10 @@
-////////////////////////////////////////////////////////////////////////////////
+п»ї////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : ProcessMM.dpr
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
+//  * Author    : РђР»РµРєСЃР°РЅРґСЂ (Rouse_) Р‘Р°РіРµР»СЊ
+//  * Copyright : В© Fangorn Wizards Lab 1998 - 2022.
 //  * Version   : 1.0.14
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
@@ -67,17 +67,21 @@ uses
   RawScanner.Core in 'RawScanner\RawScanner.Core.pas',
   RawScanner.SymbolStorage in 'RawScanner\RawScanner.SymbolStorage.pas',
   RawScanner.ActivationContext in 'RawScanner\RawScanner.ActivationContext.pas',
-  FWProgressBar in 'Controls\FWProgressBar.pas';
+  FWProgressBar in 'Controls\FWProgressBar.pas',
+  pmm_plugin in 'plugins\include\pmm_plugin.pas',
+  uPluginManager in 'uPluginManager.pas',
+  uDebugInfoDlg in 'uDebugInfoDlg.pas' {dlgDbgInfo};
 
 {$R *.res}
 
-// Директива SINGLE_INSTANCE не дает запускать 32 битному приложению 64 битный аналог
-// Сугубо для отладки
+// Р”РёСЂРµРєС‚РёРІР° SINGLE_INSTANCE РЅРµ РґР°РµС‚ Р·Р°РїСѓСЃРєР°С‚СЊ 32 Р±РёС‚РЅРѕРјСѓ РїСЂРёР»РѕР¶РµРЅРёСЋ 64 Р±РёС‚РЅС‹Р№ Р°РЅР°Р»РѕРі
+// РЎСѓРіСѓР±Рѕ РґР»СЏ РѕС‚Р»Р°РґРєРё
 {$IFDEF SINGLE_INSTANCE}
 begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.CreateForm(TdlgProcessMM, dlgProcessMM);
+  Application.CreateForm(TdlgDbgInfo, dlgDbgInfo);
   Application.Run;
 
 {$ELSE}
@@ -98,13 +102,13 @@ var
 {$ENDIF} // {$IFDEF WIN32}
 begin
   {$IFDEF WIN32}
-  if Is64OS then
+  if Is64OS and not FindCmdLineSwitch('32', ['x'], True) then
   begin
-    // Если OS 64-битная, то запускаем соответствующее приложение,
-    // а сами остаемся висеть чтобы отдавать ему данные о 32-битных кучах.
-    // Правда если 64-битное приложение перезапустится из под админа
-    // то доступа к нему мы уже иметь не будем, придется закрываться.
-    // Потом этот механизм пересмотрю как нибудь по нормальному.
+    // Р•СЃР»Рё OS 64-Р±РёС‚РЅР°СЏ, С‚Рѕ Р·Р°РїСѓСЃРєР°РµРј СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµРµ РїСЂРёР»РѕР¶РµРЅРёРµ,
+    // Р° СЃР°РјРё РѕСЃС‚Р°РµРјСЃСЏ РІРёСЃРµС‚СЊ С‡С‚РѕР±С‹ РѕС‚РґР°РІР°С‚СЊ РµРјСѓ РґР°РЅРЅС‹Рµ Рѕ 32-Р±РёС‚РЅС‹С… РєСѓС‡Р°С….
+    // РџСЂР°РІРґР° РµСЃР»Рё 64-Р±РёС‚РЅРѕРµ РїСЂРёР»РѕР¶РµРЅРёРµ РїРµСЂРµР·Р°РїСѓСЃС‚РёС‚СЃСЏ РёР· РїРѕРґ Р°РґРјРёРЅР°
+    // С‚Рѕ РґРѕСЃС‚СѓРїР° Рє РЅРµРјСѓ РјС‹ СѓР¶Рµ РёРјРµС‚СЊ РЅРµ Р±СѓРґРµРј, РїСЂРёРґРµС‚СЃСЏ Р·Р°РєСЂС‹РІР°С‚СЊСЃСЏ.
+    // РџРѕС‚РѕРј СЌС‚РѕС‚ РјРµС…Р°РЅРёР·Рј РїРµСЂРµСЃРјРѕС‚СЂСЋ РєР°Рє РЅРёР±СѓРґСЊ РїРѕ РЅРѕСЂРјР°Р»СЊРЅРѕРјСѓ.
     IPC := TIPCServer.Create;
     try
       Path := ExtractFilePath(ParamStr(0)) + 'processmm64.exe';

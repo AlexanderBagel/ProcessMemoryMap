@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2022.
-//  * Version   : 1.2.16
+//  * Version   : 1.3.19
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -34,6 +34,7 @@ uses
   MemoryMap.Heaps,
 
   RawScanner.Core,
+  RawScanner.Wow64,
 
   uDisplayUtils,
   uIPC,
@@ -132,6 +133,8 @@ type
     FillAddrListInfo2: TMenuItem;
     acGenerateMML: TAction;
     GenerateMMLfromMAP1: TMenuItem;
+    Debugdata1: TMenuItem;
+    acDebugInfo: TAction;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -184,6 +187,7 @@ type
     procedure acFindPachedDataUpdate(Sender: TObject);
     procedure acFindPachedDataExecute(Sender: TObject);
     procedure imgProcessClick(Sender: TObject);
+    procedure acDebugInfoExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -226,7 +230,9 @@ uses
   uMemoryMapListInfo,
   uProcessReconnect,
   uKnownData,
-  uPatchDetect;
+  uPatchDetect,
+  uPluginManager,
+  uDebugInfoDlg;
 
 const
   RootCaption = 'Process Memory Map';
@@ -302,6 +308,16 @@ begin
       Data^.Access + #9 +
       Data^.InitialAccess + #9 +
       Data^.Details;
+end;
+
+procedure TdlgProcessMM.acDebugInfoExecute(Sender: TObject);
+begin
+  dlgDbgInfo := TdlgDbgInfo.Create(nil);
+  try
+    dlgDbgInfo.ShowDebugInfo;
+  finally
+    dlgDbgInfo.Free;
+  end;
 end;
 
 procedure TdlgProcessMM.acDumpAddrExecute(Sender: TObject);
@@ -572,11 +588,20 @@ procedure TdlgProcessMM.acSelectProcessExecute(Sender: TObject);
 var
   dlgSelectProcess: TdlgSelectProcess;
   CmdLinePID: DWORD;
+  AddrVA: ULONG64;
   ProcHandle: THandle;
+  DebugParamIndex: Integer;
 begin
   if FirstSelectProcess and (ParamCount > 0) then
   begin
-    if TryStrToUInt(ParamStr(1), CmdLinePID) then
+    DebugParamIndex := 1;
+    {$IFDEF WIN32}
+    if ParamStr(1).StartsWith('x32') then
+    {$ELSE}
+    if ParamStr(1).StartsWith('Process') then
+    {$ENDIF}
+      Inc(DebugParamIndex);
+    if TryStrToUInt(ParamStr(DebugParamIndex), CmdLinePID) then
     begin
       FirstSelectProcess := False;
       ProcHandle := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
@@ -585,6 +610,14 @@ begin
       begin
         CloseHandle(ProcHandle);
         OpenProcessAndInitGUI(CmdLinePID, 'opened from cmd ' + IntToStr(CmdLinePID));
+        Inc(DebugParamIndex);
+        if TryStrToUInt64(ParamStr(DebugParamIndex), AddrVA) then
+        begin
+          dlgRegionProps := TdlgRegionProps.Create(Application);
+          dlgRegionProps.Position := poScreenCenter;
+          dlgRegionProps.ShowPropertyAtAddr(Pointer(AddrVA),
+            FindCmdLineSwitch('d', SwitchChars, True));
+        end;
         Exit;
       end;
     end;
@@ -846,6 +879,7 @@ begin
 
   // Инициализация синглтонов и их событий
   RawScannerCore.OnProgress := OnInitProgress;
+  PluginManager.OnProgress := OnInitProgress;
   MemoryMapCore.OnProgress := OnInitProgress;
   MemoryMapCore.OnGetWow64Heaps := OnGetWow64Heaps;
 
@@ -944,8 +978,14 @@ begin
     AMap.OnProgress := OnInitProgress;
     dlgProgress.ShowWithCallback(procedure()
     begin
-      RawScannerCore.InitFromProcess(PID);
-      AMap.InitFromProcess(PID, ProcessName);
+      Wow64Support.DisableRedirection;
+      try
+        RawScannerCore.InitFromProcess(PID);
+        AMap.InitFromProcess(PID, ProcessName);
+        PluginManager.OpenProcess(PID);
+      finally
+        Wow64Support.EnableRedirection;
+      end;
     end);
   finally
     FreeAndNil(dlgProgress);

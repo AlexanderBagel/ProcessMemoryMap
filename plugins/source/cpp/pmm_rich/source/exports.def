@@ -1,0 +1,3 @@
+LIBRARY
+EXPORTS
+    pmm_get_plugin_info=pmm_get_plugin_info
