@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2022.
-//  * Version   : 1.3.19
+//  * Version   : 1.3.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -34,6 +34,8 @@ uses
   MemoryMap.Heaps,
 
   RawScanner.Core,
+  RawScanner.ApiSet,
+  RawScanner.Types,
   RawScanner.Wow64,
 
   uDisplayUtils,
@@ -980,8 +982,14 @@ begin
     begin
       Wow64Support.DisableRedirection;
       try
-        RawScannerCore.InitFromProcess(PID);
+        // Сначала должно отработать ядро MemoryMap для получения данных по процессу
         AMap.InitFromProcess(PID, ProcessName);
+        // Редиректору нужно знать по какому адресу расположен ApiSet
+        // для пересчета адресов из локального адресного пространства в удаленное
+        ApiSetRedirector.RemoteApiSetVA := ULONG_PTR64(AMap.PEB.ApiSetMap);
+        // И только после этого можно запускать на выполнение RawScannerCore
+        RawScannerCore.InitFromProcess(PID);
+        // Последним идет подсистема плагинов
         PluginManager.OpenProcess(PID);
       finally
         Wow64Support.EnableRedirection;

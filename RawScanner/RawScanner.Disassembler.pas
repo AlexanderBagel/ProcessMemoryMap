@@ -7,7 +7,7 @@
 //  *           : на основе Distorm 3.5.3
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.2
+//  * Version   : 1.0.4
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -165,9 +165,9 @@ begin
           atAddress, atSegment: Result[I].JmpAddrVa := AddrVA;
           atRipOffset:
           begin
-            {$OVERFLOWCHECKS OFF}
+            {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
             OffsetAddr := InstList[I].addr + InstList[I].size + AddrVA;
-            {$OVERFLOWCHECKS ON}
+            {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
             Result[I].RipAddrVA := OffsetAddr;
             if ReadRemoteMemory(FProcessHandle, OffsetAddr, @AddrVA, 8) then
               Result[I].JmpAddrVa := AddrVA;
@@ -226,10 +226,10 @@ begin
       end;
       O_PC:
       begin
-        {$OVERFLOWCHECKS OFF}
+        {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
         Address := FixAddr(ULONG_PTR64(Inst.addr +
           Inst.size + ULONG_PTR64(Inst.imm.sqword)));
-        {$OVERFLOWCHECKS ON}
+        {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
         Exit(atAddress);
       end;
       O_DISP, O_SMEM:

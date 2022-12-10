@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.3
+//  * Version   : 1.0.4
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1102,9 +1102,6 @@ begin
     // в принципе, если файл не исполняемый COM+, уже тут можно выходить
     // но для проверки, оставим инициализацию всех данных.
 
-    // читаем таблицу релокейшенов
-    LoadRelocations(Raw);
-
     // инициализируем адреса таблиц импорта и экспорта
     // они пригодятся снаружи для ускорения проверки этих таблиц
     InitDirectories;
@@ -1120,7 +1117,8 @@ begin
 
     // дескрипторы отложеного импорта содержат данные с учетом релокейшенов
     // для чтения правильных значений нужно сделать правки
-    ProcessRelocations(Raw);
+    if LoadRelocations(Raw) then
+      ProcessRelocations(Raw);
 
     // читаем дескрипторы отложеного импорта
     LoadDelayImport(Raw);
@@ -1345,11 +1343,12 @@ var
   ImageBaseRelocation: TImageBaseRelocation;
   RelocationBlock: Word;
   MaxPos: NativeInt;
+  I: Integer;
 begin
   // Проверка, нужно ли чообще подключать таблицу релокаций?
-  {$OVERFLOWCHECKS OFF}
+  {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
   FRelocationDelta := ImageBase - FNtHeader.OptionalHeader.ImageBase;
-  {$OVERFLOWCHECKS ON}
+  {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
   if not Image64 then
     FRelocationDelta := DWORD(FRelocationDelta);
   Result := FRelocationDelta = 0;
@@ -1360,11 +1359,11 @@ begin
   if Raw.Position = 0 then Exit;
   MaxPos := Raw.Position + Reloc.Size;
   while Raw.Position < MaxPos do
-  begin
+  try
     Raw.ReadBuffer(ImageBaseRelocation, SizeOf(TImageBaseRelocation));
     // SizeOfBlock включает в себя полный размер данных вместе с заголовком
     Dec(ImageBaseRelocation.SizeOfBlock, SizeOf(TImageBaseRelocation));
-    for var I := 0 to ImageBaseRelocation.SizeOfBlock shr 1 - 1 do
+    for I := 0 to Integer(ImageBaseRelocation.SizeOfBlock shr 1) - 1 do
     begin
       Raw.ReadBuffer(RelocationBlock, SizeOf(Word));
       case RelocationBlock shr 12 of
@@ -1383,8 +1382,15 @@ begin
         Assert(False, 'Relocation ' + IntToStr(RelocationBlock shr 12) + ' not implemented');
       end;
     end;
+  except
+    on E: Exception do
+    begin
+      RawScannerLogger.Error(llPE,
+        Format('Relocation loading error from "%s".%s%s: %s',
+        [ImagePath, sLineBreak, E.ClassName, E.Message]));
+      Result := False;
+    end;
   end;
-  Result := True;
 end;
 
 function TRawPEImage.LoadSections(Raw: TStream): Boolean;
@@ -1510,9 +1516,9 @@ begin
   begin
     AStream.Position := Int64(RawReloc);
     AStream.ReadBuffer(Reloc, AddrSize);
-    {$OVERFLOWCHECKS OFF}
+    {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
     Inc(Reloc, FRelocationDelta);
-    {$OVERFLOWCHECKS ON}
+    {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
     AStream.Position := Int64(RawReloc);
     AStream.WriteBuffer(Reloc, AddrSize);
   end;

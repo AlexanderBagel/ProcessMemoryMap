@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка всех известных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.15
+//  * Version   : 1.3.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -168,6 +168,8 @@ procedure TdlgKnownData.FormShow(Sender: TObject);
     else
       Exit;
     end;
+    Data.Caption := Format('%s   -> [0x%s]',
+      [Data.Caption, IntToHex(ULONG64(Data.Address), 1)]);
     Add(ThreadNode, Data);
   end;
 
@@ -189,7 +191,8 @@ procedure TdlgKnownData.FormShow(Sender: TObject);
   begin
     Data := TNodeData.Default;
     Data.Address := Value.Address;
-    Data.Caption := string(Value.Description);
+    Data.Caption := Format('%s   -> [0x%s]',
+      [string(Value.Description), IntToHex(ULONG64(Data.Address), 1)]);
     Data.ImageIndex := 6;
     GetNodeByData(GetSystemNode, Data);
   end;
@@ -230,7 +233,8 @@ begin
           Finalize(Data);
           Data := TNodeData.Default;
           Data.Address := Region.MBI.AllocationBase;
-          Data.Caption := 'PE_Header';
+          Data.Caption := Format('PE_Header   -> [0x%s]',
+            [IntToHex(ULONG64(Data.Address), 1)]);
           Data.IsCode := False;
           Data.ImageIndex := 6;
           Add(Node, Data);
@@ -269,7 +273,8 @@ begin
           Finalize(Data);
           Data := TNodeData.Default;
           Data.Address := Pointer(EntryPoint.Address);
-          Data.Caption := string(EntryPoint.Caption);
+          Data.Caption := Format('%s   -> [0x%s]',
+            [string(EntryPoint.Caption), IntToHex(EntryPoint.Address, 1)]);
           Data.ImageIndex := 7;
           Data.IsCode := True;
           Add(Node, Data);

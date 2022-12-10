@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.3
+//  * Version   : 1.0.4
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -56,7 +56,11 @@ type
     // структуры известные ModulesData
     sdtExportDir, sdtImportDescriptor, sdtDelayedImportDescriptor,
     sdtLoadConfig32, sdtLoadConfig64,
-    sdtTLSDir32, sdtTLSDir64
+    sdtTLSDir32, sdtTLSDir64,
+
+    // структуры ApiSet редиректора
+    sdtApiSetNS, sdtApiSetNSEntry, sdtApiSetValueEntry,
+    sdtApiSetRedirection, sdtApiSetHashEntry
     );
 
   TContextData = record
@@ -76,6 +80,14 @@ type
     DescriptorHandle: THandle;
   end;
 
+  TApiSetData = record
+    Version: Integer;
+    OriginalVA,               // адрес с которого читались реальные данные
+    RemoteVA: ULONG_PTR64;    // адрес по которому нужно пересчитать оффсеты
+    case TSymbolDataType of
+      sdtApiSetNS: (NameSpaceSize: Integer);
+  end;
+
   TSymbolData = record
     AddrVA: ULONG_PTR64;
     DataType: TSymbolDataType;
@@ -83,6 +95,7 @@ type
       sdtCtxProcess: (Ctx: TContextData);
       sdtPluginDescriptor: (Plugin: TPluginData);
       sdtExport: (Binary: TModuleKey);
+      sdtApiSetNS: (ApiSet: TApiSetData);
   end;
 
   TSymbolType = (stExport, stExportExactMatch, stAll);

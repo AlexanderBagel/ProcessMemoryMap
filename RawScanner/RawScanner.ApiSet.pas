@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для обработки ApiSet редиректа импорта/экспорта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.1
+//  * Version   : 1.0.4
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -24,7 +24,9 @@ uses
   Classes,
   SysUtils,
   Generics.Collections,
-  RawScanner.Logger;
+  RawScanner.Logger,
+  RawScanner.Types,
+  RawScanner.SymbolStorage;
 
 type
   // перенаправление экспорта штатных библиотек через ApiSet для поддержки MinWin
@@ -130,6 +132,7 @@ type
     Value: TApiSetString;   // Offset to the Host library name PWCHAR (e.g. "ucrtbase.dll")
   end;
 
+  PApiSetHashEntry6 = ^TApiSetHashEntry6;
   TApiSetHashEntry6 = record
     Hash,
     Index: ULONG;
@@ -144,10 +147,14 @@ type
     class destructor ClassDestroy;
   strict private
     FApiSet: Pointer;
+    FApiSetSize,
     FApiSetVer: ULONG;
+    FSymbolData: TSymbolData;
+    FRemoteVA: ULONG_PTR64;
     FUniqueCount: Integer;
     FData: TDictionary<string, string>;
     procedure AddRedirection(Key, Value: string);
+    procedure AddSymbol(AddrVA: ULONG_PTR64; SymType: TSymbolDataType);
     function RemoveSuffix(const Value: string): string;
     function GetString(Value: TApiSetString): string;
     function GetPEBApiSet: Pointer;
@@ -162,8 +169,9 @@ type
     function SchemaPresent(const LibName: string;
       var RedirectTo: string): Boolean;
     procedure LoadApiSet(AStream: TCustomMemoryStream = nil);
-    property Version: ULONG read FApiSetVer;
     property Count: Integer read FUniqueCount;
+    property RemoteApiSetVA: ULONG_PTR64 read FRemoteVA write FRemoteVA;
+    property Version: ULONG read FApiSetVer;
   end;
 
   function ApiSetRedirector: TApiSetRedirector;
@@ -195,6 +203,16 @@ begin
       FData.Add(ext + Key, Value);
     end;
   end;
+end;
+
+procedure TApiSetRedirector.AddSymbol(AddrVA: ULONG_PTR64;
+  SymType: TSymbolDataType);
+begin
+  if SymType = sdtApiSetNS then
+    FSymbolData.ApiSet.NameSpaceSize := FApiSetSize;
+  FSymbolData.AddrVA := AddrVA - ULONG_PTR64(FApiSet) + RemoteApiSetVA;
+  FSymbolData.DataType := SymType;
+  SymbolStorage.Add(FSymbolData);
 end;
 
 class destructor TApiSetRedirector.ClassDestroy;
@@ -249,6 +267,10 @@ end;
 procedure TApiSetRedirector.Init;
 begin
   FApiSetVer := PLONG(FApiSet)^;
+
+  // Инициализация под заполнение символов
+  FSymbolData.ApiSet.Version := FApiSetVer;
+
   case FApiSetVer of
     2: Init2;
     4: Init4;
@@ -265,15 +287,21 @@ var
   LibFrom: string;
   Key, Redirection: string;
 begin
+  FApiSetSize := 0;
+  AddSymbol(ULONG64(FApiSet), sdtApiSetNS);
+
   NameSpaceEntry := PApiSetNameSpaceEntry2(PByte(FApiSet) + SizeOf(TApiSetNameSpace2));
   for I := 0 to PApiSetNameSpace2(FApiSet)^.Count - 1 do
   begin
+    AddSymbol(ULONG64(NameSpaceEntry), sdtApiSetNSEntry);
     LibFrom := GetString(NameSpaceEntry.Name).ToLower;
     ValueEntry := Pointer(PByte(FApiSet) + NameSpaceEntry.DataOffset);
+    AddSymbol(ULONG64(ValueEntry), sdtApiSetValueEntry);
     EntryRedirection := Pointer(PByte(FApiSet) +
       NameSpaceEntry.DataOffset + SizeOf(TApiSetValueEntry2));
     for A := 0 to ValueEntry.NumberOfRedirections - 1 do
     begin
+      AddSymbol(ULONG64(EntryRedirection), sdtApiSetRedirection);
       Redirection := GetString(EntryRedirection.Value);
       Key := LibFrom + GetString(EntryRedirection.Name);
       AddRedirection(Key, Redirection);
@@ -294,15 +322,23 @@ var
   LibFrom: string;
   Key, Redirection: string;
 begin
+  FApiSetSize := PApiSetNameSpace4(FApiSet).Size;
+  AddSymbol(ULONG64(FApiSet), sdtApiSetNS);
+
   NameSpaceEntry := PApiSetNameSpaceEntry4(PByte(FApiSet) + SizeOf(TApiSetNameSpace4));
   for I := 0 to PApiSetNameSpace4(FApiSet)^.Count - 1 do
   begin
+    AddSymbol(ULONG64(NameSpaceEntry), sdtApiSetNSEntry);
     LibFrom := GetString(NameSpaceEntry.Name);
+
     ValueEntry := Pointer(PByte(FApiSet) + NameSpaceEntry.DataOffset);
+    AddSymbol(ULONG64(ValueEntry), sdtApiSetValueEntry);
+
     EntryRedirection := Pointer(PByte(FApiSet) +
       NameSpaceEntry.DataOffset + SizeOf(TApiSetValueEntry4));
     for A := 0 to ValueEntry.NumberOfRedirections - 1 do
     begin
+      AddSymbol(ULONG64(EntryRedirection), sdtApiSetRedirection);
       Redirection := GetString(EntryRedirection.Value);
       Key := LibFrom + GetString(EntryRedirection.Name);
       AddRedirection(Key, Redirection);
@@ -319,13 +355,22 @@ var
   I, A: Integer;
   NameSpaceEntry: PApiSetNameSpaceEntry6;
   ValueEntry: PApiSetValueEntry6;
+  HashEntry: PApiSetHashEntry6;
   LibFrom: string;
   Key, Redirection: string;
 begin
+  FApiSetSize := PApiSetNameSpace6(FApiSet).Size;
+  AddSymbol(ULONG64(FApiSet), sdtApiSetNS);
+
   NameSpaceEntry := PApiSetNameSpaceEntry6(PByte(FApiSet) +
     PApiSetNameSpace6(FApiSet)^.EntryOffset);
+  HashEntry := PApiSetHashEntry6(PByte(FApiSet) +
+    PApiSetNameSpace6(FApiSet)^.HashOffset);
   for I := 0 to PApiSetNameSpace6(FApiSet)^.Count - 1 do
   begin
+
+    AddSymbol(ULONG64(NameSpaceEntry), sdtApiSetNSEntry);
+    AddSymbol(ULONG64(HashEntry), sdtApiSetHashEntry);
 
     // в шестой версии ApiSet появилось поле NameSpaceEntry.HashedLength
     // оно содержит длину строки с которой считался хэш.
@@ -338,6 +383,7 @@ begin
     for A := 0 to NameSpaceEntry.ValueCount - 1 do
     begin
       // Теперь как хранятся записи о перенаправлениях:
+      AddSymbol(ULONG64(ValueEntry), sdtApiSetValueEntry);
 
       // вот это реальное пренаправление, имя библиотеки куда произойдет редирект
       Redirection := GetString(ValueEntry.Value);
@@ -383,6 +429,7 @@ begin
       Inc(ValueEntry);
     end;
     Inc(NameSpaceEntry);
+    Inc(HashEntry);
   end;
   RawScannerLogger.Info(llApiSet,
     'ApiSet V6 initialized. Entries count: ' + IntToStr(FUniqueCount));
@@ -397,6 +444,14 @@ begin
     FApiSet := AStream.Memory
   else
     FApiSet := GetPEBApiSet;
+
+  // Аписет по факту читается из нашего процесса, поэтому для ремапинга
+  // ну удаленное адресное пространство нужно запомнить обе базы
+  if FRemoteVA = 0 then
+    FRemoteVA := ULONG_PTR64(FApiSet);
+  FSymbolData.ApiSet.RemoteVA := FRemoteVA;
+  FSymbolData.ApiSet.OriginalVA := ULONG_PTR64(FApiSet);
+
   // обязательная проверка, а есть ли вообще ApiSet?
   // Например на Windows XP SP3 (х86) его нет.
   if Assigned(FApiSet) then

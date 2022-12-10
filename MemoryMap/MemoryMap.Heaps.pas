@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Heaps.pas
 //  * Purpose   : Класс собирает данные о кучах процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0.1
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2022.
+//  * Version   : 1.3.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,6 +22,7 @@ interface
 uses
   Winapi.Windows,
   SysUtils,
+  Classes,
   Generics.Collections,
   Winapi.TlHelp32;
 
@@ -122,6 +123,8 @@ var
   HeapData: THeapData;
   BuffSize: NativeUInt;
   MaxCursor, LastPercent, CurrentPercent: Integer;
+  Thread: TThread;
+  Event: THandle;
 begin
   // Т.к. связка Heap32ListFirst, Heap32ListNext, Heap32First, Heap32Next
   // работает достаточно медленно, из-за постоянного вызова
@@ -130,6 +133,30 @@ begin
   // Создаем отладочный буффер
   BuffSize := $400000;
   pDbgBuffer := RtlCreateQueryDebugBuffer(BuffSize, False);
+
+  // Проверка, можем ли мы сейчас прочитать информацию о кучах?
+  // если процесс под отладкой и засуспенжен, то вызов RtlQueryProcessDebugInformation
+  // завесит наш процесс, поэтому в этом случае просто выходим
+  Event := CreateEvent(nil, True, False, nil);
+  try
+    Thread := TThread.CreateAnonymousThread(procedure()
+    begin
+      RtlQueryProcessDebugInformation(PID,
+        RTL_QUERY_PROCESS_HEAP_SUMMARY or RTL_QUERY_PROCESS_HEAP_ENTRIES,
+        pDbgBuffer);
+      SetEvent(Event);
+    end);
+    Thread.Start;
+    if WaitForSingleObject(Event, 200) = WAIT_TIMEOUT then
+    begin
+      TerminateThread(Thread.Handle, 0);
+      Thread.Free;
+      Exit;
+    end;
+  finally
+    CloseHandle(Event);
+  end;
+
   // Запрашиваем информацию по списку куч процесса
   while CheckSmallBuff(RtlQueryProcessDebugInformation(PID,
     RTL_QUERY_PROCESS_HEAP_SUMMARY or RTL_QUERY_PROCESS_HEAP_ENTRIES,

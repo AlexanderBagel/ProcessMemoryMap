@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.19
+//  * Version   : 1.3.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,8 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01031300;
-  MemoryMapVersionStr = '1.3 (revision 19)';
+  MemoryMapVersionInt = $01031400;
+  MemoryMapVersionStr = '1.3 (revision 20)';
 
 type
   // Типы фильтров
@@ -1104,6 +1104,19 @@ var
 begin
   ReturnLength := 0;
 
+  ReturnLength := 0;
+  if NtQueryInformationProcess(FProcess, ProcessBasicInformation,
+    @pProcBasicInfo, SizeOf(PROCESS_BASIC_INFORMATION),
+    @ReturnLength) <> STATUS_SUCCESS then
+    RaiseLastOSError;
+
+  FPebBaseAddress := pProcBasicInfo.PebBaseAddress;
+  AddNewData('Process Environment Block', FPebBaseAddress);
+
+  if not ReadProcessMemory(FProcess, FPebBaseAddress,
+    @FPeb, SizeOf(TPEB), ReturnLength) then
+    RaiseLastOSError;
+
   {$IFDEF WIN64}
   if not Process64 then
   begin
@@ -1121,8 +1134,10 @@ begin
 
     AddNewData('LoaderData (Wow64)', Pointer(FPebWow64.LoaderData));
     AddNewData('ProcessParameters (Wow64)', Pointer(FPebWow64.ProcessParameters));
-    AddNewData('ReadOnlySharedMemoryBase (Wow64)', Pointer(FPebWow64.ReadOnlySharedMemoryBase));
-    AddNewData('HotpatchInformation (Wow64)', Pointer(FPebWow64.HotpatchInformation));
+    if FPebWow64.ReadOnlySharedMemoryBase <> Cardinal(FPeb.ReadOnlySharedMemoryBase) then
+      AddNewData('ReadOnlySharedMemoryBase (Wow64)', Pointer(FPebWow64.ReadOnlySharedMemoryBase));
+    if FPebWow64.HotpatchInformation <> Cardinal(FPeb.HotpatchInformation) then
+      AddNewData('HotpatchInformation (Wow64)', Pointer(FPebWow64.HotpatchInformation));
 
     PPointerData := nil;
     if not ReadProcessMemory(FProcess, Pointer(FPebWow64.ReadOnlyStaticServerData),
@@ -1131,38 +1146,41 @@ begin
 
     AddNewData('ReadOnlyStaticServerData (Wow64)', PPointerData);
 
-    AddNewData('AnsiCodePageData (Wow64)', Pointer(FPebWow64.AnsiCodePageData));
-    AddNewData('OemCodePageData (Wow64)', Pointer(FPebWow64.OemCodePageData));
-    AddNewData('UnicodeCaseTableData (Wow64)', Pointer(FPebWow64.UnicodeCaseTableData));
+    if FPebWow64.AnsiCodePageData <> Cardinal(FPeb.AnsiCodePageData) then
+      AddNewData('AnsiCodePageData (Wow64)', Pointer(FPebWow64.AnsiCodePageData));
+    if FPebWow64.OemCodePageData <> Cardinal(FPeb.OemCodePageData) then
+      AddNewData('OemCodePageData (Wow64)', Pointer(FPebWow64.OemCodePageData));
+    if FPebWow64.UnicodeCaseTableData <> Cardinal(FPeb.UnicodeCaseTableData) then
+      AddNewData('UnicodeCaseTableData (Wow64)', Pointer(FPebWow64.UnicodeCaseTableData));
 
-    AddNewData('GdiSharedHandleTable (Wow64)', Pointer(FPebWow64.GdiSharedHandleTable));
-    AddNewData('ProcessStarterHelper (Wow64)', Pointer(FPebWow64.ProcessStarterHelper));
-    AddNewData('PostProcessInitRoutine (Wow64)', Pointer(FPebWow64.PostProcessInitRoutine));
+    if FPebWow64.GdiSharedHandleTable <> Cardinal(FPeb.GdiSharedHandleTable) then
+      AddNewData('GdiSharedHandleTable (Wow64)', Pointer(FPebWow64.GdiSharedHandleTable));
+    if FPebWow64.ProcessStarterHelper <> Cardinal(FPeb.ProcessStarterHelper) then
+      AddNewData('ProcessStarterHelper (Wow64)', Pointer(FPebWow64.ProcessStarterHelper));
+    if FPebWow64.PostProcessInitRoutine <> Cardinal(FPeb.PostProcessInitRoutine) then
+      AddNewData('PostProcessInitRoutine (Wow64)', Pointer(FPebWow64.PostProcessInitRoutine));
+    if FPebWow64.TlsExpansionBitmap <> Cardinal(FPeb.TlsExpansionBitmap) then
     AddNewData('TlsExpansionBitmap (Wow64)', Pointer(FPebWow64.TlsExpansionBitmap));
 
     // Compatilibity
-    AddNewData('pShimData (Wow64)', Pointer(FPebWow64.pShimData));
-    AddNewData('AppCompatInfo (Wow64)', Pointer(FPebWow64.AppCompatInfo));
+    if FPebWow64.pShimData <> Cardinal(FPeb.pShimData) then
+      AddNewData('pShimData (Wow64)', Pointer(FPebWow64.pShimData));
+    if FPebWow64.AppCompatInfo <> Cardinal(FPeb.AppCompatInfo) then
+     AddNewData('AppCompatInfo (Wow64)', Pointer(FPebWow64.AppCompatInfo));
 
-    AddNewData('ActivationContextData (Wow64)', Pointer(FPebWow64.ActivationContextData));
-    AddNewData('ProcessAssemblyStorageMap (Wow64)', Pointer(FPebWow64.ProcessAssemblyStorageMap));
-    AddNewData('SystemDefaultActivationContextData (Wow64)', Pointer(FPebWow64.SystemDefaultActivationContextData));
-    AddNewData('SystemAssemblyStorageMap (Wow64)', Pointer(FPebWow64.SystemAssemblyStorageMap));
+    if FPebWow64.ActivationContextData <> Cardinal(FPeb.ActivationContextData) then
+      AddNewData('ActivationContextData (Wow64)', Pointer(FPebWow64.ActivationContextData));
+    if FPebWow64.ProcessAssemblyStorageMap <> Cardinal(FPeb.ProcessAssemblyStorageMap) then
+      AddNewData('ProcessAssemblyStorageMap (Wow64)', Pointer(FPebWow64.ProcessAssemblyStorageMap));
+    if FPebWow64.SystemDefaultActivationContextData <> Cardinal(FPeb.SystemDefaultActivationContextData) then
+      AddNewData('SystemDefaultActivationContextData (Wow64)', Pointer(FPebWow64.SystemDefaultActivationContextData));
+    if FPebWow64.SystemAssemblyStorageMap <> Cardinal(FPeb.SystemAssemblyStorageMap) then
+      AddNewData('SystemAssemblyStorageMap (Wow64)', Pointer(FPebWow64.SystemAssemblyStorageMap));
+
+    if FPebWow64.ApiSetMap <> Cardinal(FPeb.ApiSetMap) then
+      AddNewData('ApiSetMap (Wow64)', Pointer(FPebWow64.ApiSetMap));
   end;
   {$ENDIF}
-
-  ReturnLength := 0;
-  if NtQueryInformationProcess(FProcess, ProcessBasicInformation,
-    @pProcBasicInfo, SizeOf(PROCESS_BASIC_INFORMATION),
-    @ReturnLength) <> STATUS_SUCCESS then
-    RaiseLastOSError;
-
-  FPebBaseAddress := pProcBasicInfo.PebBaseAddress;
-  AddNewData('Process Environment Block', FPebBaseAddress);
-
-  if not ReadProcessMemory(FProcess, FPebBaseAddress,
-    @FPeb, SizeOf(TPEB), ReturnLength) then
-    RaiseLastOSError;
 
   AddNewData('LoaderData', Pointer(FPeb.LoaderData));
   AddNewData('ProcessParameters', Pointer(FPeb.ProcessParameters));
@@ -1192,6 +1210,8 @@ begin
   AddNewData('ProcessAssemblyStorageMap', Pointer(FPeb.ProcessAssemblyStorageMap));
   AddNewData('SystemDefaultActivationContextData', Pointer(FPeb.SystemDefaultActivationContextData));
   AddNewData('SystemAssemblyStorageMap', Pointer(FPeb.SystemAssemblyStorageMap));
+
+  AddNewData('ApiSetMap', Pointer(FPeb.ApiSetMap));
 
   if not ReadProcessMemory(FProcess, FPeb.ProcessParameters,
     @ProcessParameters, SizeOf(RTL_USER_PROCESS_PARAMETERS), ReturnLength) then

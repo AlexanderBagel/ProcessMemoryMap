@@ -6,7 +6,7 @@
 //  * Purpose   : Менеджер плагинов
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.19
+//  * Version   : 1.3.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -201,7 +201,7 @@ var
 
   function MakeInitBuff: Boolean;
   var
-    Cursor, Size, I: Integer;
+    Size, I: Integer;
     pCurrModule, pPrevModule: PProcessModule;
   begin
     Size := 0;
@@ -249,6 +249,7 @@ begin
     if Item.Gate.Open(MemoryMapCore.PID, @InitBuff[0]) = NO_ERROR then
     begin
       MaxCount := Item.Gate.DescriptorCount;
+      LastPercent := 0;
       for var I := 0 to MaxCount - 1 do
       begin
         CurrentPercent := Round(I / (MaxCount / 100));

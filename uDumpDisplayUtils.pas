@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.19
+//  * Version   : 1.3.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -33,6 +33,8 @@ uses
   MemoryMap.Core,
   MemoryMap.Utils,
   RawScanner.Core,
+  RawScanner.ApiSet,
+  RawScanner.Types,
   RawScanner.LoaderData,
   RawScanner.ModulesData,
   RawScanner.SymbolStorage,
@@ -165,6 +167,11 @@ type
 
   Pointer32 = DWORD;
 
+function GetByteAtAddr(AddrVA: Pointer; Offset: Integer): Byte; inline;
+begin
+  Result := PByte(PByte(AddrVA) + Offset)^;
+end;
+
 function MakeHeader(const Value: string): string;
 const
   Space = ' ';
@@ -256,9 +263,9 @@ begin
       end;
     else
       begin
-        Result := Result + Format('%s ', [IntToHex(TByteArray(Data^)[I], 2)]);
-        if TByteArray(Data^)[I] in [$19..$FF] then
-          DumpData := DumpData + Char(AnsiChar(TByteArray(Data^)[I]))
+        Result := Result + Format('%s ', [IntToHex(GetByteAtAddr(Data, I), 2)]);
+        if GetByteAtAddr(Data, I) in [$19..$FF] then
+          DumpData := DumpData + Char(AnsiChar(GetByteAtAddr(Data, I)))
         else
           DumpData := DumpData + '.';
         Inc(I);
@@ -288,7 +295,7 @@ var
 begin
   Result := EmptyStr;
   for I := 0 to Len - 1 do
-    Result := Result + IntToHex(TByteArray(Data^)[I], 2) + ' ';
+    Result := Result + IntToHex(GetByteAtAddr(Data, I), 2) + ' ';
   Result := Result + StringOfChar(' ', (14 - Len) * 3);
 end;
 
@@ -430,7 +437,7 @@ procedure AddString(var OutValue: string; const Comment: string; Address: Pointe
   DataType: TDataType; var Cursor: NativeUInt;
   const SubComment: string = ''); overload;
 begin
-  AddString(OutValue,Comment, Address, DataType, Cursor, 0, SubComment);
+  AddString(OutValue, Comment, Address, DataType, Cursor, 0, SubComment);
 end;
 
 function DumpMemory(Process: THandle; Address: Pointer): string;
@@ -441,12 +448,16 @@ var
 begin
   Result := EmptyStr;
   MaxSize := 4096;
+  {$MESSAGE 'А может читать сразу регион? Надо проверить, встречаются ли большие?'}
   // смотрим, известен ли размер страницы?
   if SymbolStorage.GetDataAtAddr(UInt64(Address), Data) then
     case Data.DataType of
       // если известен, запрашиваем столько, сколько требуется
       sdtCtxProcess, sdtCtxSystem:
-        MaxSize := Data.Ctx.TotalSize
+        MaxSize := Data.Ctx.TotalSize;
+      sdtApiSetNS:
+        if Data.ApiSet.NameSpaceSize <> 0 then
+          MaxSize := Data.ApiSet.NameSpaceSize;
     end;
   SetLength(Buff, MaxSize);
   if not ReadProcessData(Process, Address, @Buff[0],
@@ -2931,6 +2942,120 @@ begin
   end;
 end;
 
+procedure DumpApiSetStruct(var OutString: string; Process: THandle;
+  const Data: TSymbolData; AllocationBase: ULONG64;
+  const Buff: TMemoryDump; var Cursor: NativeUInt);
+
+  function DumpString(const FieldName: string): string;
+  var
+    LocalOffset, RemoteOffset: ULONG_PTR64;
+    Length: Word;
+  begin
+    if Cursor > MaxSize - SizeOf(TApiSetString) then Exit;
+    RemoteOffset := PDWORD(@Buff[Cursor])^;
+    if RemoteOffset <> 0 then
+    begin
+      LocalOffset := PDWORD(@Buff[Cursor])^ + Data.ApiSet.OriginalVA;
+      Inc(RemoteOffset, Data.ApiSet.RemoteVA);
+      Length := PWord(@Buff[Cursor + 4])^;
+      Result := PChar(LocalOffset);
+      SetLength(Result, Length shr 1);
+      AddString(OutString, FieldName +
+        ' [' + IntToHex(RemoteOffset, 1) + '] "' + Result + '"',
+        @Buff[Cursor], dtBuff, 8, Cursor);
+    end
+    else
+      AddString(OutString, FieldName + ' = Empty', @Buff[Cursor], dtBuff, 8, Cursor);
+  end;
+
+var
+  Tmp: string;
+begin
+  case Data.DataType of
+    sdtApiSetNS:
+    begin
+      AddString(OutString, MakeHeader('ApiSetNameSpace' + IntToStr(Data.ApiSet.Version)));
+      AddString(OutString, 'Version', @Buff[Cursor], dtDword, Cursor);
+      if Data.ApiSet.Version = 2 then
+      begin
+        AddString(OutString, 'Count', @Buff[Cursor], dtDword, Cursor);
+        Exit;
+      end;
+      AddString(OutString, 'Size', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'Count', @Buff[Cursor], dtDword, Cursor);
+      if Data.ApiSet.Version > 4 then
+      begin
+        AddString(OutString, 'EntryOffset', @Buff[Cursor], dtDword, Cursor, Data.ApiSet.RemoteVA);
+        AddString(OutString, 'HashOffset', @Buff[Cursor], dtDword, Cursor, Data.ApiSet.RemoteVA);
+        AddString(OutString, 'HashFactor', @Buff[Cursor], dtDword, Cursor);
+      end;
+    end;
+    sdtApiSetNSEntry:
+    begin
+      AddString(OutString, MakeHeader('ApiSetNameSpaceEntry' + IntToStr(Data.ApiSet.Version)));
+      case Data.ApiSet.Version of
+        2:
+        begin
+          DumpString('Name');
+          AddString(OutString, 'DataOffset', @Buff[Cursor], dtDword, Cursor, Data.ApiSet.RemoteVA);
+        end;
+        4:
+        begin
+          AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+          DumpString('Name');
+          DumpString('Alias');
+          AddString(OutString, 'DataOffset', @Buff[Cursor], dtDword, Cursor, Data.ApiSet.RemoteVA);
+        end;
+        6:
+        begin
+          AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+          Tmp := DumpString('Name');
+          SetLength(Tmp, PDWORD(@Buff[Cursor])^ shr 1);
+          AddString(OutString, 'HashedLength', @Buff[Cursor], dtDword, Cursor, Tmp);
+          AddString(OutString, 'ValueOffset', @Buff[Cursor], dtDword, Cursor, Data.ApiSet.RemoteVA);
+          AddString(OutString, 'ValueCount', @Buff[Cursor], dtDword, Cursor);
+        end;
+      end;
+    end;
+    sdtApiSetValueEntry:
+    begin
+      AddString(OutString, MakeHeader('ApiSetValueEntry' + IntToStr(Data.ApiSet.Version)));
+      case Data.ApiSet.Version of
+        2:
+        begin
+          AddString(OutString, 'NumberOfRedirections', @Buff[Cursor], dtDword, Cursor);
+        end;
+        4:
+        begin
+          AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor, Tmp);
+          AddString(OutString, 'NumberOfRedirections', @Buff[Cursor], dtDword, Cursor, Tmp);
+        end;
+        6:
+        begin
+          AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+          DumpString('Name');
+          DumpString('Value');
+        end;
+      end;
+    end;
+    sdtApiSetRedirection:
+    begin
+      AddString(OutString, MakeHeader('ApiSetSetRedirection' + IntToStr(Data.ApiSet.Version)));
+      if Data.ApiSet.Version = 4 then
+        AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+      DumpString('Name');
+      DumpString('Value');
+    end;
+    sdtApiSetHashEntry:
+    begin
+      AddString(OutString, MakeHeader('ApiSetHashEntry' + IntToStr(Data.ApiSet.Version)));
+      AddString(OutString, 'Hash', @Buff[Cursor], dtDword, Cursor, Tmp);
+      AddString(OutString, 'Index', @Buff[Cursor], dtDword, Cursor, Tmp);
+    end;
+  end;
+end;
+
 function GetSymbolDescription(const ASymbol: TSymbolData;
   IncludeModuleName: Boolean = True): string;
 var
@@ -2945,12 +3070,6 @@ var
 var
   DescriptorData: TDescriptorData;
 begin
-  {$MESSAGE 'Добавить вывод остального'}
-
-//  case ExpData.DataType of
-//
-//  end;
-
   // Обработка данных с типом Binary
   if ASymbol.DataType < sdtInstance then Exit;
   Module := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
@@ -3212,6 +3331,9 @@ begin
           ptrData, DataList, RawBuff, Cursor);
       sdtExportDir..sdtTLSDir64:
         DumpModulesKnownStruct(OutString, Process, ptrData,
+          ULONG64(MBI.AllocationBase), RawBuff, Cursor);
+      sdtApiSetNS..sdtApiSetHashEntry:
+        DumpApiSetStruct(OutString, Process, ptrData,
           ULONG64(MBI.AllocationBase), RawBuff, Cursor);
     end;
   end;

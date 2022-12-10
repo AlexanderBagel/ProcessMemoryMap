@@ -5,8 +5,8 @@
 //  * Unit Name : uFindData.pas
 //  * Purpose   : Диалог для поиска данных в памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2022.
+//  * Version   : 1.3.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -105,6 +105,7 @@ begin
   InUpdateMode := True;
   try
     AnsiBuff := AnsiString(edAnsi.Text);
+    if Length(AnsiBuff) = 0 then Exit;
     SetLength(SerchBuff, Length(AnsiBuff));
     Move(AnsiBuff[1], SerchBuff[0], Length(AnsiBuff));
   finally

@@ -76,7 +76,7 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
         <SanitizedProjectName>ProcessMM</SanitizedProjectName>
-        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.1.14.0;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.1;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.3.20.428;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.3;Comments=</VerInfo_Keys>
         <Manifest_File>None</Manifest_File>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Icon_MainIcon>ProcessMM_Icon1.ico</Icon_MainIcon>
@@ -89,8 +89,12 @@
         <DCC_F>false</DCC_F>
         <DCC_K>false</DCC_K>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <VerInfo_MinorVer>1</VerInfo_MinorVer>
-        <VerInfo_Release>14</VerInfo_Release>
+        <VerInfo_MinorVer>3</VerInfo_MinorVer>
+        <VerInfo_Release>20</VerInfo_Release>
+        <VerInfo_Build>428</VerInfo_Build>
+        <DCC_MapFile>3</DCC_MapFile>
+        <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
+        <VerInfo_PreRelease>true</VerInfo_PreRelease>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <UWP_DelphiLogo44>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_44.png</UWP_DelphiLogo44>
@@ -174,10 +178,8 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
-        <Debugger_RunParams>27992 $00540000</Debugger_RunParams>
+        <Debugger_RunParams>12492 $40000</Debugger_RunParams>
         <DCC_DebugDCUs>true</DCC_DebugDCUs>
-        <DCC_RangeChecking>true</DCC_RangeChecking>
-        <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
         <DCC_MapFile>3</DCC_MapFile>
@@ -230,7 +232,6 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCCReference Include="MemoryMap\MemoryMap.Workset.pas"/>
         <DCCReference Include="uAbout.pas">
             <Form>dlgAbout</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uMemoryMapListInfo.pas">
             <Form>dlgMemoryMapListInfo</Form>
@@ -245,11 +246,9 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCCReference Include="distorm\mnemonics.pas"/>
         <DCCReference Include="uKnownData.pas">
             <Form>dlgKnownData</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="uPatchDetect.pas">
             <Form>dlgPatches</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="RawScanner\RawScanner.Analyzer.pas"/>
         <DCCReference Include="RawScanner\RawScanner.ApiSet.pas"/>
@@ -269,7 +268,6 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCCReference Include="uPluginManager.pas"/>
         <DCCReference Include="uDebugInfoDlg.pas">
             <Form>dlgDbgInfo</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
