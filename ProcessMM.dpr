@@ -70,7 +70,8 @@ uses
   FWProgressBar in 'Controls\FWProgressBar.pas',
   pmm_plugin in 'plugins\include\pmm_plugin.pas',
   uPluginManager in 'uPluginManager.pas',
-  uDebugInfoDlg in 'uDebugInfoDlg.pas' {dlgDbgInfo};
+  uDebugInfoDlg in 'uDebugInfoDlg.pas' {dlgDbgInfo},
+  Shell.TaskBarListProgress in 'Controls\Shell.TaskBarListProgress.pas';
 
 {$R *.res}
 
@@ -81,7 +82,6 @@ begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.CreateForm(TdlgProcessMM, dlgProcessMM);
-  Application.CreateForm(TdlgDbgInfo, dlgDbgInfo);
   Application.Run;
 
 {$ELSE}

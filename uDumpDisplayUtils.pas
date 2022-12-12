@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.20
+//  * Version   : 1.3.21
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -155,6 +155,10 @@ const
     '------------------------------- ACTIVATION_CONTEXT_STRING_SECTION_HEADER ---------------------------------';
   ACTX_STRING_ENTRY =
     '-------------------------------- ACTIVATION_CONTEXT_STRING_SECTION_ENTRY ---------------------------------';
+  ACTX_DATA_ASSEMBLY_INFORMATION = 'ACTIVATION_CONTEXT_DATA_ASSEMBLY_INFORMATION';
+  ACTX_SECTION_DLL_REDIRECTION = 'ACTIVATION_CONTEXT_SECTION_DLL_REDIRECTION';
+  ACTX_WINDOW_CLASS_REDIRECTION = 'ACTIVATION_CONTEXT_SECTION_WINDOW_CLASS_REDIRECTION';
+  ACTX_COM_PROGID_REDIRECTION = 'ACTIVATION_CONTEXT_SECTION_COM_PROGID_REDIRECTION';
   IMAGE_EXPORT_DIRECTORY_STR =
     '---------------------------------------- IMAGE_EXPORT_DIRECTORY ------------------------------------------';
   IMAGE_IMPORT_DESCRIPTOR_STR =
@@ -398,10 +402,10 @@ begin
       Address, Min(Size, MaxSize - Cursor), Comment + UString), SubComment);
   end;
 
-  if Cursor + Uint(Size) > MaxSize then
-    Abort
-  else
-    Inc(Cursor, Size);
+  Inc(Cursor, Size);
+  if Cursor >= MaxSize then
+    Abort;
+
 end;
 
 procedure AddString(var OutValue: string; const Comment: string; Address: Pointer;
@@ -1177,8 +1181,12 @@ begin
 
   SavedMaxSize := MaxSize;
   try
-    DumpMemoryFromBuffWithCheckRawData(Result, Process, Address,
-      Buff, Cursor, ValueBuff);
+    try
+      DumpMemoryFromBuffWithCheckRawData(Result, Process, Address,
+        Buff, Cursor, ValueBuff);
+    except
+      on E: EAbort do ; // штатный выход по достижению лимита
+    end;
   finally
     MaxSize := SavedMaxSize;
   end;
@@ -2645,17 +2653,14 @@ procedure DumpActivationContext(
   const Data: TSymbolData; Address: Pointer;
   Buff: TMemoryDump; var Cursor: NativeUInt);
 
-  function GetOffset: string;
-  var
-    Value: DWORD;
+  function GetOffset: UInt64;
   begin
-    Value := PDWORD(@Buff[Cursor])^;
-    if Value = 0 then Exit;
+    Result := PDWORD(@Buff[Cursor])^;
+    if Result = 0 then Exit;
     if Data.DataType in [sdtCtxProcess, sdtCtxSystem] then
-      Inc(Value, UInt64(Address))
+      Result := UInt64(Address)
     else
-      Inc(Value, Data.Ctx.ContextVA);
-    Result := 'VA: ' + IntToHex(Value, 1);
+      Result := Data.Ctx.ContextVA;
   end;
 
   procedure ReadCtxString(const Value: string);
@@ -2665,20 +2670,58 @@ procedure DumpActivationContext(
     Len,
     RegionSize: NativeUInt;
   begin
-    if Cursor > MaxSize - 4 then Exit;
+    if Cursor > MaxSize - 8 then Exit;
     Len := PDWORD(@Buff[Cursor + 4])^;
     if Len = 0 then
-      uStr := EmptyStr
+    begin
+      uStr := EmptyStr;
+      AddString(OutString, Value + 'Offset', @Buff[Cursor], dtBuff, 4, Cursor);
+    end
     else
     begin
       StrVA := Data.Ctx.ContextVA + PDWORD(@Buff[Cursor])^;
       SetLength(uStr, Len div 2);
       if not ReadProcessData(Process, Pointer(StrVA), @uStr[1],
         Len, RegionSize, rcReadAllwais) then
-        uStr := EmptyStr
+        uStr := EmptyStr;
+      AddString(OutString, Value + 'Offset [' +
+        IntToHex(StrVA, 1) + '] "' + uStr + '"',
+        @Buff[Cursor], dtBuff, 4, Cursor);
     end;
-    AddString(OutString, Value + 'Offset', @Buff[Cursor], dtDword, Cursor, uStr);
     AddString(OutString, Value + 'Length', @Buff[Cursor], dtDword, Cursor);
+  end;
+
+  procedure ReadCtxInformationString(const Value: string;
+    Redirection: ULONG_PTR64 = 0);
+  var
+    uStr: string;
+    StrVA: ULONG64;
+    Len,
+    RegionSize: NativeUInt;
+  begin
+    if Cursor > MaxSize - 8 then Exit;
+    Len := PDWORD(@Buff[Cursor])^;
+    AddString(OutString, Value + 'Length', @Buff[Cursor], dtDword, Cursor);
+    StrVA := PDWORD(@Buff[Cursor])^;
+    if (Len = 0) or (StrVA = 0) then
+    begin
+      uStr := EmptyStr;
+      AddString(OutString, Value + 'Offset', @Buff[Cursor], dtBuff, 4, Cursor);
+    end
+    else
+    begin
+      if Redirection = 0 then
+        Inc(StrVA, Data.Ctx.ContextVA)
+      else
+        Inc(StrVA, Redirection);
+      SetLength(uStr, Len div 2);
+      if not ReadProcessData(Process, Pointer(StrVA), @uStr[1],
+        Len, RegionSize, rcReadAllwais) then
+        uStr := EmptyStr;
+      AddString(OutString, Value + 'Offset [' +
+        IntToHex(StrVA, 1) + '] "' + uStr + '"',
+        @Buff[Cursor], dtBuff, 4, Cursor);
+    end;
   end;
 
   function IdToStr: string;
@@ -2798,12 +2841,62 @@ begin
       AddString(OutString, ACTX_STRING_ENTRY);
       AddString(OutString, 'PseudoKey', @Buff[Cursor], dtDword, Cursor);
       ReadCtxString('Key');
-//      AddString(OutString, 'KeyOffset', @Buff[Cursor], dtDword, Cursor);
-//      AddString(OutString, 'KeyLength', @Buff[Cursor], dtDword, Cursor);
-      //ReadCtxString(EmptyStr);
       AddString(OutString, 'Offset', @Buff[Cursor], dtDword, Cursor, GetOffset);
       AddString(OutString, 'Length', @Buff[Cursor], dtDword, Cursor);
       AddString(OutString, 'AssemblyRosterIndex', @Buff[Cursor], dtDword, Cursor);
+    end;
+    sdtCtxStrSecEntryData:
+    begin
+      case Data.Ctx.TokID of
+        ACTIVATION_CONTEXT_SECTION_ASSEMBLY_INFORMATION:
+        begin
+          AddString(OutString, MakeHeader(ACTX_DATA_ASSEMBLY_INFORMATION));
+          AddString(OutString, 'Size', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+          ReadCtxInformationString('EncodedAssemblyIdentity');
+          AddString(OutString, 'ManifestPathType', @Buff[Cursor], dtDword, Cursor);
+          ReadCtxInformationString('ManifestPath');
+          AddString(OutString, 'ManifestLastWriteTime', @Buff[Cursor], dtInt64, Cursor);
+          AddString(OutString, 'PolicyPathType', @Buff[Cursor], dtDword, Cursor);
+          ReadCtxInformationString('PolicyPath');
+          AddString(OutString, 'PolicyLastWriteTime', @Buff[Cursor], dtInt64, Cursor);
+          AddString(OutString, 'MetadataSatelliteRosterIndex', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'Unused2', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'ManifestVersionMajor', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'ManifestVersionMinor', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'PolicyVersionMajor', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'PolicyVersionMinor', @Buff[Cursor], dtDword, Cursor);
+          ReadCtxInformationString('AssemblyDirectoryName');
+          AddString(OutString, 'NumOfFilesInAssembly', @Buff[Cursor], dtDword, Cursor);
+          ReadCtxInformationString('Language');
+        end;
+        ACTIVATION_CONTEXT_SECTION_DLL_REDIRECTION:
+        begin
+          AddString(OutString, MakeHeader(ACTX_SECTION_DLL_REDIRECTION));
+          AddString(OutString, 'Size', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'TotalPathLength', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'PathSegmentCount', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'PathSegmentOffset', @Buff[Cursor], dtDword, Cursor);
+        end;
+        ACTIVATION_CONTEXT_SECTION_WINDOW_CLASS_REDIRECTION:
+        begin
+          AddString(OutString, MakeHeader(ACTX_WINDOW_CLASS_REDIRECTION));
+          AddString(OutString, 'Size', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+          ReadCtxInformationString('VersionSpecificClassName', Data.AddrVA);
+          ReadCtxInformationString('DllName');
+        end;
+        ACTIVATION_CONTEXT_SECTION_COM_PROGID_REDIRECTION:
+        begin
+          AddString(OutString, MakeHeader(ACTX_COM_PROGID_REDIRECTION));
+          AddString(OutString, 'Size', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'Flags', @Buff[Cursor], dtDword, Cursor);
+          AddString(OutString, 'ConfiguredClsidOffset', @Buff[Cursor], dtDword, Cursor, GetOffset);
+        end;
+      else
+//        Beep;
+      end;
     end;
   end;
 end;
@@ -3306,7 +3399,7 @@ begin
     case ptrData.DataType of
       sdtLdrData32..sdtLdrEntry64:
         DumpLoaderData(OutString, Process, ptrData.DataType, Address, RawBuff, Cursor);
-      sdtCtxProcess..sdtCtxStrSecEntry:
+      sdtCtxProcess..sdtCtxStrSecEntryData:
         DumpActivationContext(OutString, Process, ptrData, Address, RawBuff, Cursor);
       sdtPluginDescriptor:
       begin

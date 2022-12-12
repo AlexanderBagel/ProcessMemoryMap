@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.4
+//  * Version   : 1.0.5
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -477,10 +477,13 @@ begin
   begin
     FExportDir.VirtualAddress := RvaToVa(VirtualAddress);
     FExportDir.Size := Size;
-    SymbolData.AddrVA := FExportDir.VirtualAddress;
-    SymbolData.DataType := sdtExportDir;
-    SymbolData.Binary.ModuleIndex := ModuleIndex;
-    SymbolStorage.Add(SymbolData);
+    if VirtualAddress <> 0 then
+    begin
+      SymbolData.AddrVA := FExportDir.VirtualAddress;
+      SymbolData.DataType := sdtExportDir;
+      SymbolData.Binary.ModuleIndex := ModuleIndex;
+      SymbolStorage.Add(SymbolData);
+    end;
   end;
 
   with FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS] do
@@ -1382,6 +1385,7 @@ begin
         Assert(False, 'Relocation ' + IntToStr(RelocationBlock shr 12) + ' not implemented');
       end;
     end;
+    Result := True;
   except
     on E: Exception do
     begin

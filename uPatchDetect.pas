@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.18
+//  * Version   : 1.3.21
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -66,7 +66,7 @@ type
     procedure mnuCopyClick(Sender: TObject);
     procedure mnuGotoAddressClick(Sender: TObject);
   private
-    FCodeError, FImportError, FExportError: Integer;
+    FCodeError, FImportError, FDelayedImportError, FExportError: Integer;
     FFilter: TFilter;
     // обработчики событий анализатора
     procedure ProcessCodeHook(const Data: TCodeHookData);
@@ -338,6 +338,8 @@ begin
 
           if FImportError > 0 then
             Add(Format('Total import error: %d', [FImportError]));
+          if FDelayedImportError > 0 then
+            Add(Format('Total delayed import error: %d', [FImportError]));
           if FExportError > 0 then
             Add(Format('Total export error: %d', [FExportError]));
           if FCodeError > 0 then
@@ -785,10 +787,11 @@ begin
         Add(chd.DumpStrings[I]);
     end;
 
-    if Data.HookType = htExport then
-      Inc(FExportError)
-    else
-      Inc(FImportError);
+    case Data.HookType of
+      htImport: Inc(FImportError);
+      htDelayedImport: Inc(FDelayedImportError);
+      htExport: Inc(FExportError);
+    end;
 
     EmptyLine;
     Add('*** end table hook data ***');

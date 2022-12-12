@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectProcess.pas
 //  * Purpose   : Диалог выбора процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0.2
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
+//  * Version   : 1.3.21
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -91,7 +91,8 @@ begin
   if RestartAsAdmin then
     ModalResult := mrClose
   else
-    RaiseLastOSError;
+    if GetLastError <> ERROR_CANCELLED then
+      RaiseLastOSError;
 end;
 
 procedure TdlgSelectProcess.FormCreate(Sender: TObject);

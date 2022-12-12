@@ -6,7 +6,7 @@
 //  * Purpose   : Класс собирает данные о Workset процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.1
+//  * Version   : 1.3.21
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -95,7 +95,11 @@ begin
   SetLength(WorksetBuff, $400000);
   while not QueryWorkingSet(hProcess, @WorksetBuff[0],
     Length(WorksetBuff) * SizeOf(ULONG_PTR)) do
+  begin
+    if WorksetBuff[0] = 0 then Exit;
     SetLength(WorksetBuff, WorksetBuff[0] * 2);
+  end;
+
   for I := 0 to WorksetBuff[0] - 1 do
   begin
     ShareInfo.Shared := WorksetBuff[I]  and SharedBitMask <> 0;

@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2022.
-//  * Version   : 1.3.20
+//  * Version   : 1.3.21
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -234,7 +234,8 @@ uses
   uKnownData,
   uPatchDetect,
   uPluginManager,
-  uDebugInfoDlg;
+  uDebugInfoDlg,
+  Shell.TaskBarListProgress;
 
 const
   RootCaption = 'Process Memory Map';
@@ -593,6 +594,9 @@ var
   AddrVA: ULONG64;
   ProcHandle: THandle;
   DebugParamIndex: Integer;
+  TaskBarBtn: TTaskBarListProgress;
+  Pid: Cardinal;
+  ProcessName: string;
 begin
   if FirstSelectProcess and (ParamCount > 0) then
   begin
@@ -624,23 +628,35 @@ begin
       end;
     end;
   end;
-  dlgSelectProcess := TdlgSelectProcess.Create(Self);
+  dlgSelectProcess := TdlgSelectProcess.Create(Application);
   try
-    if FirstSelectProcess then
-    begin
-      FirstSelectProcess := False;
-      dlgSelectProcess.Position := poScreenCenter;
-    end
-    else
-      dlgSelectProcess.Position := poMainFormCenter;
-    case dlgSelectProcess.ShowModal of
-      mrOk: OpenProcessAndInitGUI(dlgSelectProcess.Pid,
-        dlgSelectProcess.ProcessName);
-      mrClose: Close;
+    Pid := 0;
+    TaskBarBtn := TTaskBarListProgress.Create;
+    try
+      if FirstSelectProcess then
+      begin
+        TaskBarBtn.ShowExternalButton(dlgSelectProcess.Handle, Caption, EmptyStr);
+        FirstSelectProcess := False;
+        dlgSelectProcess.Position := poScreenCenter;
+      end
+      else
+        dlgSelectProcess.Position := poMainFormCenter;
+      case dlgSelectProcess.ShowModal of
+        mrOk:
+        begin
+          Pid := dlgSelectProcess.Pid;
+          ProcessName := dlgSelectProcess.ProcessName;
+        end;
+        mrClose: Close;
+      end;
+    finally
+      TaskBarBtn.Free;
     end;
   finally
     dlgSelectProcess.Free;
   end;
+  if Pid <> 0 then
+    OpenProcessAndInitGUI(Pid, ProcessName);
 end;
 
 procedure TdlgProcessMM.acSettingsExecute(Sender: TObject);

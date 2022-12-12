@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль для работы с контекстами активации процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.1
+//  * Version   : 1.0.5
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -174,19 +174,34 @@ type
                                 // an assembly, zero.
   end;
 
-//
-//  ActivationContext GUID sections are organized as follows:
-//
-//  Header
-//  Hash structure (optional)
-//  List of subelements
-//  Variable length data
-//
-//  If you don't recognize the FormatVersion, you should still
-//  be able to navigate to the list of subelements; once there
-//  you can still do a very fast linear search avoiding many
-//  GUID comparisons.
-//
+  PACTIVATION_CONTEXT_DATA_ASSEMBLY_INFORMATION = ^ACTIVATION_CONTEXT_DATA_ASSEMBLY_INFORMATION;
+  ACTIVATION_CONTEXT_DATA_ASSEMBLY_INFORMATION = packed record
+    Size,                                 // size of this structure, in bytes
+    Flags,
+    EncodedAssemblyIdentityLength,        // in bytes
+    EncodedAssemblyIdentityOffset,        // offset from section header base
+
+    ManifestPathType,
+    ManifestPathLength,                   // in bytes
+    ManifestPathOffset: ULONG;            // offset from section header base
+    ManifestLastWriteTime: LARGE_INTEGER;
+    PolicyPathType,
+    PolicyPathLength,                     // in bytes
+    PolicyPathOffset: ULONG;              // offset from section header base
+    PolicyLastWriteTime: LARGE_INTEGER;
+    MetadataSatelliteRosterIndex,
+    Unused2,
+    ManifestVersionMajor,
+    ManifestVersionMinor,
+    PolicyVersionMajor,
+    PolicyVersionMinor,
+    AssemblyDirectoryNameLength, // in bytes
+    AssemblyDirectoryNameOffset, // from section header base
+    NumOfFilesInAssembly,
+// 2600 stopped here
+    LanguageLength, // in bytes
+    LanguageOffset: ULONG; // from section header base
+  end;
 
  {$MESSAGE 'Контекст активации не доделан'}
 
@@ -200,7 +215,7 @@ type
     FSystemContext: Boolean;
     procedure InitContext;
     procedure LoadAssemblyRoster(AddrVA: ULONG_PTR64);
-    procedure LoadCtxString(AddrVA: ULONG_PTR64);
+    procedure LoadCtxString(AddrVA: ULONG_PTR64; TocID: Integer);
     procedure LoadExtendedToc(AddrVA: ULONG_PTR64);
     procedure LoadToc(AddrVA: ULONG_PTR64);
   public
@@ -219,7 +234,8 @@ begin
   FProcess := AProcess;
   FContextAddr := ContextAddr;
   FSystemContext := ASystemContext;
-  InitContext;
+  if FContextAddr <> 0 then
+    InitContext;
 end;
 
 destructor TActivationContext.Destroy;
@@ -312,12 +328,14 @@ begin
   end;
 end;
 
-procedure TActivationContext.LoadCtxString(AddrVA: ULONG_PTR64);
+procedure TActivationContext.LoadCtxString(AddrVA: ULONG_PTR64; TocID: Integer);
 var
   Header: ACTIVATION_CONTEXT_STRING_SECTION_HEADER;
   Entry: ACTIVATION_CONTEXT_STRING_SECTION_ENTRY;
-  Item: TSymbolData;
+  Info: ACTIVATION_CONTEXT_DATA_ASSEMBLY_INFORMATION;
+  Item, InfoSym: TSymbolData;
   I: Integer;
+  SectionAddrVA: ULONG_PTR64;
 begin
   if not ReadRemoteMemory(FProcess, AddrVA,
     @Header, SizeOf(ACTIVATION_CONTEXT_STRING_SECTION_HEADER)) then
@@ -335,8 +353,10 @@ begin
     Exit;
   end;
 
+  SectionAddrVA := AddrVA;
+
   Item.AddrVA := AddrVA;
-  Item.Ctx.ContextVA := AddrVA;
+  Item.Ctx.ContextVA := SectionAddrVA;
   Item.DataType := sdtCtxStrSecHeader;
   SymbolStorage.Add(Item);
 
@@ -354,6 +374,12 @@ begin
     end;
 
     SymbolStorage.Add(Item);
+
+    InfoSym.AddrVA := Entry.Offset + SectionAddrVA;
+    InfoSym.Ctx.ContextVA := SectionAddrVA;
+    InfoSym.Ctx.TokID := TocID;
+    InfoSym.DataType := sdtCtxStrSecEntryData;
+    SymbolStorage.Add(InfoSym);
 
     Inc(Item.AddrVA, SizeOf(ACTIVATION_CONTEXT_STRING_SECTION_ENTRY));
   end;
@@ -436,7 +462,7 @@ begin
     SymbolStorage.Add(Item);
 
     if Entry.Format = ACTIVATION_CONTEXT_SECTION_FORMAT_STRING_TABLE then
-      LoadCtxString(FContextAddr + Entry.Offset);
+      LoadCtxString(FContextAddr + Entry.Offset, Entry.Id);
 
     Inc(Item.AddrVA, SizeOf(ACTIVATION_CONTEXT_DATA_TOC_ENTRY));
   end;

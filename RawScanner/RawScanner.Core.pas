@@ -8,7 +8,7 @@
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.1
+//  * Version   : 1.0.5
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -411,16 +411,24 @@ begin
   FInitResult.ApiSetVer := ApiSetRedirector.Version;
   FInitResult.ApiSetCount := ApiSetRedirector.Count;
 
+  {$IFDEF WIN32}
+  ContextAddr := FPEB32.ActivationContextData;
+  {$ELSE}
   if FIsWow64Mode then
     ContextAddr := FPEB32.ActivationContextData
   else
     ContextAddr := FPEB64.ActivationContextData;
+  {$ENDIF}
   FProcessContext := TActivationContext.Create(FProcess, ContextAddr, False);
 
+  {$IFDEF WIN32}
+  ContextAddr := FPEB32.SystemDefaultActivationContextData;
+  {$ELSE}
   if FIsWow64Mode then
     ContextAddr := FPEB32.SystemDefaultActivationContextData
   else
     ContextAddr := FPEB64.SystemDefaultActivationContextData;
+  {$ENDIF}
   FSystemContext := TActivationContext.Create(FProcess, ContextAddr, True);
 
   SymbolStorage.PrepareForWork;

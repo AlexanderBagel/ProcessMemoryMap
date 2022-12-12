@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.4
+//  * Version   : 1.0.5
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -37,6 +37,7 @@ type
     sdtCtxProcess, sdtCtxSystem, sdtCtxToc, sdtCtxTocEntry,
     sdtCtxExtToc, sdtCtxExtTocEntry, sdtCtxAssemblyRoster,
     sdtCtxAssemblyRosterEntry, sdtCtxStrSecHeader, sdtCtxStrSecEntry,
+    sdtCtxStrSecEntryData,
 
     // отдельный тип под плагины
     sdtPluginDescriptor,
@@ -66,7 +67,7 @@ type
   TContextData = record
   case TSymbolDataType of
     sdtCtxProcess: (TotalSize: DWORD);
-    sdtCtxAssemblyRosterEntry: (ContextVA: ULONG_PTR64);
+    sdtCtxAssemblyRosterEntry: (ContextVA: ULONG_PTR64; TokID: Integer);
   end;
 
   TModuleKey = record
