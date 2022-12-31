@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.21
+//  * Version   : 1.3.22
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,8 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01031500;
-  MemoryMapVersionStr = '1.3 (revision 21)';
+  MemoryMapVersionInt = $01031600;
+  MemoryMapVersionStr = '1.3 (revision 22)';
 
 type
   // Типы фильтров
@@ -1052,8 +1052,14 @@ begin
     repeat
       RegionData.SetSection(Section);
       Dec(SectionSize, RegionData.MBI.RegionSize);
-      Inc(Index);
-      RegionData := GetFriendlyRegion(Index);
+      // Rouse_ 22.12.2022
+      // Фикс критической ошибки при открытии процесса
+      // Из-за отсутстующей проверки происходил выход за диапазон
+      if SectionSize > 0 then
+      begin
+        Inc(Index);
+        RegionData := GetFriendlyRegion(Index);
+      end;
     until SectionSize <= 0;
   end;
 end;

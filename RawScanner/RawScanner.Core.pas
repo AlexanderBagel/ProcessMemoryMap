@@ -8,7 +8,7 @@
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.5
+//  * Version   : 1.0.6
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -180,7 +180,7 @@ end;
 
 class destructor TRawScanner.ClassDestroy;
 begin
-  FreeAndNil(FInstance);
+  FInstance.Free;
 end;
 
 procedure TRawScanner.Clear;
@@ -190,6 +190,7 @@ begin
   FProcess := 0;
   ZeroMemory(@FPEB32, SizeOf(TPEB64));
   ZeroMemory(@FPEB64, SizeOf(TPEB64));
+  ZeroMemory(@FInitResult, SizeOf(TInitializationResult));  
   FreeAndNil(FAnalizer);
   FreeAndNil(FProcessContext);
   FreeAndNil(FSystemContext);
@@ -210,10 +211,9 @@ end;
 
 destructor TRawScanner.Destroy;
 begin
-  FAnalizer.Free;
+  Clear;
   FModules.Free;
-  FSystemContext.Free;
-  FProcessContext.Free;
+  FInstance := nil;
   inherited;
 end;
 
@@ -361,8 +361,6 @@ var
   Loader: TLoaderData;
   ContextAddr: ULONG_PTR64;
 begin
-  ZeroMemory(@FInitResult, SizeOf(TInitializationResult));
-
   Clear;
 
   ApiSetRedirector.LoadApiSet;

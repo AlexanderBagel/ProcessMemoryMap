@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.21
+//  * Version   : 1.3.22
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -339,7 +339,7 @@ begin
           if FImportError > 0 then
             Add(Format('Total import error: %d', [FImportError]));
           if FDelayedImportError > 0 then
-            Add(Format('Total delayed import error: %d', [FImportError]));
+            Add(Format('Total delayed import error: %d', [FDelayedImportError]));
           if FExportError > 0 then
             Add(Format('Total export error: %d', [FExportError]));
           if FCodeError > 0 then

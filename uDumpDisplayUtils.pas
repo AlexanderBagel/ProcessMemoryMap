@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.21
+//  * Version   : 1.3.22
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -3163,8 +3163,19 @@ var
 var
   DescriptorData: TDescriptorData;
 begin
+  case ASymbol.DataType of
+    sdtPluginDescriptor:
+    begin
+      if PluginManager.GetGetDescriptorData(ASymbol.Plugin.PluginHandle,
+        ASymbol.Plugin.DescriptorHandle, DescriptorData) then
+        Result := DescriptorData.Caption;
+      Exit;
+    end;
+  end;
+
   // Обработка данных с типом Binary
   if ASymbol.DataType < sdtInstance then Exit;
+
   Module := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
   Result := EmptyStr;
   Index := ASymbol.Binary.ListIndex;

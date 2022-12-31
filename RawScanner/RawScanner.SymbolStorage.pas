@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.5
+//  * Version   : 1.0.6
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -220,6 +220,9 @@ begin
     Data := FItems.List[Index];
     if AType <> stAll then
       Result := Data.DataType in [sdtExport, sdtEntryPoint];
+    if Result then
+      Exit;
+    Result := Data.DataType = sdtPluginDescriptor;
     if Result then
       Exit;
   end;

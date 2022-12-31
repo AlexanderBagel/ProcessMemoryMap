@@ -10,7 +10,7 @@
 //  *           : 64 битных библиотеках.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.1
+//  * Version   : 1.0.6
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -240,6 +240,7 @@ begin
     if not ReadRemoteMemory(FProcess, Entry.FullDllName.Buffer,
       @Module.ImagePath[1], Entry.FullDllName.Length) then
     begin
+      Item.AddrVA := Entry.InLoadOrderLinks.FLink;
       RawScannerLogger.Error(llLoader,
         Format(ReadError, ['Entry32.FullDllName',
         Entry.FullDllName.Buffer, GetLastError, SysErrorMessage(GetLastError)]));
@@ -323,10 +324,11 @@ begin
     if not ReadRemoteMemory(FProcess, Entry.FullDllName.Buffer,
       @Module.ImagePath[1], Entry.FullDllName.Length) then
     begin
+      Item.AddrVA := Entry.InLoadOrderLinks.FLink;
       RawScannerLogger.Error(llLoader,
         Format(ReadError, ['Entry64.FullDllName',
         Entry.FullDllName.Buffer, GetLastError, SysErrorMessage(GetLastError)]));
-      Exit;
+      Continue;
     end;
 
     // инициализируе дополнительные флаги загруженого модуля

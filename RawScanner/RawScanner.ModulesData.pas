@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.5
+//  * Version   : 1.0.6
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -363,6 +363,12 @@ begin
     Result := -1;
 end;
 
+function TRawPEImage.ExportIndex(const FuncName: string): Integer;
+begin
+  if not FExportIndex.TryGetValue(FuncName, Result) then
+    Result := -1;
+end;
+
 function TRawPEImage.FixAddrSize(AddrVA: ULONG_PTR64;
   var ASize: DWORD): Boolean;
 var
@@ -440,12 +446,6 @@ begin
     end;
 
   end;
-end;
-
-function TRawPEImage.ExportIndex(const FuncName: string): Integer;
-begin
-  if not FExportIndex.TryGetValue(FuncName, Result) then
-    Result := -1;
 end;
 
 procedure TRawPEImage.InitDirectories;
@@ -833,7 +833,7 @@ begin
   end;
   FOriginalName := ReadString(Raw);
 
-  // читаем масив Rva адресов функций
+  // читаем массив Rva адресов функций
   SetLength(FunctionsAddr, ImageExportDirectory.NumberOfFunctions);
   Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfFunctions);
   if Raw.Position = 0 then
@@ -847,12 +847,12 @@ begin
 
   // Важный момент!
   // Библиотека может вообще не иметь функций экспортируемых по имени,
-  // только по ординалам. Пример такой библиотеи: mfperfhelper.dll
+  // только по ординалам. Пример такой библиотеки: mfperfhelper.dll
   // Поэтому нужно делать проверку на их наличие
   if ImageExportDirectory.NumberOfNames > 0 then
   begin
 
-    // читаем масив Rva адресов имен функций
+    // читаем массив Rva адресов имен функций
     SetLength(NamesAddr, ImageExportDirectory.NumberOfNames);
     Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfNames);
     if Raw.Position = 0 then
@@ -864,7 +864,7 @@ begin
     end;
     Raw.ReadBuffer(NamesAddr[0], ImageExportDirectory.NumberOfNames shl 2);
 
-    // читаем масив ординалов - индексов через которые имена функций
+    // читаем массив ординалов - индексов через которые имена функций
     // связываются с массивом адресов
     SetLength(Ordinals, ImageExportDirectory.NumberOfNames);
     Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfNameOrdinals);
@@ -877,7 +877,7 @@ begin
     end;
     Raw.ReadBuffer(Ordinals[0], ImageExportDirectory.NumberOfNames shl 1);
 
-    // сначала обрабатываем функции экпортируемые по имени
+    // сначала обрабатываем функции экспортируемые по имени
     for I := 0 to ImageExportDirectory.NumberOfNames - 1 do
     begin
       Raw.Position := RvaToRaw(NamesAddr[I]);
@@ -975,7 +975,7 @@ begin
       // vcl270.bpl спокойно декларирует 4 одинаковых функции
       // вот эти '@$xp$39System@%TArray__1$p17System@TMetaClass%'
       // с ординалами 7341, 7384, 7411, 7222
-      // поэтому придется в масиве имен запоминать только самую первую
+      // поэтому придется в массиве имен запоминать только самую первую
       // ибо линковаться они могут только через ординалы
       // upd: а они даже не линкуются, а являются дженериками с линком на класс
       // а в таблице экспорта полученом через Symbols присутствует только одна
@@ -983,7 +983,7 @@ begin
       FExportIndex.TryAdd(ExportChunk.FuncName, Index);
 
       // индекс для поиска по ординалу
-      // (если тут упадет в дубликатом, значит что-то не верно зачитано)
+      // (если тут упадет с дубликатом, значит что-то не верно зачитано)
       FExportOrdinalIndex.Add(ExportChunk.Ordinal, Index);
     end;
   end;
@@ -1277,53 +1277,53 @@ end;
 function TRawPEImage.LoadNtHeader(Raw: TStream): Boolean;
 var
   Start: Int64;
-  WowImageNtHeaders: TImageNtHeaders32;
+  ImageOptionalHeader32: TImageOptionalHeader32;
 begin
   Result := False;
   Start := Raw.Position;
-  Raw.ReadBuffer(FNtHeader, SizeOf(TImageNtHeaders64));
+  Raw.ReadBuffer(FNtHeader, SizeOf(DWORD) + SizeOf(TImageFileHeader));
   if FNtHeader.Signature <> IMAGE_NT_SIGNATURE then Exit;
   if FNtHeader.FileHeader.Machine = IMAGE_FILE_MACHINE_I386 then
   begin
     FImage64 := False;
-    Raw.Position := Start;
-    Raw.ReadBuffer(WowImageNtHeaders, SizeOf(TImageNtHeaders32));
-    FNtHeader.Signature := WowImageNtHeaders.Signature;
-    FNtHeader.FileHeader := WowImageNtHeaders.FileHeader;
-    FNtHeader.OptionalHeader.Magic := WowImageNtHeaders.OptionalHeader.Magic;
-    FNtHeader.OptionalHeader.MajorLinkerVersion := WowImageNtHeaders.OptionalHeader.MajorLinkerVersion;
-    FNtHeader.OptionalHeader.MinorLinkerVersion := WowImageNtHeaders.OptionalHeader.MinorLinkerVersion;
-    FNtHeader.OptionalHeader.SizeOfCode := WowImageNtHeaders.OptionalHeader.SizeOfCode;
-    FNtHeader.OptionalHeader.SizeOfInitializedData := WowImageNtHeaders.OptionalHeader.SizeOfInitializedData;
-    FNtHeader.OptionalHeader.SizeOfUninitializedData := WowImageNtHeaders.OptionalHeader.SizeOfUninitializedData;
-    FNtHeader.OptionalHeader.AddressOfEntryPoint := WowImageNtHeaders.OptionalHeader.AddressOfEntryPoint;
-    FNtHeader.OptionalHeader.BaseOfCode := WowImageNtHeaders.OptionalHeader.BaseOfCode;
-    FNtHeader.OptionalHeader.ImageBase := WowImageNtHeaders.OptionalHeader.ImageBase;
-    FNtHeader.OptionalHeader.SectionAlignment := WowImageNtHeaders.OptionalHeader.SectionAlignment;
-    FNtHeader.OptionalHeader.FileAlignment := WowImageNtHeaders.OptionalHeader.FileAlignment;
-    FNtHeader.OptionalHeader.MajorOperatingSystemVersion := WowImageNtHeaders.OptionalHeader.MajorOperatingSystemVersion;
-    FNtHeader.OptionalHeader.MinorOperatingSystemVersion := WowImageNtHeaders.OptionalHeader.MinorOperatingSystemVersion;
-    FNtHeader.OptionalHeader.MajorImageVersion := WowImageNtHeaders.OptionalHeader.MajorImageVersion;
-    FNtHeader.OptionalHeader.MinorImageVersion := WowImageNtHeaders.OptionalHeader.MinorImageVersion;
-    FNtHeader.OptionalHeader.MajorSubsystemVersion := WowImageNtHeaders.OptionalHeader.MajorSubsystemVersion;
-    FNtHeader.OptionalHeader.MinorSubsystemVersion := WowImageNtHeaders.OptionalHeader.MinorSubsystemVersion;
-    FNtHeader.OptionalHeader.Win32VersionValue := WowImageNtHeaders.OptionalHeader.Win32VersionValue;
-    FNtHeader.OptionalHeader.SizeOfImage := WowImageNtHeaders.OptionalHeader.SizeOfImage;
-    FNtHeader.OptionalHeader.SizeOfHeaders := WowImageNtHeaders.OptionalHeader.SizeOfHeaders;
-    FNtHeader.OptionalHeader.CheckSum := WowImageNtHeaders.OptionalHeader.CheckSum;
-    FNtHeader.OptionalHeader.Subsystem := WowImageNtHeaders.OptionalHeader.Subsystem;
-    FNtHeader.OptionalHeader.DllCharacteristics := WowImageNtHeaders.OptionalHeader.DllCharacteristics;
-    FNtHeader.OptionalHeader.SizeOfStackReserve := WowImageNtHeaders.OptionalHeader.SizeOfStackReserve;
-    FNtHeader.OptionalHeader.SizeOfStackCommit := WowImageNtHeaders.OptionalHeader.SizeOfStackCommit;
-    FNtHeader.OptionalHeader.SizeOfHeapReserve := WowImageNtHeaders.OptionalHeader.SizeOfHeapReserve;
-    FNtHeader.OptionalHeader.SizeOfHeapCommit := WowImageNtHeaders.OptionalHeader.SizeOfHeapCommit;
-    FNtHeader.OptionalHeader.LoaderFlags := WowImageNtHeaders.OptionalHeader.LoaderFlags;
-    FNtHeader.OptionalHeader.NumberOfRvaAndSizes := WowImageNtHeaders.OptionalHeader.NumberOfRvaAndSizes;
+    Raw.ReadBuffer(ImageOptionalHeader32, SizeOf(TImageOptionalHeader32));
+    FNtHeader.OptionalHeader.Magic := ImageOptionalHeader32.Magic;
+    FNtHeader.OptionalHeader.MajorLinkerVersion := ImageOptionalHeader32.MajorLinkerVersion;
+    FNtHeader.OptionalHeader.MinorLinkerVersion := ImageOptionalHeader32.MinorLinkerVersion;
+    FNtHeader.OptionalHeader.SizeOfCode := ImageOptionalHeader32.SizeOfCode;
+    FNtHeader.OptionalHeader.SizeOfInitializedData := ImageOptionalHeader32.SizeOfInitializedData;
+    FNtHeader.OptionalHeader.SizeOfUninitializedData := ImageOptionalHeader32.SizeOfUninitializedData;
+    FNtHeader.OptionalHeader.AddressOfEntryPoint := ImageOptionalHeader32.AddressOfEntryPoint;
+    FNtHeader.OptionalHeader.BaseOfCode := ImageOptionalHeader32.BaseOfCode;
+    FNtHeader.OptionalHeader.ImageBase := ImageOptionalHeader32.ImageBase;
+    FNtHeader.OptionalHeader.SectionAlignment := ImageOptionalHeader32.SectionAlignment;
+    FNtHeader.OptionalHeader.FileAlignment := ImageOptionalHeader32.FileAlignment;
+    FNtHeader.OptionalHeader.MajorOperatingSystemVersion := ImageOptionalHeader32.MajorOperatingSystemVersion;
+    FNtHeader.OptionalHeader.MinorOperatingSystemVersion := ImageOptionalHeader32.MinorOperatingSystemVersion;
+    FNtHeader.OptionalHeader.MajorImageVersion := ImageOptionalHeader32.MajorImageVersion;
+    FNtHeader.OptionalHeader.MinorImageVersion := ImageOptionalHeader32.MinorImageVersion;
+    FNtHeader.OptionalHeader.MajorSubsystemVersion := ImageOptionalHeader32.MajorSubsystemVersion;
+    FNtHeader.OptionalHeader.MinorSubsystemVersion := ImageOptionalHeader32.MinorSubsystemVersion;
+    FNtHeader.OptionalHeader.Win32VersionValue := ImageOptionalHeader32.Win32VersionValue;
+    FNtHeader.OptionalHeader.SizeOfImage := ImageOptionalHeader32.SizeOfImage;
+    FNtHeader.OptionalHeader.SizeOfHeaders := ImageOptionalHeader32.SizeOfHeaders;
+    FNtHeader.OptionalHeader.CheckSum := ImageOptionalHeader32.CheckSum;
+    FNtHeader.OptionalHeader.Subsystem := ImageOptionalHeader32.Subsystem;
+    FNtHeader.OptionalHeader.DllCharacteristics := ImageOptionalHeader32.DllCharacteristics;
+    FNtHeader.OptionalHeader.SizeOfStackReserve := ImageOptionalHeader32.SizeOfStackReserve;
+    FNtHeader.OptionalHeader.SizeOfStackCommit := ImageOptionalHeader32.SizeOfStackCommit;
+    FNtHeader.OptionalHeader.SizeOfHeapReserve := ImageOptionalHeader32.SizeOfHeapReserve;
+    FNtHeader.OptionalHeader.SizeOfHeapCommit := ImageOptionalHeader32.SizeOfHeapCommit;
+    FNtHeader.OptionalHeader.LoaderFlags := ImageOptionalHeader32.LoaderFlags;
+    FNtHeader.OptionalHeader.NumberOfRvaAndSizes := ImageOptionalHeader32.NumberOfRvaAndSizes;
     for var I := 0 to IMAGE_NUMBEROF_DIRECTORY_ENTRIES - 1 do
-      FNtHeader.OptionalHeader.DataDirectory[I] := WowImageNtHeaders.OptionalHeader.DataDirectory[I];
+      FNtHeader.OptionalHeader.DataDirectory[I] := ImageOptionalHeader32.DataDirectory[I];
   end
   else
+  begin
     FImage64 := True;
+    Raw.ReadBuffer(FNtHeader.OptionalHeader, SizeOf(TImageOptionalHeader64));
+  end;
   Result := True;
 end;
 
