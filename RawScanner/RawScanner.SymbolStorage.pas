@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.SymbolStorage.pas
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.6
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.7
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -79,6 +79,7 @@ type
   TPluginData = record
     PluginHandle,
     DescriptorHandle: THandle;
+    IsFunction: Boolean;
   end;
 
   TApiSetData = record
@@ -222,7 +223,7 @@ begin
       Result := Data.DataType in [sdtExport, sdtEntryPoint];
     if Result then
       Exit;
-    Result := Data.DataType = sdtPluginDescriptor;
+    Result := (Data.DataType = sdtPluginDescriptor) and (Data.Plugin.IsFunction);
     if Result then
       Exit;
   end;

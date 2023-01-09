@@ -5,8 +5,8 @@
 //  * Unit Name : pmm_plugin.pas
 //  * Purpose   : Модуль с декларацией структур для плагинов PMM
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.19
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.3.23
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -77,12 +77,35 @@ type
   TPluginDescriptorCount = function(): Integer; stdcall;
 
   /// <summary>
+  ///  Тип дескриптора
+  /// </summary>
+  TDescriptorType = (
+
+    /// <summary>
+    /// Флаг типа дескриптора, означающий произвольные данные, описываемые им, например коментарий
+    /// </summary>
+    PMM_DESCR_TYPE_UNKNOWN = 0,
+
+    /// <summary>
+    /// Флаг типа дескриптора, означающий что дескриптор описывает поле структуры
+    /// При это в TDescriptorData желательно заполнение наименования структуры в поле NameSpace
+    /// </summary>
+    PMM_DESCR_TYPE_STRUCT = 1,
+
+    /// <summary>
+    /// Флаг типа дескриптора, означающий что дескриптор описывает функцию
+    /// </summary>
+    PMM_DESCR_TYPE_FUNCTION = 2
+  );
+
+  /// <summary>
   /// уникальный описатель известной плагину информации по адресу
   /// </summary>
   PDescriptor = ^TDescriptor;
   TDescriptor = record
     AddrVA: ULONG64;     // описываемый адрес
     Handle: THandle;     // уникальный маркер задаваемый плагином
+    DescrType: TDescriptorType; // тип дескриптора
   end;
 
   /// <summary>

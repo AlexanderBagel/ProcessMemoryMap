@@ -150,6 +150,9 @@ brcc32 $(PROJECTDIR)\win64release.rc
 $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_DebugInformation>2</DCC_DebugInformation>
         <Debugger_RunParams>6968</Debugger_RunParams>
+        <VerInfo_Release>23</VerInfo_Release>
+        <VerInfo_Build>454</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.3.23.454;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.3;Comments=</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>

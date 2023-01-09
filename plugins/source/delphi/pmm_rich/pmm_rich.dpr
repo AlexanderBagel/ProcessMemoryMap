@@ -5,8 +5,8 @@
 //  * Unit Name : pmm_rich.dpr
 //  * Purpose   : Демонстрационный плагин для отображения Rich заголовков
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -115,6 +115,7 @@ begin
     Exit(ERROR_INVALID_PARAMETER);
   pDesc.AddrVA := RichManager.Items[Index].AddrVA;
   pDesc.Handle := Index;
+  pDesc.DescrType := PMM_DESCR_TYPE_STRUCT;
   Result := NO_ERROR;
 end;
 

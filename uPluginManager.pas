@@ -5,8 +5,8 @@
 //  * Unit Name : uPluginManager.pas
 //  * Purpose   : Менеджер плагинов
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.20
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.3.23
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -241,6 +241,7 @@ begin
     Exit;
   Symbol.DataType := sdtPluginDescriptor;
   ExceptData := EmptyStr;
+  ZeroMemory(@Descr, SizeOf(TDescriptor));
   for var Item in FList do
   try
     Symbol.Plugin.PluginHandle := Item.Handle;
@@ -263,6 +264,7 @@ begin
         begin
           Symbol.AddrVA := Descr.AddrVA;
           Symbol.Plugin.DescriptorHandle := Descr.Handle;
+          Symbol.Plugin.IsFunction := Descr.DescrType = PMM_DESCR_TYPE_FUNCTION;
           SymbolStorage.Add(Symbol);
         end;
       end;

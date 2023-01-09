@@ -5,8 +5,8 @@
 //  * Unit Name : pmm_plugin.h
 //  * Purpose   : Модуль с декларацией структур для плагинов PMM
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -58,10 +58,35 @@ struct ProcessModule
     BOOL LoadAsDataFile;         // флаг присутствия модуля в списках лоадера (исполняемый или отмапленый)
 };
 
+/// <summary>
+///  Тип дескриптора
+/// </summary>
+/// 
+enum DescriptorType {
+
+    /// <summary>
+    /// Флаг типа дескриптора, означающий произвольные данные, описываемые им, например коментарий
+    /// </summary>
+    PMM_DESCR_TYPE_UNKNOWN = 0,
+
+    /// <summary>
+    /// Флаг типа дескриптора, означающий что дескриптор описывает поле структуры
+    /// При это в TDescriptorData желательно заполнение наименования структуры в поле NameSpace
+    /// </summary>
+    PMM_DESCR_TYPE_STRUCT = 1,
+
+    /// <summary>
+    /// Флаг типа дескриптора, означающий что дескриптор описывает функцию
+    /// </summary>
+    PMM_DESCR_TYPE_FUNCTION = 2
+
+};
+
 struct Descriptor
 {
     ULONG64 AddrVA; // описываемый адрес
     HANDLE Handle;  // уникальный маркер задаваемый плагином
+    DescriptorType DescrType; // тип дескриптора
 };
 
 /// <summary>

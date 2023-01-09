@@ -5,8 +5,8 @@
 //  * Unit Name : dllmain.cpp
 //  * Purpose   : Демонстрационный плагин для отображения Rich заголовков
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -114,6 +114,7 @@ DWORD WINAPI PluginGetDescriptor(int index, struct Descriptor *pDesc)
         return ERROR_INVALID_PARAMETER;
     pDesc->AddrVA = rich->Items()[(int)index].addrVA;
     pDesc->Handle = (HANDLE)(INT_PTR)index;
+    pDesc->DescrType = PMM_DESCR_TYPE_STRUCT;
     return NO_ERROR;
 }
 

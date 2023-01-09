@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Core.pas
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.22
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.3.23
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,8 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01031600;
-  MemoryMapVersionStr = '1.3 (revision 22)';
+  MemoryMapVersionInt = $01031700;
+  MemoryMapVersionStr = '1.3 (revision 23)';
 
 type
   // Типы фильтров
