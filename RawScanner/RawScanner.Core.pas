@@ -7,8 +7,8 @@
 //  *           : и хранящий информацию об известных для анализа и отображения
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.6
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.8
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,7 +36,8 @@ uses
   RawScanner.SymbolStorage,
   RawScanner.Types,
   RawScanner.Utils,
-  RawScanner.Wow64;
+  RawScanner.Wow64,
+  RawScanner.X64Gates;
 
 type
   TPEB64 = record
@@ -213,6 +214,7 @@ destructor TRawScanner.Destroy;
 begin
   Clear;
   FModules.Free;
+  ReleaseNtQueryVirtualMemory64;
   FInstance := nil;
   inherited;
 end;
@@ -520,7 +522,9 @@ begin
               // который актуален применительно к нашему процессу
               Index := NtDll.ExportIndex('NtQueryVirtualMemory');
               if Index >= 0 then
-                SetNtQueryVirtualMemoryAddr(NtDll.ExportList.List[Index].FuncAddrVA);
+                InitNtQueryVirtualMemory64(MakeX64Gate(
+                  NtDll.ExportList.List[Index].FuncAddrVA,
+                  [ps4Byte, ps8Byte, ps4Byte, ps4Byte, ps4Byte, ps4Byte]));
             finally
               NtDll.Free;
             end;

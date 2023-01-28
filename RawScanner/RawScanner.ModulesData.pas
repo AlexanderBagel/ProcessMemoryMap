@@ -6,8 +6,8 @@
 //  * Purpose   : Классы получающие данные о состоянии PE файлов в процессе
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.6
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.8
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1276,11 +1276,9 @@ end;
 
 function TRawPEImage.LoadNtHeader(Raw: TStream): Boolean;
 var
-  Start: Int64;
   ImageOptionalHeader32: TImageOptionalHeader32;
 begin
   Result := False;
-  Start := Raw.Position;
   Raw.ReadBuffer(FNtHeader, SizeOf(DWORD) + SizeOf(TImageFileHeader));
   if FNtHeader.Signature <> IMAGE_NT_SIGNATURE then Exit;
   if FNtHeader.FileHeader.Machine = IMAGE_FILE_MACHINE_I386 then

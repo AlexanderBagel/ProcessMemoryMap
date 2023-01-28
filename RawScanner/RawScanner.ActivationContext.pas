@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.ActivationContext.pas
 //  * Purpose   : Модуль для работы с контекстами активации процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.5
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.8
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -203,8 +203,6 @@ type
     LanguageOffset: ULONG; // from section header base
   end;
 
- {$MESSAGE 'Контекст активации не доделан'}
-
 type
   TActivationContext = class
   private const
@@ -332,7 +330,6 @@ procedure TActivationContext.LoadCtxString(AddrVA: ULONG_PTR64; TocID: Integer);
 var
   Header: ACTIVATION_CONTEXT_STRING_SECTION_HEADER;
   Entry: ACTIVATION_CONTEXT_STRING_SECTION_ENTRY;
-  Info: ACTIVATION_CONTEXT_DATA_ASSEMBLY_INFORMATION;
   Item, InfoSym: TSymbolData;
   I: Integer;
   SectionAddrVA: ULONG_PTR64;

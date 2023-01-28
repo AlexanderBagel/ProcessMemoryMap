@@ -5,8 +5,8 @@
 //  * Unit Name : uAbout.pas
 //  * Purpose   : Диалог "О программе"
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.16
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.3.24
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************

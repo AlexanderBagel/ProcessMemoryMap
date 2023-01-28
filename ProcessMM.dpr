@@ -71,7 +71,8 @@ uses
   pmm_plugin in 'plugins\include\pmm_plugin.pas',
   uPluginManager in 'uPluginManager.pas',
   uDebugInfoDlg in 'uDebugInfoDlg.pas' {dlgDbgInfo},
-  Shell.TaskBarListProgress in 'Controls\Shell.TaskBarListProgress.pas';
+  Shell.TaskBarListProgress in 'Controls\Shell.TaskBarListProgress.pas',
+  RawScanner.X64Gates in 'RawScanner\RawScanner.X64Gates.pas';
 
 {$R *.res}
 
