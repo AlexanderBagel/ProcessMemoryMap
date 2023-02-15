@@ -6,7 +6,7 @@
 //  * Purpose   : Менеджер плагинов
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.3.23
+//  * Version   : 1.3.25
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -150,12 +150,36 @@ begin
 end;
 
 procedure TPluginManager.Init;
+
+  function Is64Image(const FilePath: string; out ImageIs64: Boolean): Boolean;
+  var
+    F: TBufferedFileStream;
+    IDH: TImageDosHeader;
+    NT: TImageNtHeaders;
+  begin
+    Result := False;
+    ImageIs64 := False;
+    F := TBufferedFileStream.Create(FilePath, 4096);
+    try
+      if F.Read(IDH, SizeOf(IDH)) <> SizeOf(IDH) then Exit;
+      if IDH.e_magic <> IMAGE_DOS_SIGNATURE then Exit;
+      F.Position := IDH._lfanew;
+      if F.Read(NT, SizeOf(NT)) <> SizeOf(NT) then Exit;
+      Result := NT.Signature = IMAGE_NT_SIGNATURE;
+      if Result then
+        ImageIs64 := NT.FileHeader.Machine = IMAGE_FILE_MACHINE_AMD64;
+    finally
+      F.Free;
+    end;
+  end;
+
 var
   PluginDir: string;
   SR: TSearchRec;
   Inst: TPluginInstance;
   InitProc: Tpmm_get_plugin_info;
   PluginData: TPlugin;
+  ImageIs64: Boolean;
 begin
   {$IFDEF DEBUG}
   PluginDir := ExtractFilePath(ParamStr(0)) + '..\..\plugins\';
@@ -165,6 +189,12 @@ begin
   if FindFirst(PluginDir + '*.dll', faAnyFile, SR) = 0 then
   try
     repeat
+      if not Is64Image(PluginDir + SR.Name, ImageIs64) then Continue;
+      {$IFDEF WIN32}
+      if ImageIs64 then Continue;
+      {$ELSE}
+      if not ImageIs64 then Continue;
+      {$ENDIF}
       Inst.Handle := LoadLibrary(PChar(PluginDir + SR.Name));
       if Inst.Handle <= HINSTANCE_ERROR then
         Continue;

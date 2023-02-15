@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.3.24
+//  * Version   : 1.3.25
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,8 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01031800;
-  MemoryMapVersionStr = '1.3 (revision 24)';
+  MemoryMapVersionInt = $01031900;
+  MemoryMapVersionStr = '1.3 (revision 25)';
 
 type
   // Типы фильтров
@@ -619,13 +619,14 @@ begin
           // добавляем данные о потоках
           AddThreadsData;
 
+          // добавляем данные о Process Environment Block
+          AddPEBData;
+
           // добавляем данные о кучах
           AddHeapsData;
 
           DoProgress('Finalization...', 100);
 
-          // добавляем данные о Process Environment Block
-          AddPEBData;
           // добавляем данные о загруженых PE файлах
           AddImagesData;
         finally

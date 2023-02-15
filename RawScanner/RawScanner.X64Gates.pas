@@ -3,10 +3,10 @@
 //  ****************************************************************************
 //  * Project   : ProcessMM
 //  * Unit Name : RawScanner.X64Gates.pas
-//  * Purpose   : Универсальный генератор шлюзов вызова 64 битных API
+//  * Purpose   : Генератор шлюзов вызова 64 битных stdcall API
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.8
+//  * Version   : 1.0.9
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,15 +22,16 @@ interface
 uses
   Windows,
   SysUtils,
+  Math,
   RawScanner.Types;
 
 type
-  TParamSize = (ps4Byte = 2, ps8Byte = 3);
+  TParamSize = (ps4Byte = 2, ps8Byte = 3{, psXMM - XMM пока не поддерживается});
 
   /// <summary>
-  ///  MakeX64Gate - генерирует шлюз вызова 64 битныой API функции.
+  ///  MakeX64Gate - генерирует шлюз вызова 64 битной API функции.
   ///  FuncAddr - адрес 64 битной stdcall функции в текущем процессе
-  ///  Params - масив размеров параметров на 32 битном стеке
+  ///  Params - массив размеров параметров на 32 битном стеке
   /// </summary>
   function MakeX64Gate(FuncAddr: ULONG_PTR64; Params: array of TParamSize): Pointer;
   procedure ReleaseX64Gate(Value: Pointer);
@@ -65,11 +66,14 @@ var
   end;
 
 var
-  I, ParamsCount, ParamSize, ParamsLeft: Integer;
+  I, ParamsCount, ShadowSpace, ParamSize, ParamsLeft: Integer;
   x32StackPtr, x64StackPtr: Byte;
 begin
   Result := VirtualAlloc(nil, 4096, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
   InsPoint := Result;
+
+  if Result = nil then
+    RaiseLastOSError;
 
   // рассчет количества и общего размера переданых параметров
   ParamsCount := Length(Params);
@@ -82,6 +86,8 @@ begin
   ParamSize := 0;
   for I := 0 to ParamsCount - 1 do
     Inc(ParamSize, 1 shl Byte(Params[I]));
+  // Теневое пространство требует минимум 32 байта под 4 дефолтных регистра
+  ShadowSpace := Max(32, ParamsCount * 8);
 
   // пролог
   Push([$55]);                              // push ebp
@@ -101,8 +107,7 @@ begin
 
   // формирование 64 битного фрейма
   Push([$55]);                              // push rbp
-  if ParamsCount > 0 then
-    Push([$48, $83, $EC, ParamsCount * 8]); // sub rsp, 64 params size
+  Push([$48, $83, $EC, ShadowSpace]);       // sub rsp, 64 ShadowSpace
   Push([$48, $89, $E5]);                    // mov rbp, rsp
 
   // перенос параметров для 64 битного вызова
@@ -112,7 +117,7 @@ begin
     // выставление указателя на последний параметр с 32 битного стека
     Push([$48, $8D, $84, $04]);             // lea rax, [rsp + rax + ...]
     PushDWord(
-      ParamsCount * 8 +                     // размер 64 битных параметров
+      ShadowSpace +                         // размер 64 битного теневого пространства
       8 +                                   // 64 битный push rbp
       ParamSize +                           // размер 32 битных параметров
       4 +                                   // 32 битный push ebp
@@ -120,32 +125,32 @@ begin
       );
     ParamsLeft := ParamsCount - 1;
     x32StackPtr := 0;
-    x64StackPtr := ParamsCount * 8;
+    x64StackPtr := ShadowSpace;
     while ParamsLeft >= 0 do
     begin
       // сдвигаем указатель на начало следующего параметра на 32 битном стеке
       Inc(x32StackPtr, 1 shl Byte(Params[ParamsLeft]));
       case ParamsLeft of
-        0: // mov rcx, [rax - "оффсет на 32 битный параметр со стека"]]
+        0: // mov rcx(ecx), [rax - x32StackPtr]]
         begin
           if Params[ParamsLeft] = ps8Byte then
-            Push([$48]); // REX Pfx здесь и далее
+            Push([$48]); // REX Pfx здесь и далее. Используется для модификации ecx->rcx
           Push([$8B, $48, Byte(-x32StackPtr)]);
         end;
-        1: // mov rdx, [rax - "оффсет на 32 битный параметр со стека"]
+        1: // mov rdx(edx), [rax - x32StackPtr]
         begin
           if Params[ParamsLeft] = ps8Byte then
             Push([$48]);
           Push([$8B, $50, Byte(-x32StackPtr)]);
         end;
-        2: // mov r8, [rax - "оффсет на 32 битный параметр со стека"]
+        2: // mov r8(r8d), [rax - x32StackPtr]
         begin
           if Params[ParamsLeft] = ps8Byte then
             Push([$4C, $8B, $40, Byte(-x32StackPtr)])
           else
             Push([$44, $8B, $40, Byte(-x32StackPtr)]);
         end;
-        3: // mov r9, [rax - "оффсет на 32 битный параметр со стека"]
+        3: // mov r9(r9d), [rax - x32StackPtr]
         begin
           if Params[ParamsLeft] = ps8Byte then
             Push([$4C, $8B, $48, Byte(-x32StackPtr)])
@@ -153,11 +158,11 @@ begin
             Push([$44, $8B, $48, Byte(-x32StackPtr)]);
         end;
       else
-        Dec(x64StackPtr, 8);
-        // mov RCX, [rax - "оффсет на 32 битный параметр со стека"]
+        // mov rcx(ecx), [rax - x32StackPtr]
         if Params[ParamsLeft] = ps8Byte then
           Push([$48]);
         Push([$8B, $48, Byte(-x32StackPtr)]);
+        Dec(x64StackPtr, 8);
         // mov [rsp + "оффсет на 64 битный параметр на сетке"], rcx
         Push([$48, $89, $4C, $24, x64StackPtr]);
       end;
@@ -166,17 +171,16 @@ begin
   end;
 
   // вызов фунции
-  Push([$FF, $15, $02, 0, 0, 0]);           // call qword ptr [rel $00000002]
-  Push([$EB, $08]);                         // jmp +8
-  PushDWord64(FuncAddr);                    // реальный адрес функции
+  Push([$48, $B8]);                         // mov rax, FuncAddr
+  PushDWord64(FuncAddr);
+  Push([$FF, $D0]);                         // call rax
 
   // перемещение результата из RAX в пару EAX + EDX
   Push([$48, $89, $C2]);                    // mov rdx, rax
   Push([$48, $C1, $EA, $20]);               // shr rdx, $20
 
   // закрытие 64 битного фрейма
-  if ParamsCount > 0 then
-    Push([$48, $83, $C4, ParamsCount * 8]); // add rsp, 64 params size
+  Push([$48, $83, $C4, ShadowSpace]);       // add rsp, 64 ShadowSpace
   Push([$5D]);                              // pop rbp
 
   // переключение в 32 битный режим

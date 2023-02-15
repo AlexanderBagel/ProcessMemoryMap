@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.8
+//  * Version   : 1.0.9
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1076,7 +1076,7 @@ begin
     end;
     Raw.Position := IDH._lfanew;
 
-    // загрузка NT заголовка, всегда ввиде 64 битной структуры
+    // загрузка NT заголовка, всегда в виде 64 битной структуры
     // даже если библиотека 32 бита
     if not LoadNtHeader(Raw) then Exit;
 

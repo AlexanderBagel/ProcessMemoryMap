@@ -4,8 +4,8 @@ object dlgAbout: TdlgAbout
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'About Process Memory Map'
-  ClientHeight = 173
-  ClientWidth = 470
+  ClientHeight = 159
+  ClientWidth = 498
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -4694,10 +4694,57 @@ object dlgAbout: TdlgAbout
   end
   object Label3: TLabel
     Left = 56
-    Top = 111
+    Top = 95
     Width = 212
     Height = 13
     Caption = 'Portions based on code by Mark Russinovich'
+  end
+  object LinkLabel3: TLinkLabel
+    Left = 56
+    Top = 65
+    Width = 354
+    Height = 19
+    Caption = 
+      'Sources: <a href="https://github.com/AlexanderBagel/ProcessMemor' +
+      'yMap">https://github.com/AlexanderBagel/ProcessMemoryMap</a>'
+    TabOrder = 0
+    UseVisualStyle = True
+    OnLinkClick = LinkLabel1LinkClick
+  end
+  object Button1: TButton
+    Left = 413
+    Top = 8
+    Width = 75
+    Height = 25
+    Caption = 'OK'
+    Default = True
+    ModalResult = 1
+    TabOrder = 1
+  end
+  object LinkLabel4: TLinkLabel
+    Left = 56
+    Top = 114
+    Width = 405
+    Height = 19
+    Caption = 
+      'Virtual Treeview component: <a href="https://github.com/TurboPac' +
+      'k/VirtualTreeView">https://github.com/TurboPack/VirtualTreeView<' +
+      '/a>'
+    TabOrder = 2
+    UseVisualStyle = True
+    OnLinkClick = LinkLabel1LinkClick
+  end
+  object lblDistorm: TLinkLabel
+    Left = 56
+    Top = 133
+    Width = 188
+    Height = 19
+    Caption = 
+      'Disasm engine: <a href="https://github.com/gdabah/distorm">diSto' +
+      'rm version ???</a>'
+    TabOrder = 3
+    UseVisualStyle = True
+    OnLinkClick = LinkLabel1LinkClick
   end
   object LinkLabel1: TLinkLabel
     Left = 56
@@ -4707,66 +4754,7 @@ object dlgAbout: TdlgAbout
     Caption = 
       'Home Page: <a href="http://rouse.drkb.ru">http://rouse.drkb.ru</' +
       'a>'
-    TabOrder = 0
-    UseVisualStyle = True
-    OnLinkClick = LinkLabel1LinkClick
-  end
-  object LinkLabel2: TLinkLabel
-    Left = 56
-    Top = 65
-    Width = 295
-    Height = 19
-    Caption = 
-      'Stable Release: <a href="http://rouse.drkb.ru/winapi.php#pmm2">h' +
-      'ttp://rouse.drkb.ru/winapi.php#pmm2</a>'
-    TabOrder = 1
-    UseVisualStyle = True
-    OnLinkClick = LinkLabel1LinkClick
-  end
-  object LinkLabel3: TLinkLabel
-    Left = 56
-    Top = 84
-    Width = 388
-    Height = 19
-    Caption = 
-      'Latest Sources: <a href="https://github.com/AlexanderBagel/Proce' +
-      'ssMemoryMap">https://github.com/AlexanderBagel/ProcessMemoryMap<' +
-      '/a>'
-    TabOrder = 2
-    UseVisualStyle = True
-    OnLinkClick = LinkLabel1LinkClick
-  end
-  object Button1: TButton
-    Left = 384
-    Top = 8
-    Width = 75
-    Height = 25
-    Caption = 'OK'
-    Default = True
-    ModalResult = 1
-    TabOrder = 3
-  end
-  object LinkLabel4: TLinkLabel
-    Left = 56
-    Top = 130
-    Width = 319
-    Height = 19
-    Caption = 
-      'Virtual Treeview component: <a href="http://www.jam-software.com' +
-      '/virtual-treeview/">http://www.jam-software.com</a>'
     TabOrder = 4
-    UseVisualStyle = True
-    OnLinkClick = LinkLabel1LinkClick
-  end
-  object lblDistorm: TLinkLabel
-    Left = 56
-    Top = 149
-    Width = 188
-    Height = 19
-    Caption = 
-      'Disasm engine: <a href="http://ragestorm.net/distorm/">diStorm v' +
-      'ersion ???</a>'
-    TabOrder = 5
     UseVisualStyle = True
     OnLinkClick = LinkLabel1LinkClick
   end

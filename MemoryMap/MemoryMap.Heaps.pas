@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Heaps.pas
 //  * Purpose   : Класс собирает данные о кучах процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2022.
-//  * Version   : 1.3.20
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
+//  * Version   : 1.3.25
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -69,7 +69,11 @@ constructor THeap.Create(PID: Cardinal; hProcess: THandle;
 begin
   FProgress := AProgress;
   Create;
-  Update(PID, hProcess);
+  try
+    Update(PID, hProcess);
+  except
+    FData.Clear;
+  end;
 end;
 
 constructor THeap.Create;
@@ -199,6 +203,25 @@ begin
 
         // начиная с самого первого
         pHeapEntry := pHeapInformation^.Entries;
+        if pHeapEntry = nil then
+        begin
+          // FIX KB5022845 (Build 22621.1265) New Heap Structure
+          with MemoryMapCore.PEB do
+            if (NtMajorVersion > 10) or
+              ((NtMajorVersion = 10) and (NtBuildNumber >= 22621)) then
+            begin
+              pHeapInformation := Pointer(PByte(pHeapInformation) +
+              {$IFDEF WIN32}
+              4
+              {$ELSE}
+              8
+              {$ENDIF});
+              pHeapEntry := pHeapInformation^.Entries;
+            end
+            else
+              Exit;
+        end;
+
         dwAddr := DWORD(pHeapEntry^.u.s2.FirstBlock) +
           pHeapInformation^.EntryOverhead;
         dwLastSize := 0;

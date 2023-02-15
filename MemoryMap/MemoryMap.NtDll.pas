@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.NtDll.pas
 //  * Purpose   : Декларации необходимых функций и типов из NTDLL.DLL
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.3.25
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -443,6 +443,9 @@ type
     Reserved: array [0..4] of ULONG;
     Tags: PVOID;
     Entries: PRTL_HEAP_ENTRY;
+    {
+    *** Unknown Pointer - since Win11 KB5022845 (Build 22621.1265)
+    }
   end;
   RTL_HEAP_INFORMATION = _RTL_HEAP_INFORMATION;
   PRTL_HEAP_INFORMATION = ^RTL_HEAP_INFORMATION;

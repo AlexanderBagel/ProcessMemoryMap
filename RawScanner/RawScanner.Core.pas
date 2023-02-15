@@ -8,7 +8,7 @@
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.8
+//  * Version   : 1.0.9
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -201,12 +201,17 @@ end;
 
 constructor TRawScanner.Create;
 begin
-  Wow64Support.DisableRedirection;
-  try
-    InitNtQueryVirtualMemory;
-  finally
-    Wow64Support.EnableRedirection;
+  {$IFDEF WIN32}
+  if Wow64Support.Use64AddrMode then
+  begin
+    Wow64Support.DisableRedirection;
+    try
+      InitNtQueryVirtualMemory;
+    finally
+      Wow64Support.EnableRedirection;
+    end;
   end;
+  {$ENDIF}
   FModules := TRawModules.Create;
 end;
 
@@ -214,7 +219,9 @@ destructor TRawScanner.Destroy;
 begin
   Clear;
   FModules.Free;
+  {$IFDEF WIN32}
   ReleaseNtQueryVirtualMemory64;
+  {$ENDIF}
   FInstance := nil;
   inherited;
 end;
@@ -477,8 +484,6 @@ var
 begin
   // инициализируем адрес 64 битной NtQueryVirtualMemory необходимый
   // для чтения данных по 64-битным адресам из 32 битного кода
-
-  if not Wow64Support.Use64AddrMode then Exit;
 
   // для чтения данных псевдохэндл не подойдет,
   // поэтому нужно открывать текущий процесс

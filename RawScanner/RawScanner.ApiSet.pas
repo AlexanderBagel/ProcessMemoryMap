@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.ApiSet.pas
 //  * Purpose   : Класс для обработки ApiSet редиректа импорта/экспорта
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.4
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.9
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -297,8 +297,7 @@ begin
     LibFrom := GetString(NameSpaceEntry.Name).ToLower;
     ValueEntry := Pointer(PByte(FApiSet) + NameSpaceEntry.DataOffset);
     AddSymbol(ULONG64(ValueEntry), sdtApiSetValueEntry);
-    EntryRedirection := Pointer(PByte(FApiSet) +
-      NameSpaceEntry.DataOffset + SizeOf(TApiSetValueEntry2));
+    EntryRedirection := Pointer(PByte(ValueEntry) + SizeOf(TApiSetValueEntry2));
     for A := 0 to ValueEntry.NumberOfRedirections - 1 do
     begin
       AddSymbol(ULONG64(EntryRedirection), sdtApiSetRedirection);
@@ -334,8 +333,7 @@ begin
     ValueEntry := Pointer(PByte(FApiSet) + NameSpaceEntry.DataOffset);
     AddSymbol(ULONG64(ValueEntry), sdtApiSetValueEntry);
 
-    EntryRedirection := Pointer(PByte(FApiSet) +
-      NameSpaceEntry.DataOffset + SizeOf(TApiSetValueEntry4));
+    EntryRedirection := Pointer(PByte(ValueEntry) + SizeOf(TApiSetValueEntry4));
     for A := 0 to ValueEntry.NumberOfRedirections - 1 do
     begin
       AddSymbol(ULONG64(EntryRedirection), sdtApiSetRedirection);
@@ -377,7 +375,8 @@ begin
     // Это собственно полная длина строки минус суффикс.
     // HashedLength = api-ms-win-core-apiquery-l1-1-0 -> len(api-ms-win-core-apiquery-l1-1)
     // Поэтому сразу отрезаем суффикс, т.к. мы не используем хэш, для этого у нас есть словарь
-    LibFrom := RemoveSuffix(GetString(NameSpaceEntry.Name));
+    LibFrom := GetString(NameSpaceEntry.Name);
+    SetLength(LibFrom, NameSpaceEntry.HashedLength div SizeOf(Char));
 
     ValueEntry := Pointer(PByte(FApiSet) + NameSpaceEntry.ValueOffset);
     for A := 0 to NameSpaceEntry.ValueCount - 1 do
@@ -443,10 +442,13 @@ begin
   if Assigned(AStream) then
     FApiSet := AStream.Memory
   else
-    FApiSet := GetPEBApiSet;
+    if CheckWin32Version(6, 1) then
+      FApiSet := GetPEBApiSet
+    else
+      FApiSet := nil;
 
   // Аписет по факту читается из нашего процесса, поэтому для ремапинга
-  // ну удаленное адресное пространство нужно запомнить обе базы
+  // на удаленное адресное пространство нужно запомнить обе базы
   if FRemoteVA = 0 then
     FRemoteVA := ULONG_PTR64(FApiSet);
   FSymbolData.ApiSet.RemoteVA := FRemoteVA;

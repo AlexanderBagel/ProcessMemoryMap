@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог "О программе"
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.3.24
+//  * Version   : 1.3.25
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -29,13 +29,12 @@ type
     Image1: TImage;
     lblPMMVer: TLabel;
     Label2: TLabel;
-    LinkLabel1: TLinkLabel;
-    LinkLabel2: TLinkLabel;
     LinkLabel3: TLinkLabel;
     Button1: TButton;
     Label3: TLabel;
     LinkLabel4: TLinkLabel;
     lblDistorm: TLinkLabel;
+    LinkLabel1: TLinkLabel;
     procedure LinkLabel1LinkClick(Sender: TObject; const Link: string;
       LinkType: TSysLinkType);
     procedure FormCreate(Sender: TObject);
@@ -62,7 +61,7 @@ begin
   var dver := get_distorm_version;
   lblDistorm.Caption :=
     Format(
-    'Disasm engine: <a href="http://ragestorm.net/distorm/">' +
+    'Disasm engine: <a href="https://github.com/gdabah/distorm">' +
     'diStorm version %d.%d.%d</a>',
     [dver shr 16, Byte(dver shr 8), Byte(dver)]);
 end;

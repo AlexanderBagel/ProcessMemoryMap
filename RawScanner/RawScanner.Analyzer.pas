@@ -6,8 +6,8 @@
 //  * Purpose   : Класс сравнивает состояние памяти процесса с рассчитаным
 //  *           : на основе образов файлов с диска и отдает результаты наружу.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.9
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -597,8 +597,8 @@ begin
         Module.EntryPoint, MBI,
         SizeOf(TMemoryBasicInformation64)) = SizeOf(TMemoryBasicInformation64) then
         if MBI.Protect and (
+          PAGE_EXECUTE or
           PAGE_EXECUTE_READ or
-          PAGE_EXECUTE_READWRITE or
           PAGE_EXECUTE_WRITECOPY or
           PAGE_EXECUTE_READWRITE) = 0 then
         begin
