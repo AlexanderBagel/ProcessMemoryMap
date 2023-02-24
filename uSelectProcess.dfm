@@ -40,6 +40,23 @@ object dlgSelectProcess: TdlgSelectProcess
         AutoSize = True
         Caption = 'User'
       end>
+    Groups = <
+      item
+        Header = 'Newest Processes'
+        GroupID = 0
+        State = [lgsNormal]
+        HeaderAlign = taLeftJustify
+        FooterAlign = taLeftJustify
+        TitleImage = -1
+      end
+      item
+        Header = 'Other processes'
+        GroupID = 1
+        State = [lgsNormal]
+        HeaderAlign = taLeftJustify
+        FooterAlign = taLeftJustify
+        TitleImage = -1
+      end>
     ReadOnly = True
     RowSelect = True
     SmallImages = il16

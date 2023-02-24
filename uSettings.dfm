@@ -3,7 +3,7 @@ object dlgSettings: TdlgSettings
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Process Memory Map - Settings'
-  ClientHeight = 476
+  ClientHeight = 514
   ClientWidth = 318
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -18,7 +18,7 @@ object dlgSettings: TdlgSettings
   TextHeight = 13
   object Label9: TLabel
     Left = 17
-    Top = 124
+    Top = 148
     Width = 109
     Height = 13
     Caption = 'Scanner update mode:'
@@ -32,8 +32,8 @@ object dlgSettings: TdlgSettings
     TabOrder = 0
   end
   object cbShowColors: TCheckBox
-    Left = 17
-    Top = 166
+    Left = 16
+    Top = 190
     Width = 185
     Height = 17
     Caption = 'Show colors'
@@ -41,7 +41,7 @@ object dlgSettings: TdlgSettings
   end
   object GroupBox1: TGroupBox
     Left = 16
-    Top = 187
+    Top = 211
     Width = 289
     Height = 249
     Caption = 'Color scheme:'
@@ -200,7 +200,7 @@ object dlgSettings: TdlgSettings
   end
   object Button1: TButton
     Left = 230
-    Top = 442
+    Top = 466
     Width = 75
     Height = 25
     Cancel = True
@@ -210,7 +210,7 @@ object dlgSettings: TdlgSettings
   end
   object btnOk: TButton
     Left = 149
-    Top = 442
+    Top = 466
     Width = 75
     Height = 25
     Caption = 'OK'
@@ -219,7 +219,7 @@ object dlgSettings: TdlgSettings
   end
   object btnReset: TButton
     Left = 16
-    Top = 442
+    Top = 466
     Width = 75
     Height = 25
     Caption = 'Reset'
@@ -259,8 +259,8 @@ object dlgSettings: TdlgSettings
     TabOrder = 9
   end
   object cbUseFilter: TCheckBox
-    Left = 17
-    Top = 143
+    Left = 16
+    Top = 167
     Width = 128
     Height = 17
     Caption = 'Use Scanner Filter'
@@ -268,7 +268,7 @@ object dlgSettings: TdlgSettings
   end
   object cbScannerMode: TComboBox
     Left = 132
-    Top = 120
+    Top = 144
     Width = 92
     Height = 21
     Style = csDropDownList
@@ -279,6 +279,14 @@ object dlgSettings: TdlgSettings
       'No update'
       'Default'
       'Force update')
+  end
+  object cbLoadLineSymbols: TCheckBox
+    Left = 16
+    Top = 125
+    Width = 207
+    Height = 17
+    Caption = 'Load Line Information from MAP file'
+    TabOrder = 12
   end
   object ColorDialog: TColorDialog
     Left = 232

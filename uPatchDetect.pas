@@ -5,8 +5,8 @@
 //  * Unit Name : uPatchDetect.pas
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.22
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -57,6 +57,7 @@ type
     mnuCopy: TMenuItem;
     N1: TMenuItem;
     mnuRefresh: TMenuItem;
+    SelectAll1: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure FormShow(Sender: TObject);
@@ -65,6 +66,7 @@ type
     procedure mnuPopupPopup(Sender: TObject);
     procedure mnuCopyClick(Sender: TObject);
     procedure mnuGotoAddressClick(Sender: TObject);
+    procedure SelectAll1Click(Sender: TObject);
   private
     FCodeError, FImportError, FDelayedImportError, FExportError: Integer;
     FFilter: TFilter;
@@ -653,6 +655,15 @@ begin
         if not Modified then
           Continue;
 
+        // если патч посредине инструкции - выделяем это отдельно
+        if (RawIndex > 1) and (chd.DumpStrings.Count = 3) then
+        begin
+          chd.DumpStrings.Add(IntToHex(RawDecodedInst[0].AddrVa, 16) +
+            Separator + ' !!! skipped ' +
+            IntToStr(Cursor - 1 - RawDecodedInst[0].AddrVa) + ' bytes');
+          chd.DumpStrings.Add(' ... ');
+        end;
+
         if RawOut.IsEmpty then
           RawOut := StringOfChar(Space, 58);
         chd.DumpStrings.Add(IntToHex(Cursor - 1, 16) +
@@ -806,6 +817,11 @@ end;
 procedure TdlgPatches.ReleaseCalculateHookData(const Value: TCalculateHookData);
 begin
   Value.DumpStrings.Free;
+end;
+
+procedure TdlgPatches.SelectAll1Click(Sender: TObject);
+begin
+  edLog.SelectAll;
 end;
 
 procedure TdlgPatches.ShowModuleInfo(Index: Integer; Module: TRawPEImage);

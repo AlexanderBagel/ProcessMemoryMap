@@ -82,5 +82,10 @@ object dlgComparator: TdlgComparator
       ShortCut = 16451
       OnClick = mnuCopyClick
     end
+    object SelectAll1: TMenuItem
+      Caption = 'Select All'
+      ShortCut = 16449
+      OnClick = SelectAll1Click
+    end
   end
 end

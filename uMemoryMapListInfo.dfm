@@ -26,9 +26,31 @@ object dlgMemoryMapListInfo: TdlgMemoryMapListInfo
     Font.Name = 'Courier New'
     Font.Style = []
     ParentFont = False
+    PopupMenu = PopupMenu
     ReadOnly = True
     ScrollBars = ssBoth
     TabOrder = 0
     Zoom = 100
+  end
+  object PopupMenu: TPopupMenu
+    Left = 104
+    Top = 32
+    object mnuCopy: TMenuItem
+      Caption = 'Copy'
+      ShortCut = 16451
+      OnClick = mnuCopyClick
+    end
+    object SelectAll1: TMenuItem
+      Caption = 'Select All'
+      ShortCut = 16449
+      OnClick = SelectAll1Click
+    end
+  end
+  object SaveMMLDialog: TSaveDialog
+    DefaultExt = 'mml'
+    Filter = 'MemoryMap List (*.mml)|*.mml|All Files (*.*)|*.*'
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofPathMustExist, ofEnableSizing]
+    Left = 192
+    Top = 32
   end
 end

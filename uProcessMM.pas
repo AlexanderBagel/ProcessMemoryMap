@@ -5,8 +5,8 @@
 //  * Unit Name : uProcessMM.pas
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2022.
-//  * Version   : 1.3.21
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -489,7 +489,6 @@ begin
     acSelectProcess.Execute;
     Exit;
   end;
-  FillTreeView;
 end;
 
 procedure TdlgProcessMM.acRegionPropsExecute(Sender: TObject);
@@ -582,7 +581,6 @@ procedure TdlgProcessMM.acSelectProcessExecute(Sender: TObject);
       lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
       ProcessOpen := True;
       MapPresent := True;
-      FillTreeView;
     finally
       Ico.Free;
     end;
@@ -800,20 +798,36 @@ var
     end;
   end;
 
+const
+  ProgressHint = 'Preparing to view...';
+  ProgressHint2 = 'Preparing to view...  (%d%%)';
+
 var
   PEImage: Boolean;
+  LastPercent, CurrentPercent: Integer;
 begin
   stMemoryMap.BeginUpdate;
   try
     stMemoryMap.NodeDataSize := SizeOf(TNodeData);
     stMemoryMap.RootNodeCount := 0;
     MemoryMapCore.ShowEmpty := Settings.ShowFreeRegions;
+    MemoryMapCore.DebugMapData.LoadLines := Settings.LoadLines;
     MemoryMapCore.DetailedHeapData := Settings.ShowDetailedHeap;
     // Рассчитываем общее количество узлов
     CalcNodeDataArraySize;
     Counter := 0;
+    LastPercent := 0;
+    OnInitProgress(ProgressHint, 0);
     for Lvl1 := 0 to MemoryMapCore.Count - 1 do
     begin
+
+      CurrentPercent := Round(Lvl1 / (MemoryMapCore.Count / 100));
+      if CurrentPercent <> LastPercent then
+      begin
+        LastPercent := CurrentPercent;
+        OnInitProgress(Format(ProgressHint2, [CurrentPercent]), CurrentPercent);
+      end;
+
       // Заполяем данные по узлам первого уровня
       Region := MemoryMapCore[Lvl1];
       if Region.RegionVisible then
@@ -898,6 +912,7 @@ begin
   // Инициализация синглтонов и их событий
   RawScannerCore.OnProgress := OnInitProgress;
   PluginManager.OnProgress := OnInitProgress;
+  MemoryMapCore.DetailedHeapData := Settings.ShowDetailedHeap;
   MemoryMapCore.OnProgress := OnInitProgress;
   MemoryMapCore.OnGetWow64Heaps := OnGetWow64Heaps;
 
@@ -1011,6 +1026,8 @@ begin
         Wow64Support.EnableRedirection;
       end;
     end);
+    lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
+    FillTreeView;
   finally
     FreeAndNil(dlgProgress);
   end;
@@ -1113,8 +1130,6 @@ begin
     NewPID := ProcessReconnect.GetNewPID(MemoryMapCore.PID);
     if NewPID = 0 then Exit(False);
     InternalOpenProcess(MemoryMapCore, NewPID, MemoryMapCore.ProcessName);
-    lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
-    FillTreeView;
   except
     Result := False;
   end;

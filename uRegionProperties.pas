@@ -5,8 +5,8 @@
 //  * Unit Name : uRegionProperties.pas
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
-//  * Version   : 1.3.19
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -53,6 +53,7 @@ type
     mnuDasmMode86: TMenuItem;
     mnuDasmMode64: TMenuItem;
     mnuDasmModeAuto: TMenuItem;
+    SelectAll1: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuCopyClick(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
@@ -61,6 +62,7 @@ type
     procedure mnuGotoAddressClick(Sender: TObject);
     procedure mnuPopupPopup(Sender: TObject);
     procedure mnuDasmModeAutoClick(Sender: TObject);
+    procedure SelectAll1Click(Sender: TObject);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
@@ -187,6 +189,11 @@ begin
   finally
     edProperties.Lines.EndUpdate;;
   end;
+end;
+
+procedure TdlgRegionProps.SelectAll1Click(Sender: TObject);
+begin
+  edProperties.SelectAll;
 end;
 
 procedure TdlgRegionProps.ShowInfoFromMBI(Process: THandle;

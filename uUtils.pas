@@ -5,8 +5,8 @@
 //  * Unit Name : uUtils.pas
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
-//  * Version   : 1.3.19
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -21,8 +21,10 @@ interface
 
 uses
   Winapi.Windows,
+  Winapi.Messages,
   System.SysUtils,
   Winapi.ShellAPI,
+  SHDocVw,
   Winapi.TlHelp32,
   Winapi.CommCtrl,
   System.Classes,
@@ -60,6 +62,7 @@ type
     ReadCondition: TReadCondition): Boolean;
 
   function OpenProcessWithReconnect: THandle;
+  function OpenExplorerAndSelectFile(const Path: string): Boolean;
 
 implementation
 
@@ -433,6 +436,63 @@ begin
     else
       RaiseLastOSError;
   end;
+end;
+
+function OpenExplorerAndSelectFile(const Path: string): Boolean;
+
+  function ParceURLName(const Value: string): string;
+  const
+    scFilePath: array [0..7] of Char = ('f', 'i', 'l', 'e', ':', '/', '/', '/');
+  begin
+    Result := Value;
+    if Value = '' then Exit;
+    if CompareMem(@scFilePath[0], @Value[1], 8) then
+    begin
+      Result := Copy(Value, 9, Length(Value));
+      Result := StringReplace(Result, '/', '\', [rfReplaceAll]);
+      Result := StringReplace(Result, '%20', ' ', [rfReplaceAll]);
+      Result := IncludeTrailingPathDelimiter(Result);
+    end;
+  end;
+
+var
+  FilePresent: Boolean;
+  iShellWindow: IShellWindows;
+  iWB: IWebBrowserApp;
+  spDisp: IDispatch;
+  I: Integer;
+  S, FilePath, FileName: string;
+begin
+  FilePresent := FileExists(Path);
+  Result := FilePresent or DirectoryExists(Path);
+  if not Result then Exit;
+
+  if not FilePresent then
+  begin
+    ShellExecute(0, nil, PChar(Path), nil, nil, SW_SHOWNORMAL);
+    Exit;
+  end;
+
+  FilePath := AnsiUpperCase(ExtractFilePath(Path));
+  FileName := ExtractFileName(Path);
+  iShellWindow := CoShellWindows.Create;
+  for I := 0 to iShellWindow.Count - 1 do
+  begin
+    spDisp := iShellWindow.Item(I);
+    if spDisp = nil then Continue;
+    spDisp.QueryInterface(IWebBrowserApp, iWB);
+    if iWB <> nil then
+    begin
+      S := ParceURLName(iWB.LocationURL);
+      if AnsiUpperCase(S) = FilePath then
+      begin
+        SendMessage(iWB.HWnd, WM_SYSCOMMAND, SC_CLOSE, 0);
+        Break;
+      end;
+    end;
+  end;
+  ShellExecute(0, 'open', 'explorer.exe',
+    PChar('/select, ' + AnsiQuotedStr(Path, '"')), PChar(FilePath), SW_SHOWNORMAL);
 end;
 
 end.

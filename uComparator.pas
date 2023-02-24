@@ -5,8 +5,8 @@
 //  * Unit Name : uComparator.pas
 //  * Purpose   : Диалог отображает результаты сравнения двух карт памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -41,8 +41,10 @@ type
     PopupMenu: TPopupMenu;
     mnuCopy: TMenuItem;
     edChanges: TRichEdit;
+    SelectAll1: TMenuItem;
     procedure btnSaveClick(Sender: TObject);
     procedure mnuCopyClick(Sender: TObject);
+    procedure SelectAll1Click(Sender: TObject);
   private
     FOldMM, FNewMM: TMemoryMap;
     TotalChanges: Integer;
@@ -556,6 +558,11 @@ begin
   Inc(TotalChanges);
   AddRegionInfo(ARegion, ChangeType);
   AddSplit;
+end;
+
+procedure TdlgComparator.SelectAll1Click(Sender: TObject);
+begin
+  edChanges.SelectAll;
 end;
 
 end.

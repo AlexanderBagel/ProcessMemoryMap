@@ -5,8 +5,8 @@
 //  * Unit Name : uMemoryMapListInfo.pas
 //  * Purpose   : Сканирование памяти процесса на основе адресов и контрольных сумм
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.19
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -21,7 +21,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Menus,
   Generics.Collections, PsAPI,
 
   uUtils,
@@ -52,6 +52,12 @@ type
 
   TdlgMemoryMapListInfo = class(TForm)
     edReport: TRichEdit;
+    PopupMenu: TPopupMenu;
+    mnuCopy: TMenuItem;
+    SelectAll1: TMenuItem;
+    SaveMMLDialog: TSaveDialog;
+    procedure mnuCopyClick(Sender: TObject);
+    procedure SelectAll1Click(Sender: TObject);
   private
     ScanSettings: TScanSettings;
     MMLData: TList<TMMLRecord>;
@@ -185,7 +191,19 @@ begin
         end;
 
         if MML.Count > 0 then
+        try
           MML.SaveToFile(MMLPath);
+        except
+          SaveMMLDialog.InitialDir := ExtractFilePath(MMLPath);
+          SaveMMLDialog.FileName := ExtractFileName(MMLPath);
+          if SaveMMLDialog.Execute then
+          begin
+            MMLPath := SaveMMLDialog.FileName;
+            MML.SaveToFile(MMLPath);
+          end;
+        end;
+
+        OpenExplorerAndSelectFile(MMLPath);
 
       finally
         MML.Free;
@@ -229,6 +247,11 @@ begin
   end;
 end;
 
+procedure TdlgMemoryMapListInfo.mnuCopyClick(Sender: TObject);
+begin
+  edReport.CopyToClipboard;
+end;
+
 procedure TdlgMemoryMapListInfo.ProcessMMLRecord(Index: Integer);
 
   procedure Add(const Value: string);
@@ -240,7 +263,7 @@ var
   MMLRecord: TMMLRecord;
   MBI: TMemoryBasicInformation;
   dwLength, CRC: DWORD;
-  Shared, DumpSaved, Dasm64Mode: Boolean;
+  DumpPresent, Shared, DumpSaved, Dasm64Mode: Boolean;
   SharedCount: Byte;
   RawBuff: TMemoryDump;
   Size, RegionSize: NativeUInt;
@@ -251,6 +274,36 @@ begin
     'Process address: ' + IntToHex(UINT_PTR(MMLRecord.Addr), 1);
   Application.ProcessMessages;
 
+  CRC := DWORD(-1);
+  Shared := False;
+  SharedCount := 255;
+
+  Size := 4096;
+  SetLength(RawBuff, Size);
+  DumpPresent := ReadProcessData(Process, MMLRecord.Addr, @RawBuff[0],
+    Size, RegionSize, rcReadAllwais);
+
+  if DumpPresent then
+    CRC := CRC32(RawBuff);
+
+  dwLength := SizeOf(TMemoryBasicInformation);
+  if VirtualQueryEx(Process,
+     Pointer(MMLRecord.Addr), MBI, dwLength) <> dwLength then
+     RaiseLastOSError;
+
+  Workset.GetPageSharedInfo(Pointer(ULONG_PTR(MMLRecord.Addr) and
+   {$IFDEF WIN32}$FFFFF000{$ELSE}$FFFFFFFFFFFFF000{$ENDIF}), Shared, SharedCount);
+
+  if ScanSettings.NeedGenerateMML then
+  begin
+    MMLRecord.CRC := CRC;
+    MMLData[Index] := MMLRecord;
+  end;
+
+  if DumpPresent and Shared and (SharedCount > 0) and
+    ((MMLRecord.CRC <> 0) and (CRC = MMLRecord.CRC)) then
+    Exit;
+
   Add(EmptyHeader);
   Add(dlgProgress.lblProgress.Caption);
   Add(EmptyHeader);
@@ -258,30 +311,20 @@ begin
 
   Add(MMLRecord.Comment);
 
-  dwLength := SizeOf(TMemoryBasicInformation);
-  if VirtualQueryEx(Process,
-     Pointer(MMLRecord.Addr), MBI, dwLength) <> dwLength then
-     RaiseLastOSError;
   Add('AllocationBase: ' + UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
   Add('RegionSize: ' + SizeToStr(MBI.RegionSize));
   Add('Type: ' + ExtractRegionTypeString(MBI));
   Add('Access: ' + ExtractAccessString(MBI.Protect));
   Add('Initail Access: ' + ExtractInitialAccessString(MBI.AllocationProtect));
-  Workset.GetPageSharedInfo(Pointer(ULONG_PTR(MMLRecord.Addr) and
-   {$IFDEF WIN32}$FFFFF000{$ELSE}$FFFFFFFFFFFFF000{$ENDIF}), Shared, SharedCount);
   Add('Shared: ' + BoolToStr(Shared, True));
   Add('Shared count: ' + IntToStr(SharedCount));
 
-  Size := 4096;
-  SetLength(RawBuff, Size);
-  if not ReadProcessData(Process, MMLRecord.Addr, @RawBuff[0],
-    Size, RegionSize, rcReadAllwais) then
+  if not DumpPresent then
   begin
     Inc(DumpFailed);
     Add('Dump failed.');
     Exit;
   end;
-  SetLength(RawBuff, Size);
 
   DumpSaved := False;
   if not Shared or (SharedCount = 0) then
@@ -310,21 +353,16 @@ begin
       Add('Wrong CRC.');
   end;
 
-  if ScanSettings.NeedGenerateMML then
-  begin
-    MMLRecord.CRC := CRC;
-    MMLData[Index] := MMLRecord;
-  end;
-
   if ScanSettings.ShowDump then
     Add(DumpMemoryFromBuff(Process, MMLRecord.Addr, RawBuff, ScanSettings.DumpSize));
 
-  if not CheckPEImage(Process, MBI.AllocationBase, Dasm64Mode) then
-    Dasm64Mode := MemoryMapCore.Process64;
-
   if ScanSettings.ShowDisasm then
+  begin
+    if not CheckPEImage(Process, MBI.AllocationBase, Dasm64Mode) then
+      Dasm64Mode := MemoryMapCore.Process64;
     Add(DisassemblyFromBuff(Process, RawBuff, MMLRecord.Addr,
       MBI.AllocationBase, Dasm64Mode, ScanSettings.DumpSize));
+  end;
 end;
 
 function TdlgMemoryMapListInfo.ReadMMLRecord(
@@ -420,6 +458,15 @@ var
   M: TMemoryStream;
 begin
   try
+    if edReport.Lines.Count > 0 then
+    begin
+      edReport.Lines.Add('');
+      edReport.Lines.Add(EmptyHeader);
+    end
+    else
+      edReport.Lines.Add('All clear.');
+    edReport.Lines.Add('');
+    edReport.Lines.Add('Done.');
     if not ScanSettings.NeedSave then Exit;
     Zip := TFWZipWriter.Create;
     try
@@ -511,6 +558,11 @@ begin
   if Hint <> '' then
     Caption := Caption + ' [' + Hint + ']';
   ShowModal;
+end;
+
+procedure TdlgMemoryMapListInfo.SelectAll1Click(Sender: TObject);
+begin
+  edReport.SelectAll;
 end;
 
 procedure TdlgMemoryMapListInfo.ShowMemoryMapInfo;

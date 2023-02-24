@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.3.25
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,8 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01031900;
-  MemoryMapVersionStr = '1.3 (revision 25)';
+  MemoryMapVersionInt = $01041A00;
+  MemoryMapVersionStr = '1.4 (revision 26)';
 
 type
   // Типы фильтров
@@ -344,11 +344,10 @@ begin
 
   // Инициализация параметров под калбэк прогресса
   LastPercent := 0;
-  {$IFDEF WIN64}
-  MaxAddr := MM_HIGHEST_USER_ADDRESS64;
-  {$ELSE}
-  MaxAddr := MM_HIGHEST_USER_ADDRESS32;
-  {$ENDIF}
+  if Process64 then
+    MaxAddr := MM_HIGHEST_USER_ADDRESS64
+  else
+    MaxAddr := MM_HIGHEST_USER_ADDRESS32;
 
   // Перебираем в цикле все страницы памяти от нулевой,
   // до максимально доступной пользователю
@@ -599,10 +598,12 @@ begin
     if SuspendProcessBeforeScan then
       ProcessLock := SuspendProcess(PID);
     try
+      DoProgress('Init Symbols...', 25);
       FSymbols := TSymbols.Create(FProcess);
       try
         FPEImage := TPEImage.Create(FProcess);
         try
+          DoProgress('Init Workset...', 50);
           FWorkset := TWorkset.Create(FProcess);;
           try
             // получаем данные по регионам и отмапленым файлам

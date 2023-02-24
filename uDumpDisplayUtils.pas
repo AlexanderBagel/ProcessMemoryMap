@@ -6,8 +6,8 @@
 //  * Purpose   : Вспомогательный модуль для отображения содержимого
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.22
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1848,7 +1848,7 @@ procedure DumpProcessorFeatures(var OutValue: string;
   Address: PByte; var Cursor: NativeUInt);
 const
   MaxFeaturesCount = 64;
-  KnownFeaturesCount = 28;
+  KnownFeaturesCount = 46;
   FeaturesStrings: array [0..KnownFeaturesCount - 1] of string =
     (
       'PF_FLOATING_POINT_PRECISION_ERRATA',
@@ -1878,7 +1878,25 @@ const
       'PF_ARM_DIVIDE_INSTRUCTION_AVAILABLE',
       'PF_ARM_64BIT_LOADSTORE_ATOMIC',
       'PF_ARM_EXTERNAL_CACHE_AVAILABLE',
-      'PF_ARM_FMAC_INSTRUCTIONS_AVAILABLE'
+      'PF_ARM_FMAC_INSTRUCTIONS_AVAILABLE',
+      'PF_RDRAND_INSTRUCTION_AVAILABLE',
+      'PF_ARM_V8_INSTRUCTIONS_AVAILABLE' ,
+      'PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE',
+      'PF_ARM_V8_CRC32_INSTRUCTIONS_AVAILABLE',
+      'PF_RDTSCP_INSTRUCTION_AVAILABLE',
+      'PF_RDPID_INSTRUCTION_AVAILABLE',
+      'PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE',
+      'PF_MONITORX_INSTRUCTION_AVAILABLE',
+      'PF_SSSE3_INSTRUCTIONS_AVAILABLE',
+      'PF_SSE4_1_INSTRUCTIONS_AVAILABLE',
+      'PF_SSE4_2_INSTRUCTIONS_AVAILABLE',
+      'PF_AVX_INSTRUCTIONS_AVAILABLE',
+      'PF_AVX2_INSTRUCTIONS_AVAILABLE',
+      'PF_AVX512F_INSTRUCTIONS_AVAILABLE',
+      'PF_???_AVAILABLE',
+      'PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE',
+      'PF_ARM_V83_JSCVT_INSTRUCTIONS_AVAILABLE',
+      'PF_ARM_V83_LRCPC_INSTRUCTIONS_AVAILABLE'
     );
 var
   I: Integer;
@@ -3540,7 +3558,7 @@ var
   Disassembler: TDisassembler;
   inst: TInstructionArray;
   LastInsruction: TInstructionType;
-  I: Integer;
+  I, LineNumber: Integer;
   HintStr, OffsetStr, Line: string;
   ExpData: TSymbolData;
 begin
@@ -3615,7 +3633,21 @@ begin
       if I > 0 then
         Line := Line + ' ' + StringOfChar('-', 105 - Length(Line));
       AddString(Result, Line);
-    end;
+    end
+    else
+      // детект линии (при наличии МАР файла и подгруженых линий)
+      if MemoryMapCore.DebugMapData.LoadLines then
+      begin
+        LineNumber := MemoryMapCore.DebugMapData.GetLineNumberAtAddr(
+          inst[I].AddrVa, Line);
+        if LineNumber > 0 then
+        begin
+          Line := Format('%s (%d)', [Line, LineNumber]);
+          if I > 0 then
+            Line := Line + ' ' + StringOfChar('-', 105 - Length(Line));
+          AddString(Result, Line);
+        end;
+      end;
 
     AddString(Result,
       Format('%s: %s %s %s', [

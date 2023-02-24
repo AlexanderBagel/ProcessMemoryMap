@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.9
+//  * Version   : 1.0.10
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -608,17 +608,18 @@ end;
 
 function TRawPEImage.LoadDelayImport(Raw: TStream): Boolean;
 type
+  // https://learn.microsoft.com/ru-ru/cpp/build/reference/understanding-the-helper-function?view=msvc-160#structure-and-constant-definitions
   TImgDelayDescr = record
-    grAttrs,
-    szName,
-    hmod,
-    pIAT,
-    pINT,
-    pBoundIAT,
-    pUnloadIAT,
-    dwTimeStamp: DWORD;
+    grAttrs,                // attributes
+    rvaDLLName,             // RVA to dll name
+    rvaHmod,                // RVA of module handle
+    rvaIAT,                 // RVA of the IAT
+    rvaINT,                 // RVA of the INT
+    rvaBoundIAT,            // RVA of the optional bound IAT
+    rvaUnloadIAT,           // RVA of optional copy of original IAT
+    dwTimeStamp: DWORD;     // 0 if not bound,
+                            // O.W. date/time stamp of DLL bound to (Old BIND)
   end;
-
 var
   DelayDescr: TImgDelayDescr;
 
@@ -626,7 +627,7 @@ var
   const
     dlattrRva = 1;
   begin
-    if DelayDescr.grAttrs = 1 then
+    if DelayDescr.grAttrs = dlattrRva then
       Result := Value
     else
       Result := Value - NtHeader.OptionalHeader.ImageBase;
@@ -660,7 +661,7 @@ begin
   DescrData.Binary.ModuleIndex := ModuleIndex;
 
   Raw.ReadBuffer(DelayDescr, SizeOf(TImgDelayDescr));
-  while DelayDescr.pIAT <> 0 do
+  while DelayDescr.rvaIAT <> 0 do
   begin
     // запоминаем адрес следующего дексриптора
     NextDescriptorRawAddr := Raw.Position;
@@ -671,12 +672,12 @@ begin
     SymbolStorage.Add(DescrData);
 
     // вычитываем имя библиотеки импорт из которой описывает дескриптор
-    Raw.Position := RvaToRaw(GetRva(DelayDescr.szName));
+    Raw.Position := RvaToRaw(GetRva(DelayDescr.rvaDLLName));
     if Raw.Position = 0 then
     begin
       RawScannerLogger.Error(llPE,
         Format('Invalid DelayDescr.szName' + strPfs,
-          [DelayDescr.szName, ImagePath,
+          [DelayDescr.rvaDLLName, ImagePath,
           NextDescriptorRawAddr - SizeOf(TImgDelayDescr)]));
       Exit;
     end;
@@ -687,15 +688,15 @@ begin
 
     // VA адрес по которому будет расположен HInstance модуля,
     // из которого идет импорт функции после его инициализации
-    if DelayDescr.hmod <> 0 then
-      ImportChunk.DelayedModuleInstanceVA := RvaToVa(GetRva(DelayDescr.hmod))
+    if DelayDescr.rvaHmod <> 0 then
+      ImportChunk.DelayedModuleInstanceVA := RvaToVa(GetRva(DelayDescr.rvaHmod))
     else
       ImportChunk.DelayedModuleInstanceVA := 0;
 
     // запоминаем начальне позиции таблицы импорта
-    IAT := GetRva(DelayDescr.pIAT);
+    IAT := GetRva(DelayDescr.rvaIAT);
     // таблицы имен
-    INT := GetRva(DelayDescr.pINT);
+    INT := GetRva(DelayDescr.rvaINT);
     // номер функции по порядку
     Index := 0;
 
@@ -757,12 +758,6 @@ begin
           Exit;
         end;
         Raw.ReadBuffer(ImportChunk.DelayedIATData, DataSize);
-
-        // Если данные в дескрипторе отложеного импорта находятся в виде VA,
-        // то нужен ребейз значения на текущий инстанс модуля
-        // иначе будет ошибка проверки при неинициализированном отложеном импорте
-        if DelayDescr.grAttrs = 0 then
-          ImportChunk.DelayedIATData := RvaToVa(GetRva(ImportChunk.DelayedIATData));
 
         SymbolData.AddrVA := ImportChunk.ImportTableVA;
         if Image64 then
@@ -1415,7 +1410,7 @@ end;
 
 function TRawPEImage.LoadTLS(Raw: TStream): Boolean;
 
-  // TLS содержит VA записи с привязкой к ImageBase указаной в заголовке
+  // TLS содержит VA записи с привязкой к ImageBase указанной в заголовке
   // поэтому для работы с ними, нужно их сначала преобразовать в Rva
   function TlsVaToRva(Value: ULONG_PTR64): DWORD;
   begin

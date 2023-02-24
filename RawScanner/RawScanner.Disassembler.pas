@@ -6,8 +6,8 @@
 //  * Purpose   : Класс для дизасемблирования указаного буфера памяти
 //  *           : на основе Distorm 3.5.3
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.4
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.10
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -150,7 +150,7 @@ begin
     HintStr := EmptyStr;
     Result[I].InstType := GetInstructionType(InstList[I]);
     case Result[I].InstType of
-      itRet:
+      itRet, itInt:
       begin
         if DecodeMode <> dmFull then
         begin

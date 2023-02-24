@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectProcess.pas
 //  * Purpose   : Диалог выбора процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2022.
-//  * Version   : 1.3.21
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -23,7 +23,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ImgList, Winapi.CommCtrl,
-  Winapi.TlHelp32, Winapi.ShellAPI, Vcl.Themes,
+  Winapi.TlHelp32, Winapi.ShellAPI, Vcl.Themes, DateUtils,
 
   MemoryMap.Utils, System.ImageList;
 
@@ -156,13 +156,16 @@ end;
 procedure TdlgSelectProcess.Refresh;
 
   function GetUserNameDomainAndWow64(APid: Cardinal;
-    var UserName, Domain: string; var IsWow: Boolean): Boolean;
+    var UserName, Domain: string; var IsWow, IsNewest: Boolean): Boolean;
   var
     hProcess: THandle;
     hToken: THandle;
     pTokenUserBuff: PTokenUser;
     TokenUserLength, NameLength, DomainLength: Cardinal;
     peUse: SID_NAME_USE;
+    CreationTime, t1, t2, t3: TFileTime;
+    SystemTime: TSystemTime;
+    CurrentDT: TDateTime;
   begin
     Result := False;
     IsWow := False;
@@ -170,6 +173,11 @@ procedure TdlgSelectProcess.Refresh;
       False, APid);
     if hProcess = 0 then Exit;
     try
+      GetProcessTimes(hProcess, CreationTime, t1, t2, t3);
+      FileTimeToLocalFileTime(CreationTime, CreationTime);
+      FileTimeToSystemTime(CreationTime, SystemTime);
+      CurrentDT := SystemTimeToDateTime(SystemTime);
+      IsNewest := MinutesBetween(CurrentDT, Now) <= 15;
       IsWow := IsWow64(hProcess);
       if not OpenProcessToken(hProcess, TOKEN_QUERY, hToken) then Exit;
       try
@@ -219,7 +227,7 @@ var
   ProcessEntry: TProcessEntry32;
   Item: TListItem;
   UserName, Domain: string;
-  IsWow: Boolean;
+  IsWow, IsNewest: Boolean;
 begin
   ProcessList.Clear;
   hProcessSnap := CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -233,7 +241,7 @@ begin
       lvProcess.Items.Clear;
       repeat
           if not GetUserNameDomainAndWow64(ProcessEntry.th32ProcessID,
-            UserName, Domain, IsWow) then Continue;
+            UserName, Domain, IsWow, IsNewest) then Continue;
           Item := lvProcess.Items.Add;
           Item.Caption := ProcessEntry.szExeFile;
           {$IFDEF WIN64}
@@ -244,6 +252,13 @@ begin
           Item.SubItems.Add(Domain + '/' + UserName);
           Item.Data := Pointer(ProcessEntry.th32ProcessID);
           Item.ImageIndex := GetProcessImageIndex(ProcessEntry.th32ProcessID);
+          if IsNewest then
+          begin
+            Item.GroupID := 0;
+            lvProcess.GroupView := True;
+          end
+          else
+            Item.GroupID := 1;
           ProcessList.AddObject(
             GetProcessFullPath(ProcessEntry.th32ProcessID),
             Pointer(ProcessEntry.th32ProcessID));

@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectProcess.pas
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.16
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -56,6 +56,7 @@ type
     cbUseFilter: TCheckBox;
     Label9: TLabel;
     cbScannerMode: TComboBox;
+    cbLoadLineSymbols: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -83,6 +84,7 @@ type
     FReconnect: Boolean;
     FUseScannerFilter: Boolean;
     FScannerMode: TScannerMode;
+    FLoadLines: Boolean;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -97,6 +99,7 @@ type
     property SharedColor: TColorRef index 3 read GetColor write SetColor;
     property MappedColor: TColorRef index 4 read GetColor write SetColor;
     property HeapColor: TColorRef index 5 read GetColor write SetColor;
+    property LoadLines: Boolean read FLoadLines write FLoadLines;
     property ThreadColor: TColorRef index 6 read GetColor write SetColor;
     property SystemColor: TColorRef index 7 read GetColor write SetColor;
     property SearchDifferences: Boolean read FSearchDifferences write FSearchDifferences;
@@ -157,6 +160,7 @@ begin
   SuspendProcess := False;
   UseScannerFilter := False;
   ScannerMode := smDefault;
+  LoadLines := True;
 end;
 
 procedure TSettings.LoadSettings;
@@ -176,6 +180,8 @@ begin
       AutoReconnect := True;
       if R.ValueExists('AutoReconnect') then
         AutoReconnect := R.ReadBool('AutoReconnect');
+      if R.ValueExists('LoadLines') then
+        LoadLines := R.ReadBool('LoadLines');
       SearchDifferences := R.ReadBool('SearchDifferences');
       ShowColors := R.ReadBool('ShowColors');
       ShowDetailedHeap := R.ReadBool('ShowDetailedHeap');
@@ -204,6 +210,7 @@ begin
     if not R.OpenKey(RegRootKey, True) then
       RaiseLastOSError;
     R.WriteBool('AutoReconnect', AutoReconnect);
+    R.WriteBool('LoadLines', LoadLines);
     R.WriteBool('SearchDifferences', SearchDifferences);
     R.WriteBool('ShowColors', ShowColors);
     R.WriteBool('ShowDetailedHeap', ShowDetailedHeap);
@@ -243,6 +250,7 @@ begin
   Settings.SuspendProcess := cbSuspendProcess.Checked;
   Settings.UseScannerFilter := cbUseFilter.Checked;
   Settings.ScannerMode := TScannerMode(cbScannerMode.ItemIndex);
+  Settings.LoadLines := cbLoadLineSymbols.Checked;
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.SaveSettings;
@@ -277,6 +285,7 @@ begin
   cbSuspendProcess.Checked := Settings.SuspendProcess;
   cbUseFilter.Checked := Settings.UseScannerFilter;
   cbScannerMode.ItemIndex := Integer(Settings.ScannerMode);
+  cbLoadLineSymbols.Checked := Settings.LoadLines;
   for I := 0 to 7 do
   begin
     Colors[I] := Settings.GetColor(I);
