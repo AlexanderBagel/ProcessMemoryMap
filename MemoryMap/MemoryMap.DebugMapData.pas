@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для работы с отладочным MAP файлом.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.27
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -29,7 +29,7 @@ uses
 
 type
   TDebugMapItem = record
-    Address, EndAddress: NativeUInt;
+    Address: NativeUInt;
     ModuleName,
     FunctionName: string;
   end;
@@ -48,10 +48,10 @@ type
   private
     FItems: TList<TDebugMapItem>;
     FLoadLines: Boolean;
+    FLoadedMap: TStringList;
     FUnits: TDictionary<Integer, string>;
     FLines: TDictionary<ULONG_PTR, TLineData>;
     function StrHash(const Value: string): Integer;
-    procedure SetLoadLines(const Value: Boolean);
   public
     constructor Create;
     destructor Destroy; override;
@@ -64,7 +64,10 @@ type
       var UnitName: string): Integer;
     procedure GetExportFuncList(const ModuleName: string; Value: TStringList);
     property Items: TList<TDebugMapItem> read FItems;
-    property LoadLines: Boolean read FLoadLines write SetLoadLines;
+    property Lines: TDictionary<ULONG_PTR, TLineData> read FLines;
+    property LoadLines: Boolean read FLoadLines write FLoadLines;
+    property LoadedMap: TStringList read FLoadedMap;
+    property Units: TDictionary<Integer, string> read FUnits;
   end;
 
 implementation
@@ -89,10 +92,16 @@ begin
           Result := 1;
     end)
    );
+  FLoadedMap := TStringList.Create;
+  FUnits := TDictionary<Integer, string>.Create;
+  FLines := TDictionary<ULONG_PTR, TLineData>.Create;
 end;
 
 destructor TDebugMap.Destroy;
 begin
+  FLines.Free;
+  FUnits.Free;
+  FLoadedMap.Free;
   FItems.Free;
   LoadLines := False;
   inherited;
@@ -137,6 +146,7 @@ var
 begin
   Result := '';
   Item.Address := Address;
+
   // если адрес не нашелся, результатом будет позиция,
   // где этот адрес должен был бы находится, т.е. для оффсета надо
   // взять за базу адрес предыдущей функции от найденой позиции
@@ -146,6 +156,9 @@ begin
   EarlierAddr := I < 0;
   if EarlierAddr then
     I := 0;
+
+  // проверка на выход за диапазон
+  if I >= FItems.Count then Exit;
 
   if AddModuleName then
     Result := FItems.List[I].ModuleName + '!' + FItems.List[I].FunctionName
@@ -287,6 +300,9 @@ begin
       if not FileExists(MapPath) then
         raise Exception.CreateFmt('"%s" not found.', [MapPath]);
 
+      if FLoadedMap.IndexOf(MapPath) >= 0 then Exit;
+      FLoadedMap.Add(MapPath);
+
       MapFile.LoadFromFile(MapPath);
       DebugMapItem.ModuleName := ExtractFileName(ModulePath);
 
@@ -373,7 +389,6 @@ begin
             if SectionDataList[A].Index = SectionIndex then
             begin
               SectionAddress := SectionDataList[A].StartAddr;
-              DebugMapItem.EndAddress := SectionAddress + SectionDataList[A].Length;
               Break;
             end;
           if SectionAddress = $FFFFFFFF then
@@ -450,33 +465,11 @@ begin
       MapFile.Free;
     end;
 
-    // выставлям правильные длины функций
-    for I := FItems.Count - 1 downto StartPosition + 1 do
-      FItems.List[I - 1].EndAddress := FItems.List[I].Address;
-
     FItems.Sort;
   except
     // если не смогли распарсить - выкидываем все из массива данных
     for I := FItems.Count - 1 downto StartPosition do
       FItems.Delete(I);
-  end;
-end;
-
-procedure TDebugMap.SetLoadLines(const Value: Boolean);
-begin
-  if LoadLines <> Value then
-  begin
-    FLoadLines := Value;
-    if Value then
-    begin
-      FUnits := TDictionary<Integer, string>.Create;
-      FLines := TDictionary<ULONG_PTR, TLineData>.Create;
-    end
-    else
-    begin
-      FreeAndNil(FLines);
-      FreeAndNil(FUnits);
-    end;
   end;
 end;
 

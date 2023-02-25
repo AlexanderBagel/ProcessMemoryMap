@@ -5,8 +5,8 @@
 //  * Unit Name : uDebugInfoDlg.pas
 //  * Purpose   : Краткая отладочная информация об открытом проекте
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2022.
-//  * Version   : 1.3.19
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
+//  * Version   : 1.4.27
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -65,6 +65,7 @@ end;
 procedure TdlgDbgInfo.ShowDebugInfo;
 var
   Tmp: string;
+  I: Integer;
 begin
   if MemoryMapCore.PID <> 0 then
   begin
@@ -83,6 +84,24 @@ begin
     edDebugInfo.Lines.Add('Duplicates: ' +
       Format('%.0n', [SymbolStorage.Count - SymbolStorage.UniqueCount + 0.0]));
     edDebugInfo.Lines.Add(EmptyStr);
+    if MemoryMapCore.DebugMapData.LoadedMap.Count > 0 then
+    begin
+      edDebugInfo.Lines.Add('Loaded MAP files:');
+      for I := 0 to MemoryMapCore.DebugMapData.LoadedMap.Count - 1 do
+        edDebugInfo.Lines.Add(Format('%d: %s', [I + 1,
+          MemoryMapCore.DebugMapData.LoadedMap[I]]));
+      edDebugInfo.Lines.Add(EmptyStr);
+      edDebugInfo.Lines.Add('Function count: ' +
+        Format('%.0n', [MemoryMapCore.DebugMapData.Items.Count + 0.0]));
+      if MemoryMapCore.DebugMapData.Units.Count > 0 then
+      begin
+        edDebugInfo.Lines.Add('Units count: ' +
+          Format('%.0n', [MemoryMapCore.DebugMapData.Units.Count + 0.0]));
+        edDebugInfo.Lines.Add('Lines count: ' +
+          Format('%.0n', [MemoryMapCore.DebugMapData.Lines.Count + 0.0]));
+      end;
+      edDebugInfo.Lines.Add(EmptyStr);
+    end;
     if PluginManager.Items.Count > 0 then
     begin
       edDebugInfo.Lines.Add('Plugins:');

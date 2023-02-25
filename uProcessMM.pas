@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.27
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -811,7 +811,6 @@ begin
     stMemoryMap.NodeDataSize := SizeOf(TNodeData);
     stMemoryMap.RootNodeCount := 0;
     MemoryMapCore.ShowEmpty := Settings.ShowFreeRegions;
-    MemoryMapCore.DebugMapData.LoadLines := Settings.LoadLines;
     MemoryMapCore.DetailedHeapData := Settings.ShowDetailedHeap;
     // Рассчитываем общее количество узлов
     CalcNodeDataArraySize;
@@ -1013,6 +1012,7 @@ begin
     begin
       Wow64Support.DisableRedirection;
       try
+        AMap.DebugMapData.LoadLines := Settings.LoadLines;
         // Сначала должно отработать ядро MemoryMap для получения данных по процессу
         AMap.InitFromProcess(PID, ProcessName);
         // Редиректору нужно знать по какому адресу расположен ApiSet

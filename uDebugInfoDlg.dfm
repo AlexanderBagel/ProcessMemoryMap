@@ -31,8 +31,6 @@ object dlgDbgInfo: TdlgDbgInfo
     ScrollBars = ssBoth
     TabOrder = 0
     Zoom = 100
-    ExplicitWidth = 635
-    ExplicitHeight = 299
   end
   object PopupMenu1: TPopupMenu
     Left = 272
