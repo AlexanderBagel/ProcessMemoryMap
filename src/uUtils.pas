@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -63,6 +63,11 @@ type
 
   function OpenProcessWithReconnect: THandle;
   function OpenExplorerAndSelectFile(const Path: string): Boolean;
+
+  function ToDpi(Value: Integer; CustomDPI: Integer): Integer;
+  function DpiRect(const Value: TRect; CustomDPI: Integer): TRect;
+
+  function GetMemAlloc: Int64;
 
 implementation
 
@@ -493,6 +498,29 @@ begin
   end;
   ShellExecute(0, 'open', 'explorer.exe',
     PChar('/select, ' + AnsiQuotedStr(Path, '"')), PChar(FilePath), SW_SHOWNORMAL);
+end;
+
+function ToDpi(Value: Integer; CustomDPI: Integer): Integer;
+begin
+  Result := MulDiv(Value, CustomDPI, USER_DEFAULT_SCREEN_DPI);
+end;
+
+function DpiRect(const Value: TRect; CustomDPI: Integer): TRect;
+begin
+  Result.Left := ToDpi(Value.Left, CustomDPI);
+  Result.Right := ToDpi(Value.Right, CustomDPI);
+  Result.Top := ToDpi(Value.Top, CustomDPI);
+  Result.Bottom := ToDpi(Value.Bottom, CustomDPI);
+end;
+
+function GetMemAlloc: Int64;
+{$WARNINGS OFF}
+var
+  Heap: THeapStatus;
+begin
+  Heap := GetHeapStatus;
+  Result := Heap.Overhead + Heap.TotalAllocated;
+{$WARNINGS ON}
 end;
 
 end.

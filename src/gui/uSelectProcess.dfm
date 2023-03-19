@@ -69,7 +69,7 @@ object dlgSelectProcess: TdlgSelectProcess
   end
   object btnRefresh: TButton
     Left = 8
-    Top = 318
+    Top = 317
     Width = 75
     Height = 25
     Anchors = [akLeft, akBottom]
@@ -78,8 +78,8 @@ object dlgSelectProcess: TdlgSelectProcess
     OnClick = btnRefreshClick
   end
   object btnShowAll: TButton
-    Left = 96
-    Top = 318
+    Left = 89
+    Top = 317
     Width = 129
     Height = 25
     Anchors = [akLeft, akBottom]

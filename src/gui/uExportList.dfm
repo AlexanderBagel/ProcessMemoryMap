@@ -27,14 +27,13 @@ object dlgExportList: TdlgExportList
     Height = 337
     Align = alClient
     Header.AutoSizeIndex = 2
-    Header.DefaultHeight = 21
-    Header.Height = 21
+    Header.Height = 24
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     PopupMenu = pmCopy
     TabOrder = 0
-    TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
     TreeOptions.PaintOptions = [toHideFocusRect, toShowButtons, toShowDropmark, toShowRoot, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection, toUseExplorerTheme]
     TreeOptions.SelectionOptions = [toFullRowSelect]
+    OnBeforeItemErase = lvExportsBeforeItemErase
     OnDblClick = lvExportsDblClick
     OnGetText = lvExportsGetText
     OnHeaderClick = lvExportsHeaderClick

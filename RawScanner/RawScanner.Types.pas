@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.Types.pas
 //  * Purpose   : Общие типы для модулей RawScanner
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -19,8 +19,11 @@ unit RawScanner.Types;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
+  SysUtils,
   Generics.Collections;
 
 const
@@ -68,6 +71,13 @@ type
     State : DWORD;
     Protect : DWORD;
     Type_9 : DWORD;
+  end;
+
+  TInt64IntRec = record
+    case Integer of
+      0: (Lo, Hi: Integer);
+      1: (Value: Int64);
+      2: (Rec: Int64Rec);
   end;
 
 

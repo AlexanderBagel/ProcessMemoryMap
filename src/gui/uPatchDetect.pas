@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,7 +36,9 @@ uses
   RawScanner.Analyzer,
   RawScanner.Filter,
   RawScanner.ModulesData,
-  RawScanner.Utils;
+  RawScanner.Utils,
+
+  ScaledCtrls;
 
 type
   TCalculateHookData = record
@@ -339,13 +341,13 @@ begin
           EmptyLine;
 
           if FImportError > 0 then
-            Add(Format('Total import error: %d', [FImportError]));
+            Add(Format('Total import hook: %d', [FImportError]));
           if FDelayedImportError > 0 then
-            Add(Format('Total delayed import error: %d', [FDelayedImportError]));
+            Add(Format('Total delayed import hook: %d', [FDelayedImportError]));
           if FExportError > 0 then
-            Add(Format('Total export error: %d', [FExportError]));
+            Add(Format('Total export hook: %d', [FExportError]));
           if FCodeError > 0 then
-            Add(Format('Total code error: %d', [FCodeError]));
+            Add(Format('Total code hook: %d', [FCodeError]));
 
         finally
           edLog.Lines.EndUpdate;

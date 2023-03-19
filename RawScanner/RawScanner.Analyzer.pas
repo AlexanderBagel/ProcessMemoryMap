@@ -7,7 +7,7 @@
 //  *           : на основе образов файлов с диска и отдает результаты наружу.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.9
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -20,6 +20,8 @@ unit RawScanner.Analyzer;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   Classes,
@@ -29,7 +31,9 @@ uses
   Generics.Defaults,
   PsApi,
   Hash,
+  {$IFNDEF DISABLE_LOGGER}
   RawScanner.Logger,
+  {$ENDIF}
   RawScanner.Types,
   RawScanner.ModulesData,
   RawScanner.Utils,
@@ -137,6 +141,41 @@ type
 
 implementation
 
+procedure Error(const FuncName, Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Error(llAnalizer, FuncName, Description);
+  {$ENDIF}
+end;
+
+procedure Warn(const Description: string); overload;
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Warn(llAnalizer, Description);
+  {$ENDIF}
+end;
+
+procedure Warn(const FuncName, Description: string); overload;
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Warn(llAnalizer, FuncName, Description);
+  {$ENDIF}
+end;
+
+procedure Notify(const FuncName, Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Notify(llAnalizer, FuncName, Description);
+  {$ENDIF}
+end;
+
+procedure Info(const Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Info(llAnalizer, Description);
+  {$ENDIF}
+end;
+
 { TRemoteStream }
 
 constructor TRemoteStream.Create(AProcess: THandle;
@@ -187,8 +226,7 @@ begin
 
   InitWorkingSet;
   if FWorkingSet.Count = 0 then
-    RawScannerLogger.Error(llAnalizer,
-      'Can not init WorkingSet',
+    Error('Can not init WorkingSet',
       Format('Error %d: %s', [GetLastError, SysErrorMessage(GetLastError)]));
 
   Wow64Support.DisableRedirection;
@@ -232,7 +270,7 @@ begin
         Result := FWorkingSet.TryGetValue(AddrVA and PageMask, SharedCount);
       end
       else
-        RawScannerLogger.Error(llAnalizer, 'CheckPageSharing',
+        Error('CheckPageSharing',
           'Can not read remote memory at addr: ' + IntToHex(AddrVa));
     end;
   end;
@@ -274,8 +312,7 @@ begin
   // пишем уведомление в лог
   if BuffSize = 0 then
   begin
-    RawScannerLogger.Warn(llAnalizer,
-      Format('Error reading function "%s" at address 0x%.1x',
+    Warn(Format('Error reading function "%s" at address 0x%.1x',
       [FuncName, AddrVa]),
       'possibly incorrect AddrVA, available buffer size is zero');
     Exit;
@@ -289,7 +326,7 @@ begin
   if not ReadRemoteMemory(FProcessHandle, AddrVA,
     @RemoteBuff[0], BuffSize) then
   begin
-    RawScannerLogger.Error(llAnalizer,
+    Error(
       Format('Error reading function "%s" at address 0x%.1x', [FuncName, AddrVa]),
       Format('(%d) %s', [GetLastError, SysErrorMessage(GetLastError)]));
     Exit;
@@ -392,7 +429,7 @@ begin
   // проверка, есть ли вообще функции на проверку?
   if Module.EntryPointList.Count = 0 then Exit;
 
-  RawScannerLogger.Notify(llAnalizer, 'Process EntryPoint and TSL Callbacks',
+  Notify('Process EntryPoint and TSL Callbacks',
     Format('(%d)', [Module.EntryPointList.Count]));
 
   for var I := 0 to Module.EntryPointList.Count - 1 do
@@ -409,8 +446,7 @@ begin
   // проверка, есть ли вообще таблица экспорта?
   if Module.ExportList.Count = 0 then Exit;
 
-  RawScannerLogger.Notify(llAnalizer, 'Process export',
-    Format('(%d)',[Module.ExportList.Count]));
+  Notify('Process export', Format('(%d)',[Module.ExportList.Count]));
 
   ExportDirectory := TRemoteStream.Create(FProcessHandle,
     Module.ExportDirectory.VirtualAddress, Module.ExportDirectory.Size);
@@ -442,9 +478,8 @@ begin
       begin
         Dec(FAnalizeResult.Export.Scanned);
         Inc(FAnalizeResult.Export.Skipped);
-        RawScannerLogger.Error(llAnalizer,
-          Format('Error reading function "%s" at address 0x%.1x',
-            [HookData.FuncName, Exp.ExportTableVA]),
+        Error(Format('Error reading function "%s" at address 0x%.1x',
+          [HookData.FuncName, Exp.ExportTableVA]),
           Format('(%d) %s', [GetLastError, SysErrorMessage(GetLastError)]));
         Continue;
       end;
@@ -552,15 +587,13 @@ begin
   // проверка, есть ли вообще таблица импорта?
   if Module.ImportList.Count = 0 then Exit;
 
-  RawScannerLogger.Notify(llAnalizer, 'Process import',
-    Format('(%d)', [Module.ImportList.Count]));
+  Notify('Process import', Format('(%d)', [Module.ImportList.Count]));
 
   // если модуль IMAGE_SUBSYSTEM_NATIVE, то импорт смотреть не имеет смысла
   if Module.NtHeader.OptionalHeader.Subsystem = IMAGE_SUBSYSTEM_NATIVE then
   begin
     Inc(FAnalizeResult.Import.Skipped, Module.ImportList.Count);
-    RawScannerLogger.Info(llAnalizer, Module.ImageName + ' (imagebase: 0x' +
-      IntToHex(Module.ImageBase, 1) +
+    Info(Module.ImageName + ' (imagebase: 0x' + IntToHex(Module.ImageBase, 1) +
       '), subsystem = IMAGE_SUBSYSTEM_NATIVE -> Import skipped.');
     Exit;
   end;
@@ -604,7 +637,7 @@ begin
         begin
           // если точка входа не исполняемая - пропускаем такой файл
           Inc(FAnalizeResult.Import.Skipped, Module.ImportList.Count);
-          RawScannerLogger.Info(llAnalizer, Module.ImageName + ' (imagebase: 0x' +
+          Info(Module.ImageName + ' (imagebase: 0x' +
             IntToHex(Module.ImageBase, 1) +
             '), non executable .NET image -> Import skipped.');
           Exit;
@@ -639,9 +672,8 @@ begin
   else
   begin
     Inc(FAnalizeResult.Import.Skipped, Module.ImportList.Count);
-    RawScannerLogger.Warn(llAnalizer, Module.ImageName + ' (imagebase: 0x' +
-      IntToHex(Module.ImageBase, 1) +
-      '), IAT not found -> Import skipped.');
+    Warn(Module.ImageName + ' (imagebase: 0x' +
+      IntToHex(Module.ImageBase, 1) + '), IAT not found -> Import skipped.');
     Exit;
   end;
 
@@ -679,7 +711,7 @@ begin
       // в случае редиректа
       if not AIat.ReadMemory(Import.ImportTableVA, AddrSize, @HookData.RemoteVA) then
       begin
-        RawScannerLogger.Error(llAnalizer,
+        Error(
           'AIat.ReadMemory at' + GetLogStr(Import.ImportTableVA),
           Format('Error %d: %s', [GetLastError, SysErrorMessage(GetLastError)]));
         Continue;
@@ -710,7 +742,7 @@ begin
             FRawModules.Items.List[ModuleIndex].ImageName,
             Import.LibraryName);
           if not ValidModule then
-            RawScannerLogger.Warn(llAnalizer,
+            Warn(
               'Wrong ImgDelayDescr in ' + GetLogStr(Import.DelayedModuleInstanceVA),
               'invalid hInstance: ' + IntToHex(DelayedModuleInst) + Space +
               GetMappedModule(FProcessHandle, DelayedModuleInst));
@@ -764,7 +796,7 @@ var
 begin
   Module := FRawModules.Items.List[Index];
 
-  RawScannerLogger.Notify(llAnalizer, 'Process image',
+  Notify('Process image',
     Format('%d: %s %s',
     [Index, IntToHex(Module.ImageBase, IfThen(Module.Image64, 16, 8)),
     Module.ImageName]));
@@ -778,8 +810,7 @@ begin
     on E: Exception do
     begin
       Inc(FAnalizeResult.Modules.Skipped);
-      RawScannerLogger.Notify(llAnalizer,
-        'Image load error ' + Module.ImagePath,
+      Notify('Image load error ' + Module.ImagePath,
         E.ClassName + ': ' + E.Message);
       Exit;
     end;

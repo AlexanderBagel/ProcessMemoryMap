@@ -13,6 +13,7 @@ object dlgProcessMM: TdlgProcessMM
   KeyPreview = True
   Menu = MainMenu
   OldCreateOrder = False
+  PopupMenu = pmGui
   Position = poScreenCenter
   OnCreate = FormCreate
   OnDestroy = FormDestroy
@@ -29,6 +30,7 @@ object dlgProcessMM: TdlgProcessMM
     Width = 32
     Height = 32
     Cursor = crHandPoint
+    Stretch = True
     OnClick = imgProcessClick
   end
   object lblProcessName: TLabel
@@ -256,6 +258,9 @@ object dlgProcessMM: TdlgProcessMM
       object mnuShowKnonData: TMenuItem
         Action = acShowKnown
       end
+      object ShowStrings1: TMenuItem
+        Action = acStrings
+      end
     end
     object mnuUtils: TMenuItem
       Caption = 'Utils'
@@ -390,7 +395,6 @@ object dlgProcessMM: TdlgProcessMM
     object acSave: TAction
       Category = 'File'
       Caption = 'Save...'
-      ShortCut = 16467
       OnExecute = acSaveExecute
       OnUpdate = acSaveUpdate
     end
@@ -523,6 +527,25 @@ object dlgProcessMM: TdlgProcessMM
       Caption = 'Debug Info...'
       OnExecute = acDebugInfoExecute
     end
+    object acStrings: TAction
+      Category = 'View'
+      Caption = 'Show Strings...'
+      ShortCut = 16467
+      OnExecute = acStringsExecute
+      OnUpdate = acSaveUpdate
+    end
+    object acCopyPID: TAction
+      Category = 'GUI'
+      Caption = 'Copy PID'
+      OnExecute = acCopyPIDExecute
+      OnUpdate = acCopyPIDUpdate
+    end
+    object acCopyProcessPath: TAction
+      Category = 'GUI'
+      Caption = 'Copy Process Path'
+      OnExecute = acCopyProcessPathExecute
+      OnUpdate = acCopyPIDUpdate
+    end
   end
   object SaveDMPDialog: TSaveDialog
     DefaultExt = 'dmp'
@@ -530,5 +553,15 @@ object dlgProcessMM: TdlgProcessMM
     Options = [ofOverwritePrompt, ofHideReadOnly, ofPathMustExist, ofEnableSizing]
     Left = 616
     Top = 8
+  end
+  object pmGui: TPopupMenu
+    Left = 688
+    Top = 8
+    object CopyPID1: TMenuItem
+      Action = acCopyPID
+    end
+    object CopyProcessPath1: TMenuItem
+      Action = acCopyProcessPath
+    end
   end
 end

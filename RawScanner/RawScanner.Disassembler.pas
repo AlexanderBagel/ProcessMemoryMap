@@ -5,9 +5,11 @@
 //  * Unit Name : RawScanner.Disassembler.pas
 //  * Purpose   : Класс для дизасемблирования указаного буфера памяти
 //  *           : на основе Distorm 3.5.3
+//  *           : Не используется в составе фреймворка,
+//  *           : и предназначен для внешнего кода.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.10
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -20,6 +22,8 @@ unit RawScanner.Disassembler;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   SysUtils,
@@ -28,8 +32,10 @@ uses
   distorm,
   mnemonics,
   RawScanner.Types,
-  RawScanner.Utils,
-  RawScanner.Logger;
+  {$IFNDEF DISABLE_LOGGER}
+  RawScanner.Logger,
+  {$ENDIF}
+  RawScanner.Utils;
 
 type
   TAddrType = (atUnknown, atAddress, atRipOffset, atPointer4, atPointer8, atSegment);
@@ -71,6 +77,13 @@ type
 
 implementation
 
+procedure Warn(const Description: string); overload;
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Warn(llDisasm, Description);
+  {$ENDIF}
+end;
+
 { TInstruction }
 
 class operator TInstruction.NotEqual(const A, B: TInstruction): Boolean;
@@ -111,8 +124,7 @@ begin
     @ci, @InstList[0], FBufferSize, @Count);
   if DecodeResult <> DECRES_SUCCESS then
   begin
-    RawScannerLogger.Warn(llDisasm, 'Buffer disassembly error: ' +
-      IntToStr(Byte(DecodeResult)));
+    Warn('Buffer disassembly error: ' + IntToStr(Byte(DecodeResult)));
     Exit;
   end;
 

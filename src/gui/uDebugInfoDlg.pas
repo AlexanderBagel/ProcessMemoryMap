@@ -21,7 +21,10 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Menus;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Menus,
+  Winapi.ShLwApi,
+
+  ScaledCtrls;
 
 type
   TdlgDbgInfo = class(TForm)
@@ -31,6 +34,7 @@ type
     Copyselected1: TMenuItem;
     procedure Copydebuginfointoclipboard1Click(Sender: TObject);
     procedure Copyselected1Click(Sender: TObject);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
   private
     { Private declarations }
   public
@@ -46,7 +50,9 @@ uses
   Clipbrd,
   MemoryMap.Core,
   RawScanner.SymbolStorage,
-  uPluginManager;
+  uPluginManager,
+  uSettings,
+  uUtils;
 
 {$R *.dfm}
 
@@ -60,6 +66,11 @@ end;
 procedure TdlgDbgInfo.Copyselected1Click(Sender: TObject);
 begin
   edDebugInfo.CopyToClipboard;
+end;
+
+procedure TdlgDbgInfo.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  if Key = #27 then Close;
 end;
 
 procedure TdlgDbgInfo.ShowDebugInfo;
@@ -76,6 +87,14 @@ begin
     edDebugInfo.Lines.Add('PID: ' + IntToStr(MemoryMapCore.PID) + Tmp);
     edDebugInfo.Lines.Add('Name: ' + MemoryMapCore.ProcessName);
     edDebugInfo.Lines.Add('Path: ' + MemoryMapCore.ProcessPath);
+
+    edDebugInfo.Lines.Add(EmptyStr);
+    edDebugInfo.Lines.Add('Elapsed: ' +
+      Format('%2.3f sec', [DebugElapsedMilliseconds / 1000]));
+    SetLength(Tmp, 50);
+    StrFormatByteSize(GetMemAlloc - DebugInitialHeapSize, @Tmp[1], 50);
+    edDebugInfo.Lines.Add('Memory allocated: ' + PChar(Tmp));
+
     edDebugInfo.Lines.Add(EmptyStr);
     edDebugInfo.Lines.Add('Symbols count: ' +
       Format('%.0n', [SymbolStorage.Count + 0.0]));
@@ -83,6 +102,11 @@ begin
       Format('%.0n', [SymbolStorage.UniqueCount + 0.0]));
     edDebugInfo.Lines.Add('Duplicates: ' +
       Format('%.0n', [SymbolStorage.Count - SymbolStorage.UniqueCount + 0.0]));
+    if Settings.LoadStrings or (SymbolStorage.StringsCount > 0) then
+      edDebugInfo.Lines.Add('Strings: ' +
+        Format('%.0n', [SymbolStorage.StringsCount + 0.0]))
+    else
+      edDebugInfo.Lines.Add('Strings: disabled in settings');
     edDebugInfo.Lines.Add(EmptyStr);
     if MemoryMapCore.DebugMapData.LoadedMap.Count > 0 then
     begin

@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -72,6 +72,15 @@ type
     Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt): string;
 
   function GetTebHint(Value: ULONG; Is64: Boolean): string;
+
+type
+  ENoMoreDataException = class(Exception)
+  private
+    FOverflow: Boolean;
+  public
+    constructor CreateWithParam(AOverflow: Boolean);
+    property Overflow: Boolean read FOverflow;
+  end;
 
 const
   EmptyHeader =
@@ -354,7 +363,7 @@ begin
   // для известных типов отсечку сделаем здесь
   // а буфер будем контролировать размером
   if (DataType <> dtBuff) and (Cursor + Uint(Size) > MaxSize) then
-    Abort;
+    raise ENoMoreDataException.CreateWithParam(True);
   UString := EmptyStr;
   case DataType of
     dtByte: UString := IntToHex(PByte(Address)^, 1);
@@ -403,9 +412,10 @@ begin
   end;
 
   Inc(Cursor, Size);
-  if Cursor >= MaxSize then
-    Abort;
-
+  if Cursor > MaxSize then
+    raise ENoMoreDataException.CreateWithParam(True);
+  if Cursor = MaxSize then
+    raise ENoMoreDataException.CreateWithParam(False);
 end;
 
 procedure AddString(var OutValue: string; const Comment: string; Address: Pointer;
@@ -451,8 +461,7 @@ var
   Data: TSymbolData;
 begin
   Result := EmptyStr;
-  MaxSize := 4096;
-  {$MESSAGE 'А может читать сразу регион? Надо проверить, встречаются ли большие?'}
+  MaxSize := 8192;
   // смотрим, известен ли размер страницы?
   if SymbolStorage.GetDataAtAddr(UInt64(Address), Data) then
     case Data.DataType of
@@ -1185,7 +1194,7 @@ begin
       DumpMemoryFromBuffWithCheckRawData(Result, Process, Address,
         Buff, Cursor, ValueBuff);
     except
-      on E: EAbort do ; // штатный выход по достижению лимита
+      on E: ENoMoreDataException do ; // штатный выход по достижению лимита
     end;
   finally
     MaxSize := SavedMaxSize;
@@ -3192,7 +3201,7 @@ begin
   end;
 
   // Обработка данных с типом Binary
-  if ASymbol.DataType < sdtInstance then Exit;
+  if not (ASymbol.DataType in [sdtBinaryFirst..sdtBinaryLast]) then Exit;
 
   Module := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
   Result := EmptyStr;
@@ -3208,8 +3217,8 @@ begin
       Result := Module.ExportList.List[Index].ToString;
     sdtEntryPoint:
       Result := Module.EntryPointList.List[Index].EntryPointName;
-    sdtUString: Result := 'u_str: ' + Module.Strings[Index];
-    sdtAString: Result := 'a_str: ' + Module.Strings[Index];
+    sdtUString: Result := 'u_str: ' + Module.Strings[Index].Data;
+    sdtAString: Result := 'a_str: ' + Module.Strings[Index].Data;
     sdtEATAddr:
       with Module.ExportList.List[Index] do
         Exit(Format('EAT FuncAddr [%d] %s%s', [Ordinal, ModuleName, ToString]));
@@ -3326,8 +3335,6 @@ begin
       else
         RvaRecalc := AllocationBase;
     end;
-
-    {$MESSAGE 'Для DIAT показывать галку если функция уже загружена!'}
 
     if ptrData.DataType = sdtPluginDescriptor then
     begin
@@ -3457,6 +3464,16 @@ begin
       sdtApiSetNS..sdtApiSetHashEntry:
         DumpApiSetStruct(OutString, Process, ptrData,
           ULONG64(MBI.AllocationBase), RawBuff, Cursor);
+      sdtAString:
+      begin
+        AddString(OutString, MakeHeader('Ansi String'));
+        SkipHeader := True;
+      end;
+      sdtUString:
+      begin
+        AddString(OutString, MakeHeader('Unicode String'));
+        SkipHeader := True;
+      end;
     end;
   end;
 
@@ -3526,12 +3543,15 @@ const
     Result := EmptyStr;
     if AddrVa <> 0 then
     begin
+      // получение данных из MAP/PDB
       Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(AddrVa));
       if Result = EmptyStr then
       begin
+        // получение данных из символов экспорта
         if SymbolStorage.GetExportAtAddr(ULONG_PTR(AddrVa), stAll, ExpData) then
           Result := GetSymbolDescription(ExpData)
         else
+        // в противном случае просто вывод имени файла на который идет ссылка
         begin
           dwLength := SizeOf(TMemoryBasicInformation);
           if VirtualQueryEx(Process,
@@ -3716,6 +3736,14 @@ begin
     Result := ' ; _TEB ???'
   else
     Result := ' ; _TEB->' + Result;
+end;
+
+{ ENoMoreDataException }
+
+constructor ENoMoreDataException.CreateWithParam(AOverflow: Boolean);
+begin
+  inherited Create('No More Data.');
+  FOverflow := AOverflow;
 end;
 
 end.

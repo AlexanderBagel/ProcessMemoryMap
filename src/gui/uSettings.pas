@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,15 +22,32 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, Vcl.ExtCtrls, System.Win.Registry;
+  Vcl.StdCtrls, Vcl.ExtCtrls, System.Win.Registry, Vcl.ComCtrls,
+  Vcl.Samples.Spin;
 
 type
   TdlgSettings = class(TForm)
-    cbShowFreeRegions: TCheckBox;
-    cbShowColors: TCheckBox;
-    GroupBox1: TGroupBox;
     Button1: TButton;
     btnOk: TButton;
+    btnReset: TButton;
+    ColorDialog: TColorDialog;
+    tvNavigate: TTreeView;
+    pcSettings: TPageControl;
+    TabSheet1: TTabSheet;
+    TabSheet2: TTabSheet;
+    TabSheet3: TTabSheet;
+    TabSheet4: TTabSheet;
+    cbSearchDiff: TCheckBox;
+    cbShowDetailedHeapData: TCheckBox;
+    cbShowFreeRegions: TCheckBox;
+    cbReconnect: TCheckBox;
+    cbSuspendProcess: TCheckBox;
+    cbLoadLineSymbols: TCheckBox;
+    Label9: TLabel;
+    cbScannerMode: TComboBox;
+    cbUseFilter: TCheckBox;
+    cbShowColors: TCheckBox;
+    GroupBox1: TGroupBox;
     Label1: TLabel;
     Label2: TLabel;
     Label3: TLabel;
@@ -39,8 +56,6 @@ type
     Label6: TLabel;
     Label7: TLabel;
     Label8: TLabel;
-    btnReset: TButton;
-    ColorDialog: TColorDialog;
     pnImage0: TPanel;
     pnImage1: TPanel;
     pnImage2: TPanel;
@@ -49,18 +64,14 @@ type
     pnImage5: TPanel;
     pnImage6: TPanel;
     pnImage7: TPanel;
-    cbSearchDiff: TCheckBox;
-    cbShowDetailedHeapData: TCheckBox;
-    cbSuspendProcess: TCheckBox;
-    cbReconnect: TCheckBox;
-    cbUseFilter: TCheckBox;
-    Label9: TLabel;
-    cbScannerMode: TComboBox;
-    cbLoadLineSymbols: TCheckBox;
+    cbLoadStrings: TCheckBox;
+    Label10: TLabel;
+    seStringLength: TSpinEdit;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure btnResetClick(Sender: TObject);
+    procedure tvNavigateClick(Sender: TObject);
   private
     Colors: array [0..7] of TColorRef;
     procedure ShowSettings;
@@ -85,6 +96,8 @@ type
     FUseScannerFilter: Boolean;
     FScannerMode: TScannerMode;
     FLoadLines: Boolean;
+    FLoadStrings: Boolean;
+    FStringMinLengh: Integer;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -109,12 +122,15 @@ type
     property SuspendProcess: Boolean read FSuspendProcess write FSuspendProcess;
     property UseScannerFilter: Boolean read FUseScannerFilter write FUseScannerFilter;
     property ScannerMode: TScannerMode read FScannerMode write FScannerMode;
+    property LoadStrings: Boolean read FLoadStrings write FLoadStrings;
+    property StringMinLengh: Integer read FStringMinLengh write FStringMinLengh;
   end;
 
   function Settings: TSettings;
 
 var
   dlgSettings: TdlgSettings;
+  DebugElapsedMilliseconds, DebugInitialHeapSize: Int64;
 
 implementation
 
@@ -161,6 +177,8 @@ begin
   UseScannerFilter := False;
   ScannerMode := smDefault;
   LoadLines := True;
+  LoadStrings := False;
+  StringMinLengh := 6;
 end;
 
 procedure TSettings.LoadSettings;
@@ -177,11 +195,15 @@ begin
       Exit;
     end;
     try
-      AutoReconnect := True;
+      LoadDefault;
       if R.ValueExists('AutoReconnect') then
         AutoReconnect := R.ReadBool('AutoReconnect');
       if R.ValueExists('LoadLines') then
         LoadLines := R.ReadBool('LoadLines');
+      if R.ValueExists('LoadStrings') then
+        LoadStrings := R.ReadBool('LoadStrings');
+      if R.ValueExists('StringMinLengh') then
+        StringMinLengh := R.ReadInteger('StringMinLengh');
       SearchDifferences := R.ReadBool('SearchDifferences');
       ShowColors := R.ReadBool('ShowColors');
       ShowDetailedHeap := R.ReadBool('ShowDetailedHeap');
@@ -211,6 +233,8 @@ begin
       RaiseLastOSError;
     R.WriteBool('AutoReconnect', AutoReconnect);
     R.WriteBool('LoadLines', LoadLines);
+    R.WriteBool('LoadStrings', LoadStrings);
+    R.WriteInteger('StringMinLengh', StringMinLengh);
     R.WriteBool('SearchDifferences', SearchDifferences);
     R.WriteBool('ShowColors', ShowColors);
     R.WriteBool('ShowDetailedHeap', ShowDetailedHeap);
@@ -251,6 +275,8 @@ begin
   Settings.UseScannerFilter := cbUseFilter.Checked;
   Settings.ScannerMode := TScannerMode(cbScannerMode.ItemIndex);
   Settings.LoadLines := cbLoadLineSymbols.Checked;
+  Settings.StringMinLengh := seStringLength.Value;
+  Settings.LoadStrings := cbLoadStrings.Checked;
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.SaveSettings;
@@ -259,6 +285,12 @@ end;
 
 procedure TdlgSettings.FormCreate(Sender: TObject);
 begin
+  TabSheet1.TabVisible := False;
+  TabSheet2.TabVisible := False;
+  TabSheet3.TabVisible := False;
+  TabSheet4.TabVisible := False;
+  pcSettings.ActivePage := TabSheet1;
+  tvNavigate.Items[0].Selected := True;
   ShowSettings;
 end;
 
@@ -286,12 +318,27 @@ begin
   cbUseFilter.Checked := Settings.UseScannerFilter;
   cbScannerMode.ItemIndex := Integer(Settings.ScannerMode);
   cbLoadLineSymbols.Checked := Settings.LoadLines;
+  cbLoadStrings.Checked := Settings.LoadStrings;
+  seStringLength.Value := Settings.StringMinLengh;
   for I := 0 to 7 do
   begin
     Colors[I] := Settings.GetColor(I);
     P := TPanel(FindComponent('pnImage' + IntToStr(I)));
     P.Color := Colors[I];
     P.Caption := IntToHex(Colors[I], 8);
+  end;
+end;
+
+procedure TdlgSettings.tvNavigateClick(Sender: TObject);
+begin
+  if tvNavigate.Selected <> nil then
+  begin
+    case tvNavigate.Selected.Index of
+      0: pcSettings.ActivePage := TabSheet1;
+      1: pcSettings.ActivePage := TabSheet2;
+      2: pcSettings.ActivePage := TabSheet3;
+      3: pcSettings.ActivePage := TabSheet4;
+    end;
   end;
 end;
 

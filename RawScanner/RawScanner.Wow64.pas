@@ -6,8 +6,8 @@
 //  * Purpose   : Модуль для поддержки WOW64 вызовов при чтении информации
 //  *           : из 32 битного процесса в 64 битном.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -20,11 +20,15 @@ unit RawScanner.Wow64;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   SysUtils,
-  RawScanner.Types,
-  RawScanner.Logger;
+  {$IFNDEF DISABLE_LOGGER}
+  RawScanner.Logger,
+  {$ENDIF}
+  RawScanner.Types;
 
 type
   TWow64Support = class
@@ -78,6 +82,13 @@ begin
   Result := TWow64Support.GetInstance;
 end;
 
+procedure Error(const Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Error(llWow64, Description);
+  {$ENDIF}
+end;
+
 { TWow64Support }
 
 class destructor TWow64Support.ClassDestroy;
@@ -129,7 +140,7 @@ end;
 
 function TWow64Support.Init: Boolean;
 const
-  Error = 'Can not get %s module handle. Error %d %s';
+  StrError = 'Can not get %s module handle. Error %d %s';
 var
   hLib: THandle;
   Wow64Process: LongBool;
@@ -138,8 +149,8 @@ begin
   hLib := GetModuleHandle('kernel32.dll');
   if hLib <= HINSTANCE_ERROR then
   begin
-    RawScannerLogger.Error(llWow64,
-      Format(Error, ['kernel32.dll', GetLastError, SysErrorMessage(GetLastError)]));
+    Error(
+      Format(StrError, ['kernel32.dll', GetLastError, SysErrorMessage(GetLastError)]));
     Exit;
   end;
   FIsWow64Process := GetProcAddress(hLib, 'IsWow64Process');
@@ -148,8 +159,8 @@ begin
   hLib := GetModuleHandle('ntdll.dll');
   if hLib <= HINSTANCE_ERROR then
   begin
-    RawScannerLogger.Error(llWow64,
-      Format(Error, ['ntdll.dll', GetLastError, SysErrorMessage(GetLastError)]));
+    Error(
+      Format(StrError, ['ntdll.dll', GetLastError, SysErrorMessage(GetLastError)]));
     Exit;
   end;
   FQueryInformationProcess64 := GetProcAddress(hLib, 'NtWow64QueryInformationProcess64');

@@ -6,7 +6,7 @@
 //  * Purpose   : Набор утилитарных методов общих для модулей RawScanner.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.8
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -18,6 +18,8 @@
 unit RawScanner.Utils;
 
 interface
+
+  {$I rawscanner.inc}
 
 uses
   Windows,

@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.7
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -18,6 +18,8 @@
 unit RawScanner.SymbolStorage;
 
 interface
+
+  {$I rawscanner.inc}
 
 uses
   Windows,
@@ -43,6 +45,8 @@ type
     sdtPluginDescriptor,
 
     // типы адресов использующие Binary (заполняются в ModulesData)
+    sdtBinaryFirst,
+
     sdtInstance, sdtExport, sdtEntryPoint,
     sdtUString, sdtAString, // <<< строки только для дизассемблера, в Raw не выводятся
     // табличные данные экспорта
@@ -58,6 +62,8 @@ type
     sdtExportDir, sdtImportDescriptor, sdtDelayedImportDescriptor,
     sdtLoadConfig32, sdtLoadConfig64,
     sdtTLSDir32, sdtTLSDir64,
+
+    sdtBinaryLast,
 
     // структуры ApiSet редиректора
     sdtApiSetNS, sdtApiSetNSEntry, sdtApiSetValueEntry,
@@ -110,6 +116,7 @@ type
     FActive: Boolean;
     FItems, FAddrList: TList<TSymbolData>;
     FItemIndex: TDictionary<ULONG_PTR64, Integer>;
+    FStringsCount: Integer;
   public
     constructor Create; virtual;
     destructor Destroy; override;
@@ -125,6 +132,7 @@ type
     function GetKnownAddrList(AddrVA: ULONG_PTR64; Size: Cardinal): TList<TSymbolData>;
     function UniqueCount: Integer;
     property Active: Boolean read FActive;
+    property StringsCount: Integer read FStringsCount;
   end;
 
   function SymbolStorage: TRawScannerSymbolStorage;
@@ -152,6 +160,8 @@ procedure TRawScannerSymbolStorage.Add(Value: TSymbolData);
 begin
   FActive := False;
   FItems.Add(Value);
+  if Value.DataType in [sdtAString, sdtUString] then
+    Inc(FStringsCount);
 end;
 
 class destructor TRawScannerSymbolStorage.ClassDestroy;
@@ -165,6 +175,7 @@ begin
   FAddrList.Clear;
   FItemIndex.Clear;
   FActive := False;
+  FStringsCount := 0;
 end;
 
 function TRawScannerSymbolStorage.Count: Integer;

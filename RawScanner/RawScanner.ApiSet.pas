@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для обработки ApiSet редиректа импорта/экспорта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.9
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -19,14 +19,18 @@ unit RawScanner.ApiSet;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   Classes,
   SysUtils,
   Generics.Collections,
+  {$IFNDEF DISABLE_LOGGER}
   RawScanner.Logger,
-  RawScanner.Types,
-  RawScanner.SymbolStorage;
+  {$ENDIF}
+  RawScanner.SymbolStorage,
+  RawScanner.Types;
 
 type
   // перенаправление экспорта штатных библиотек через ApiSet для поддержки MinWin
@@ -183,6 +187,13 @@ begin
   Result := TApiSetRedirector.GetInstance;
 end;
 
+procedure Info(const Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Info(llApiSet, Description);
+  {$ENDIF}
+end;
+
 { TApiSetRedirector }
 
 procedure TApiSetRedirector.AddRedirection(Key, Value: string);
@@ -308,8 +319,7 @@ begin
     end;
     Inc(NameSpaceEntry);
   end;
-  RawScannerLogger.Info(llApiSet,
-    'ApiSet V2 initialized. Entries count: ' + IntToStr(FUniqueCount));
+  Info('ApiSet V2 initialized. Entries count: ' + IntToStr(FUniqueCount));
 end;
 
 procedure TApiSetRedirector.Init4;
@@ -344,8 +354,7 @@ begin
     end;
     Inc(NameSpaceEntry);
   end;
-  RawScannerLogger.Info(llApiSet,
-    'ApiSet V4 initialized. Entries count: ' + IntToStr(FUniqueCount));
+  Info('ApiSet V4 initialized. Entries count: ' + IntToStr(FUniqueCount));
 end;
 
 procedure TApiSetRedirector.Init6;
@@ -430,8 +439,7 @@ begin
     Inc(NameSpaceEntry);
     Inc(HashEntry);
   end;
-  RawScannerLogger.Info(llApiSet,
-    'ApiSet V6 initialized. Entries count: ' + IntToStr(FUniqueCount));
+  Info('ApiSet V6 initialized. Entries count: ' + IntToStr(FUniqueCount));
 end;
 
 procedure TApiSetRedirector.LoadApiSet(AStream: TCustomMemoryStream);
@@ -459,7 +467,7 @@ begin
   if Assigned(FApiSet) then
     Init
   else
-    RawScannerLogger.Info(llApiSet, 'ApiSet disabled');
+    Info('ApiSet disabled');
 end;
 
 function TApiSetRedirector.RemoveSuffix(const Value: string): string;

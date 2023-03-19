@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,7 +35,8 @@ uses
   RawScanner.ModulesData,
   RawScanner.SymbolStorage,
 
-  uDumpDisplayUtils;
+  uDumpDisplayUtils,
+  ScaledCtrls;
 
 type
   TDumpFunc = reference to function (Process: THandle; Address: Pointer): string;
@@ -104,8 +105,9 @@ begin
   try
     Value := AFunc(Process, Address);
   except
-    on E: EAbort do
-      Value := Value + '...no more data';
+    on E: ENoMoreDataException do
+      if E.Overflow then
+        Value := Value + '...no more data';
     on E: Exception do
       Value := Value + sLineBreak + E.ClassName + ': ' + E.Message;
   end;

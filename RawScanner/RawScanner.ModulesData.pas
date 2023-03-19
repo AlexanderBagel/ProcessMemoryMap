@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.10
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -20,6 +20,8 @@ unit RawScanner.ModulesData;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   SysUtils,
@@ -30,7 +32,9 @@ uses
   RawScanner.ApiSet,
   RawScanner.SymbolStorage,
   RawScanner.Wow64,
+  {$IFNDEF DISABLE_LOGGER}
   RawScanner.Logger,
+  {$ENDIF}
   RawScanner.Utils;
 
   // https://wasm.in/blogs/ot-zelenogo-k-krasnomu-glava-2-format-ispolnjaemogo-fajla-os-windows-pe32-i-pe64-sposoby-zarazhenija-ispolnjaemyx-fajlov.390/
@@ -91,7 +95,17 @@ type
     SizeOfBlock: DWORD;
   end;
 
+  TStringData = record
+    AddrVA: ULONG_PTR64;
+    Data: string;
+    Unicode: Boolean;
+  end;
+
   TRawPEImage = class
+  public class var
+    // настройки загрзки строк глобально
+    DisableLoadStrings: Boolean;
+    LoadStringLength: Integer;
   private const
     DEFAULT_FILE_ALIGNMENT = $200;
     DEFAULT_SECTION_ALIGNMENT = $1000;
@@ -124,7 +138,7 @@ type
     FRelocationDelta: ULONG_PTR64;
     FRelocations: TList;
     FSections: array of TImageSectionHeader;
-    FStrings: TStringList;
+    FStrings: TList<TStringData>;
     FSizeOfFileImage: Int64;
     FVirtualSizeOfImage: Int64;
     FTlsDir: TDirectoryData;
@@ -145,12 +159,13 @@ type
     function LoadImport(Raw: TStream): Boolean;
     function LoadDelayImport(Raw: TStream): Boolean;
     function LoadRelocations(Raw: TStream): Boolean;
-    function LoadStrings(Raw: TStream): Boolean;
+    function LoadStrings(Raw: TMemoryStream): Boolean;
     function LoadTLS(Raw: TStream): Boolean;
     procedure ProcessApiSetRedirect(const LibName: string;
       var ImportChunk: TImportChunk); overload;
     procedure ProcessApiSetRedirect(const LibName: string;
       var ExportChunk: TExportChunk); overload;
+    function RawToVa(RawAddr: DWORD): ULONG_PTR64;
     function RvaToRaw(RvaAddr: DWORD): DWORD;
     function RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
     function VaToRaw(VaAddr: ULONG_PTR64): DWORD;
@@ -183,7 +198,7 @@ type
     property Rebased: Boolean read FRebased;
     property Redirected: Boolean read FRedirected;
     property RelocatedImages: TList<TRawPEImage> read FRelocatedImages;
-    property Strings: TStringList read FStrings;
+    property Strings: TList<TStringData> read FStrings;
     property TlsDirectory: TDirectoryData read FTlsDir;
     property VirtualSizeOfImage: Int64 read FVirtualSizeOfImage;
   end;
@@ -201,7 +216,7 @@ type
     destructor Destroy; override;
     function AddImage(const AModule: TModuleData): Integer;
     procedure Clear;
-    function GetModule(AddrVa: ULONG_PTR64): Integer;
+    function GetModule(AddrVa: ULONG_PTR64; CheckOwnership: Boolean = False): Integer;
     function GetProcData(const LibraryName, FuncName: string; Is64: Boolean;
       var ProcData: TExportChunk; CheckAddrVA: ULONG_PTR64): Boolean; overload;
     function GetProcData(const LibraryName: string; Ordinal: Word;
@@ -215,6 +230,20 @@ implementation
 
 const
   strPfs = ' value (0x%.1x) in "%s", offset: 0x%.1x';
+
+procedure Error(const Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Error(llPE, Description);
+  {$ENDIF}
+end;
+
+procedure Notify(const FuncName, Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Notify(llPE, FuncName, Description);
+  {$ENDIF}
+end;
 
 function ReadString(AStream: TStream): string;
 var
@@ -325,7 +354,7 @@ begin
   FRelocations := TList.Create;
   FEntryPoints := TList<TEntryPointChunk>.Create;
   FRelocatedImages := TList<TRawPEImage>.Create;
-  FStrings := TStringList.Create;
+  FStrings := TList<TStringData>.Create;
   SymbolData.AddrVA := ImageBase;
   SymbolData.DataType := sdtInstance;
   SymbolData.Binary.ModuleIndex := ModuleIndex;
@@ -675,10 +704,9 @@ begin
     Raw.Position := RvaToRaw(GetRva(DelayDescr.rvaDLLName));
     if Raw.Position = 0 then
     begin
-      RawScannerLogger.Error(llPE,
-        Format('Invalid DelayDescr.szName' + strPfs,
-          [DelayDescr.rvaDLLName, ImagePath,
-          NextDescriptorRawAddr - SizeOf(TImgDelayDescr)]));
+      Error(Format('Invalid DelayDescr.szName' + strPfs,
+        [DelayDescr.rvaDLLName, ImagePath,
+        NextDescriptorRawAddr - SizeOf(TImgDelayDescr)]));
       Exit;
     end;
 
@@ -706,9 +734,8 @@ begin
       LastOffset := RvaToRaw(INT);
       if LastOffset = 0 then
       begin
-        RawScannerLogger.Error(llPE,
-          Format('Invalid DelayDescr.pINT[%d]' + strPfs,
-            [Index, INT, ImagePath, NextDescriptorRawAddr - SizeOf(TImgDelayDescr)]));
+        Error(Format('Invalid DelayDescr.pINT[%d]' + strPfs,
+          [Index, INT, ImagePath, NextDescriptorRawAddr - SizeOf(TImgDelayDescr)]));
         Exit;
       end;
       Raw.Position := LastOffset;
@@ -724,9 +751,8 @@ begin
           Raw.Position := RvaToRaw(GetRva(IntData));
           if Raw.Position = 0 then
           begin
-            RawScannerLogger.Error(llPE,
-              Format('Invalid DelayDescr.pINT[%d] PIMAGE_THUNK_DATA' + strPfs,
-                [Index, IntData, ImagePath, LastOffset]));
+            Error(Format('Invalid DelayDescr.pINT[%d] PIMAGE_THUNK_DATA' + strPfs,
+              [Index, IntData, ImagePath, LastOffset]));
             Exit;
           end;
           Raw.ReadBuffer(ImportChunk.Ordinal, SizeOf(Word));
@@ -751,10 +777,9 @@ begin
         Raw.Position := VaToRaw(ImportChunk.ImportTableVA);
         if Raw.Position = 0 then
         begin
-          RawScannerLogger.Error(llPE,
-            Format('Invalid DelayDescr.pIAT[%d]' + strPfs,
-              [Index, INT, ImagePath,
-              NextDescriptorRawAddr - SizeOf(TImgDelayDescr)]));
+          Error(Format('Invalid DelayDescr.pIAT[%d]' + strPfs,
+            [Index, INT, ImagePath,
+            NextDescriptorRawAddr - SizeOf(TImgDelayDescr)]));
           Exit;
         end;
         Raw.ReadBuffer(ImportChunk.DelayedIATData, DataSize);
@@ -821,9 +846,8 @@ begin
   Raw.Position := RvaToRaw(ImageExportDirectory.Name);
   if Raw.Position = 0 then
   begin
-    RawScannerLogger.Error(llPE,
-      Format(InvalidStr, ['Name',
-        ImageExportDirectory.Name, ImagePath, LastOffset]));
+    Error(Format(InvalidStr, ['Name',
+      ImageExportDirectory.Name, ImagePath, LastOffset]));
     Exit;
   end;
   FOriginalName := ReadString(Raw);
@@ -833,9 +857,8 @@ begin
   Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfFunctions);
   if Raw.Position = 0 then
   begin
-    RawScannerLogger.Error(llPE,
-      Format(InvalidStr, ['AddressOfFunctions',
-        ImageExportDirectory.AddressOfFunctions, ImagePath, LastOffset]));
+    Error(Format(InvalidStr, ['AddressOfFunctions',
+      ImageExportDirectory.AddressOfFunctions, ImagePath, LastOffset]));
     Exit;
   end;
   Raw.ReadBuffer(FunctionsAddr[0], ImageExportDirectory.NumberOfFunctions shl 2);
@@ -852,9 +875,8 @@ begin
     Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfNames);
     if Raw.Position = 0 then
     begin
-      RawScannerLogger.Error(llPE,
-        Format(InvalidStr, ['AddressOfNames',
-          ImageExportDirectory.AddressOfNames, ImagePath, LastOffset]));
+      Error(Format(InvalidStr, ['AddressOfNames',
+        ImageExportDirectory.AddressOfNames, ImagePath, LastOffset]));
       Exit;
     end;
     Raw.ReadBuffer(NamesAddr[0], ImageExportDirectory.NumberOfNames shl 2);
@@ -865,9 +887,8 @@ begin
     Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfNameOrdinals);
     if Raw.Position = 0 then
     begin
-      RawScannerLogger.Error(llPE,
-        Format(InvalidStr, ['AddressOfNameOrdinals',
-          ImageExportDirectory.AddressOfNameOrdinals, ImagePath, LastOffset]));
+      Error(Format(InvalidStr, ['AddressOfNameOrdinals',
+        ImageExportDirectory.AddressOfNameOrdinals, ImagePath, LastOffset]));
       Exit;
     end;
     Raw.ReadBuffer(Ordinals[0], ImageExportDirectory.NumberOfNames shl 1);
@@ -960,7 +981,7 @@ begin
       SymbolStorage.Add(SymbolData);
 
       // Если нет форварда, добавляем адрес функции в список символов
-      if ExportChunk.Executable and ExportChunk.OriginalForvardedTo.IsEmpty then
+      if {ExportChunk.Executable and} ExportChunk.OriginalForvardedTo.IsEmpty then
       begin
         SymbolData.DataType := sdtExport;
         SymbolData.AddrVA := ExportChunk.FuncAddrVA;
@@ -1052,9 +1073,7 @@ begin
     except
       on E: Exception do
       begin
-        RawScannerLogger.Notify(llPE,
-          'Image load error ' + ImagePath,
-          E.ClassName + ': ' + E.Message);
+        Notify('Image load error ' + ImagePath, E.ClassName + ': ' + E.Message);
         Exit;
       end;
     end;
@@ -1064,9 +1083,8 @@ begin
     Raw.ReadBuffer(IDH, SizeOf(TImageDosHeader));
     if IDH.e_magic <> IMAGE_DOS_SIGNATURE then
     begin
-      RawScannerLogger.Error(llPE,
-        Format('Invalid ImageDosHeader.e_magic (0x%.1x) in "%s"',
-          [IDH.e_magic, ImagePath]));
+      Error(Format('Invalid ImageDosHeader.e_magic (0x%.1x) in "%s"',
+        [IDH.e_magic, ImagePath]));
       Exit;
     end;
     Raw.Position := IDH._lfanew;
@@ -1104,9 +1122,6 @@ begin
     // они пригодятся снаружи для ускорения проверки этих таблиц
     InitDirectories;
 
-    // Читаем Tls калбэки
-    LoadTLS(Raw);
-
     // читаем директорию экспорта
     LoadExport(Raw);
 
@@ -1118,11 +1133,15 @@ begin
     if LoadRelocations(Raw) then
       ProcessRelocations(Raw);
 
+    // Читаем Tls калбэки
+    LoadTLS(Raw);
+
     // читаем дескрипторы отложеного импорта
     LoadDelayImport(Raw);
 
     // читаем все строки
-    LoadStrings(Raw);
+    if not DisableLoadStrings then
+      LoadStrings(Raw);
 
   finally
     Raw.Free;
@@ -1163,10 +1182,9 @@ begin
     Raw.Position := RvaToRaw(ImageImportDescriptor.Name);
     if Raw.Position = 0 then
     begin
-      RawScannerLogger.Error(llPE,
-        Format('Invalid ImageImportDescriptor.Name (0x%.1x) in "%s", offset: 0x%.1x',
-          [ImageImportDescriptor.Name, ImagePath,
-          NextDescriptorRawAddr - SizeOf(TImageImportDescriptor)]));
+      Error(Format('Invalid ImageImportDescriptor.Name (0x%.1x) in "%s", offset: 0x%.1x',
+        [ImageImportDescriptor.Name, ImagePath,
+        NextDescriptorRawAddr - SizeOf(TImageImportDescriptor)]));
       Exit;
     end;
 
@@ -1193,17 +1211,16 @@ begin
     OriginalFirstThunk := OFTCursor;
     // правда OriginalFirstThunk может и не быть в некоторых случаях
     // в таком случае чтение будет идти из FirstThunk
-    if OriginalFirstThunk = 0 then
+    if ImageImportDescriptor.OriginalFirstThunk = 0 then
       OriginalFirstThunk := ImportChunk.ImportTableVA;
     repeat
 
       LastOffset := VaToRaw(OriginalFirstThunk);
       if LastOffset = 0 then
       begin
-        RawScannerLogger.Error(llPE,
-          Format('Invalid ImportDescr.OriginalFirstThunk[%d]' + strPfs,
-            [Index, OriginalFirstThunk, ImagePath,
-            NextDescriptorRawAddr - SizeOf(TImageImportDescriptor)]));
+        Error(Format('Invalid ImportDescr.OriginalFirstThunk[%d]' + strPfs,
+          [Index, OriginalFirstThunk, ImagePath,
+          NextDescriptorRawAddr - SizeOf(TImageImportDescriptor)]));
         Exit;
       end;
 
@@ -1219,10 +1236,9 @@ begin
           Raw.Position := RvaToRaw(IatData);
           if Raw.Position = 0 then
           begin
-            RawScannerLogger.Error(llPE,
-              Format(
-                'Invalid ImportDescr.OriginalFirstThunk[%d] PIMAGE_THUNK_DATA' + strPfs,
-                [Index, IatData, ImagePath, LastOffset]));
+            Error(Format(
+              'Invalid ImportDescr.OriginalFirstThunk[%d] PIMAGE_THUNK_DATA' + strPfs,
+              [Index, IatData, ImagePath, LastOffset]));
             Exit;
           end;
           Raw.ReadBuffer(ImportChunk.Ordinal, SizeOf(Word));
@@ -1245,7 +1261,7 @@ begin
         SymbolStorage.Add(SymbolData);
 
         // запоминаем в таблице символов информацию о INT
-        if OFTCursor <> 0 then
+        if ImageImportDescriptor.OriginalFirstThunk <> 0 then
         begin
           if Image64 then
             SymbolData.DataType := sdtImportNameTable64
@@ -1382,8 +1398,7 @@ begin
   except
     on E: Exception do
     begin
-      RawScannerLogger.Error(llPE,
-        Format('Relocation loading error from "%s".%s%s: %s',
+      Error(Format('Relocation loading error from "%s".%s%s: %s',
         [ImagePath, sLineBreak, E.ClassName, E.Message]));
       Result := False;
     end;
@@ -1402,29 +1417,129 @@ begin
   end;
 end;
 
-function TRawPEImage.LoadStrings(Raw: TStream): Boolean;
+function TRawPEImage.LoadStrings(Raw: TMemoryStream): Boolean;
+var
+  pCursor, pStartChar, pMaxPos: PByte;
+  Len: Integer;
+  Unicode: Boolean;
+
+  procedure NextChar;
+  begin
+    Len := 0;
+    pStartChar := nil;
+    Inc(pCursor);
+  end;
+
+  procedure StrEnd;
+  var
+    SymbolData: TSymbolData;
+    ABuff: AnsiString;
+    StringData: TStringData;
+  begin
+    if Len >= LoadStringLength then
+    begin
+      if Unicode then
+      begin
+        if PWord(pCursor)^ <> 0 then
+        begin
+          NextChar;
+          Exit;
+        end;
+        SetLength(StringData.Data, Len);
+        Move(pStartChar^, StringData.Data[1], Len * 2);
+      end
+      else
+      begin
+        if pCursor^ <> 0 then
+        begin
+          NextChar;
+          Exit;
+        end;
+        SetLength(ABuff, Len);
+        Move(pStartChar^, ABuff[1], Len);
+        StringData.Data := string(ABuff);
+      end;
+      StringData.Unicode := Unicode;
+      StringData.AddrVA :=
+        RawToVa(NativeUInt(pStartChar) - NativeUInt(Raw.Memory));
+      ZeroMemory(@SymbolData, SizeOf(SymbolData));
+      if Unicode then
+        SymbolData.DataType := sdtUString
+      else
+        SymbolData.DataType := sdtAString;
+      SymbolData.AddrVA := StringData.AddrVA;
+      SymbolData.Binary.DelayedNameEmpty := False;
+      SymbolData.Binary.ModuleIndex := FIndex;
+      SymbolData.Binary.ListIndex := FStrings.Add(StringData);
+      SymbolStorage.Add(SymbolData);
+    end;
+
+    NextChar;
+  end;
+
 begin
   Result := False;
-  {$MESSAGE 'Добавить список строк для дизассемблера'}
+  pCursor := Raw.Memory;
+  Len := 0;
+  if LoadStringLength = 0 then
+    LoadStringLength := 4;
+  pMaxPos := pCursor + Raw.Size;
+  while pCursor < pMaxPos do
+  begin
+    if pCursor^ in [10, 13, 32..126] then
+    begin
+      if Len = 0 then
+      begin
+        case PWord(pCursor)^ of
+          10, 13, 32..126:
+          begin
+            Unicode := True;
+            pStartChar := pCursor;
+            Inc(pCursor, 2);
+          end;
+        else
+          Unicode := False;
+          pStartChar := pCursor;
+          Inc(pCursor);
+        end;
+        Len := 1;
+      end
+      else
+      begin
+        if Unicode then
+        begin
+          case PWord(pCursor)^ of
+            10, 13, 32..126:
+            begin
+              Inc(Len);
+              Inc(pCursor, 2);
+            end;
+          else
+            StrEnd;
+          end;
+        end
+        else
+        begin
+          Inc(Len);
+          Inc(pCursor);
+        end;
+      end;
+    end
+    else
+      StrEnd;
+  end;
 end;
 
 function TRawPEImage.LoadTLS(Raw: TStream): Boolean;
-
-  // TLS содержит VA записи с привязкой к ImageBase указанной в заголовке
-  // поэтому для работы с ними, нужно их сначала преобразовать в Rva
-  function TlsVaToRva(Value: ULONG_PTR64): DWORD;
-  begin
-    Result := Value - NtHeader.OptionalHeader.ImageBase
-  end;
-
 var
   AddrSize: Byte;
   Chunk: TEntryPointChunk;
-  TlsCallbackRva, TlsCallbackPosVA: ULONG_PTR64;
+  AddressOfCallBacks, TlsCallbackPosVA: ULONG_PTR64;
   Counter: Integer;
   SymbolData: TSymbolData;
 begin
   Result := False;
+  ZeroMemory(@SymbolData, SizeOf(SymbolData));
   Raw.Position := VaToRaw(TlsDirectory.VirtualAddress);
   if Raw.Position = 0 then Exit;
   AddrSize := IfThen(Image64, 8, 4);
@@ -1433,26 +1548,25 @@ begin
   // становясь, таким образом, сразу на позиции AddressOfCallBacks
   Raw.Position := Raw.Position + AddrSize * 3;
   Counter := 0;
-  TlsCallbackRva := 0;
+  AddressOfCallBacks := 0;
+  TlsCallbackPosVA := 0;
   // зачитываем значение AddressOfCallBacks
-  Raw.ReadBuffer(TlsCallbackRva, AddrSize);
+  Raw.ReadBuffer(AddressOfCallBacks, AddrSize);
   // если цепочка колбэков не назначена - выходим
-  if TlsCallbackRva = 0 then Exit;
+  if AddressOfCallBacks = 0 then Exit;
   // позиционируемся на начало цепочки калбэков
-  TlsCallbackPosVA := TlsVaToRva(TlsCallbackRva);
-  Raw.Position := RvaToRaw(TlsCallbackPosVA);
-  TlsCallbackPosVA := RvaToVa(TlsCallbackPosVA);
+  Raw.Position := VaToRaw(AddressOfCallBacks);
   if Raw.Position = 0 then Exit;
   repeat
-    Raw.ReadBuffer(TlsCallbackRva, AddrSize);
-    if TlsCallbackRva <> 0 then
+    Raw.ReadBuffer(TlsCallbackPosVA, AddrSize);
+    if TlsCallbackPosVA <> 0 then
     begin
       Chunk.EntryPointName := 'Tls Callback ' + IntToStr(Counter);
-      Chunk.AddrVA := RvaToVa(TlsVaToRva(TlsCallbackRva));
+      Chunk.AddrVA := TlsCallbackPosVA;
       Chunk.AddrRaw := VaToRaw(Chunk.AddrVA);
 
       // добавляем в символы адрес записи о калбэке
-      SymbolData.AddrVA := TlsCallbackPosVA;
+      SymbolData.AddrVA := AddressOfCallBacks;
       if Image64 then
         SymbolData.DataType := sdtTlsCallback64
       else
@@ -1467,10 +1581,10 @@ begin
       SymbolData.Binary.ListIndex := FEntryPoints.Add(Chunk);
       SymbolStorage.Add(SymbolData);
 
-      Inc(TlsCallbackPosVA, AddrSize);
+      Inc(AddressOfCallBacks, AddrSize);
       Inc(Counter);
     end;
-  until TlsCallbackRva = 0;
+  until TlsCallbackPosVA = 0;
 end;
 
 procedure TRawPEImage.ProcessApiSetRedirect(const LibName: string;
@@ -1519,6 +1633,24 @@ begin
     AStream.Position := Int64(RawReloc);
     AStream.WriteBuffer(Reloc, AddrSize);
   end;
+end;
+
+function TRawPEImage.RawToVa(RawAddr: DWORD): ULONG_PTR64;
+var
+  I: Integer;
+  StartRVA: DWORD;
+begin
+  Result := ImageBase + RawAddr;
+  for I := 0 to Length(FSections) - 1 do
+    if (RawAddr >= FSections[I].PointerToRawData) and
+      (RawAddr < FSections[I].PointerToRawData + FSections[I].SizeOfRawData) then
+    begin
+      StartRVA := FSections[I].VirtualAddress;
+      if FNtHeader.OptionalHeader.SectionAlignment >= DEFAULT_SECTION_ALIGNMENT then
+        StartRVA := AlignDown(StartRVA, FNtHeader.OptionalHeader.SectionAlignment);
+      Result := RawAddr - FSections[I].PointerToRawData + StartRVA + ImageBase;
+      Break;
+    end;
 end;
 
 function TRawPEImage.RvaToRaw(RvaAddr: DWORD): DWORD;
@@ -1670,11 +1802,19 @@ begin
     Result := nil;
 end;
 
-function TRawModules.GetModule(AddrVa: ULONG_PTR64): Integer;
+function TRawModules.GetModule(AddrVa: ULONG_PTR64; CheckOwnership: Boolean): Integer;
+var
+  I: Integer;
 begin
-  if not FImageBaseIndex.TryGetValue(AddrVa, Result) then
+  if not FImageBaseIndex.TryGetValue(AddrVa, Result) and CheckOwnership then
   begin
     Result := -1;
+    for I := 0 to FItems.Count - 1 do
+      if CheckImageAtAddr(FItems.List[I], AddrVa) then
+      begin
+        Result := I;
+        Break;
+      end;
   end;
 end;
 

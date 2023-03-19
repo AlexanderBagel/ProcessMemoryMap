@@ -8,7 +8,7 @@
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.10
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -21,17 +21,21 @@ unit RawScanner.Core;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   SysUtils,
   Generics.Collections,
+  {$IFNDEF DISABLE_ACTCTX}
   RawScanner.ActivationContext,
+  {$ENDIF}
   RawScanner.Analyzer,
   RawScanner.ApiSet,
-  RawScanner.Disassembler,
-  RawScanner.Filter,
   RawScanner.LoaderData,
+  {$IFNDEF DISABLE_LOGGER}
   RawScanner.Logger,
+  {$ENDIF}
   RawScanner.ModulesData,
   RawScanner.SymbolStorage,
   RawScanner.Types,
@@ -71,7 +75,9 @@ type
     class var FInstance: TRawScanner;
     class destructor ClassDestroy;
   strict private
+    {$IFNDEF DISABLE_ACTCTX}
     FProcessContext, FSystemContext: TActivationContext;
+    {$ENDIF}
     FProcess: THandle;
     FIsWow64Mode: LongBool;
     FInitResult: TInitializationResult;
@@ -176,6 +182,20 @@ begin
   Result := TRawScanner.GetInstance;
 end;
 
+procedure Error(const Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Error(llCore, Description);
+  {$ENDIF}
+end;
+
+procedure Fatal(const FuncName, Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Fatal(llCore, Description);
+  {$ENDIF}
+end;
+
 { TRawScanner }
 
 function TRawScanner.Active: Boolean;
@@ -197,8 +217,10 @@ begin
   ZeroMemory(@FPEB64, SizeOf(TPEB64));
   ZeroMemory(@FInitResult, SizeOf(TInitializationResult));  
   FreeAndNil(FAnalizer);
+  {$IFNDEF DISABLE_ACTCTX}
   FreeAndNil(FProcessContext);
   FreeAndNil(FSystemContext);
+  {$ENDIF}
   FModules.Clear;
   SymbolStorage.Clear;
 end;
@@ -215,6 +237,9 @@ begin
       Wow64Support.EnableRedirection;
     end;
   end;
+  {$ELSE}
+  // чтобы в 64 битах не висел ворнинг - просто вызов заглушки
+  InitNtQueryVirtualMemory;
   {$ENDIF}
   FModules := TRawModules.Create;
 end;
@@ -283,7 +308,7 @@ const
       @dwReturnLength) = 0;
     if not Result then
     begin
-      RawScannerLogger.Error(llLoader,
+      Error(
         Format(QueryError,[strProcessWow64Information,
         GetLastError, SysErrorMessage(GetLastError)]));
       Exit;
@@ -294,7 +319,7 @@ const
     if Result then
       Convert32PebTo64(Peb32)
     else
-      RawScannerLogger.Error(llLoader,
+      Error(
         Format(ReadError, [strProcessWow64Information,
         PebWow64BaseAddress, GetLastError, SysErrorMessage(GetLastError)]));
   end;
@@ -309,7 +334,7 @@ const
       ProcessBasicInformation, @PBI64, SizeOf(PBI64), dwReturnLength);
     if not Result then
     begin
-      RawScannerLogger.Error(llLoader,
+      Error(
         Format(QueryError, [strProcessBasicInformation64,
         GetLastError, SysErrorMessage(GetLastError)]));
       Exit;
@@ -317,7 +342,7 @@ const
     Result := ReadRemoteMemory(AProcess, PBI64.PebBaseAddress,
       @APeb, SizeOf(TPEB64));
     if not Result then
-      RawScannerLogger.Error(llLoader,
+      Error(
         Format(ReadError, [strProcessBasicInformation64,
         PBI64.PebBaseAddress, GetLastError, SysErrorMessage(GetLastError)]));
   end;
@@ -333,7 +358,7 @@ const
       ProcessBasicInformation, @PBI, SizeOf(PBI), @dwReturnLength) = 0;
     if not Result then
     begin
-      RawScannerLogger.Error(llLoader,
+      Error(
         Format(QueryError, [strProcessBasicInformation,
         GetLastError, SysErrorMessage(GetLastError)]));
       Exit;
@@ -348,7 +373,7 @@ const
       APeb := TPEB64(Peb)
     {$ENDIF}
     else
-      RawScannerLogger.Error(llLoader,
+      Error(
         Format(ReadError, [strProcessBasicInformation,
         ULONG_PTR64(PBI.PebBaseAddress),
         GetLastError, SysErrorMessage(GetLastError)]));
@@ -372,7 +397,9 @@ procedure TRawScanner.InitFromProcess(
   AProcessID: Cardinal);
 var
   Loader: TLoaderData;
+  {$IFNDEF DISABLE_ACTCTX}
   ContextAddr: ULONG_PTR64;
+  {$ENDIF}
 begin
   Clear;
 
@@ -383,8 +410,7 @@ begin
     False, AProcessID);
   if FProcess = 0 then
   begin
-    RawScannerLogger.Fatal(llCore,
-      'Can not open process ID: ' + IntToStr(AProcessID),
+    Fatal('Can not open process ID: ' + IntToStr(AProcessID),
       Format('Error %d: %s', [GetLastError, SysErrorMessage(GetLastError)]));
     Exit;
   end;
@@ -422,6 +448,8 @@ begin
   FInitResult.ApiSetVer := ApiSetRedirector.Version;
   FInitResult.ApiSetCount := ApiSetRedirector.Count;
 
+  {$IFNDEF DISABLE_ACTCTX}
+
   {$IFDEF WIN32}
   ContextAddr := FPEB32.ActivationContextData;
   {$ELSE}
@@ -441,6 +469,8 @@ begin
     ContextAddr := FPEB64.SystemDefaultActivationContextData;
   {$ENDIF}
   FSystemContext := TActivationContext.Create(FProcess, ContextAddr, True);
+
+  {$ENDIF DISABLE_ACTCTX}
 
   SymbolStorage.PrepareForWork;
 end;
@@ -497,7 +527,7 @@ begin
 
   if hProc = 0 then
   begin
-    RawScannerLogger.Fatal(llCore,
+    Fatal(
       'Can not open self process ID: ' + IntToStr(GetCurrentProcessId),
       Format('Error %d: %s', [GetLastError, SysErrorMessage(GetLastError)]));
     Exit;
@@ -508,7 +538,7 @@ begin
     // получаем данные по 64 битному PEB
     if not GetPEB(hProc, False, PEB) then
     begin
-      RawScannerLogger.Fatal(llCore,
+      Fatal(
         'Can not read PEB64',
         Format('Error %d: %s', [GetLastError, SysErrorMessage(GetLastError)]));
       Exit;

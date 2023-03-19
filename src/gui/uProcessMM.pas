@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.27
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -25,7 +25,7 @@ uses
   Vcl.Menus, VirtualTrees, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.ImgList, Winapi.TlHelp32, Winapi.ShellAPI, Winapi.CommCtrl,
   Vcl.Clipbrd, System.Actions, Vcl.ActnList, Vcl.PlatformDefaultStyleActnCtrls,
-  Vcl.ActnMan, System.ImageList,
+  Vcl.ActnMan, System.ImageList, System.Diagnostics,
 
   MemoryMap.Core,
   MemoryMap.RegionData,
@@ -37,6 +37,7 @@ uses
   RawScanner.ApiSet,
   RawScanner.Types,
   RawScanner.Wow64,
+  RawScanner.ModulesData,
 
   uDisplayUtils,
   uIPC,
@@ -137,6 +138,13 @@ type
     GenerateMMLfromMAP1: TMenuItem;
     Debugdata1: TMenuItem;
     acDebugInfo: TAction;
+    acStrings: TAction;
+    ShowStrings1: TMenuItem;
+    pmGui: TPopupMenu;
+    acCopyPID: TAction;
+    CopyPID1: TMenuItem;
+    acCopyProcessPath: TAction;
+    CopyProcessPath1: TMenuItem;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -190,6 +198,10 @@ type
     procedure acFindPachedDataExecute(Sender: TObject);
     procedure imgProcessClick(Sender: TObject);
     procedure acDebugInfoExecute(Sender: TObject);
+    procedure acCopyPIDUpdate(Sender: TObject);
+    procedure acCopyPIDExecute(Sender: TObject);
+    procedure acCopyProcessPathExecute(Sender: TObject);
+    procedure acStringsExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -235,10 +247,12 @@ uses
   uPatchDetect,
   uPluginManager,
   uDebugInfoDlg,
+  uStringsViewer,
+  ScaledCtrls,
   Shell.TaskBarListProgress;
 
 const
-  RootCaption = 'Process Memory Map';
+  RootCaption = 'Process Memory Map' {$IFDEF DEBUG} + ' [DEBUG]'{$ENDIF};
   DumpFailed = 'Dump filed';
   DumpSuccess = 'Dumped %d bytes';
 
@@ -294,6 +308,21 @@ begin
   Data := GetSelectedNodeData;
   if Data <> nil then
     Clipboard.AsText := UInt64ToStr(Data^.Address);
+end;
+
+procedure TdlgProcessMM.acCopyPIDExecute(Sender: TObject);
+begin
+  Clipboard.AsText := IntToStr(MemoryMapCore.PID);
+end;
+
+procedure TdlgProcessMM.acCopyPIDUpdate(Sender: TObject);
+begin
+  TAction(Sender).Enabled := MemoryMapCore.PID <> 0;
+end;
+
+procedure TdlgProcessMM.acCopyProcessPathExecute(Sender: TObject);
+begin
+  Clipboard.AsText := MemoryMapCore.ProcessPath;
 end;
 
 procedure TdlgProcessMM.acCopySelectedExecute(Sender: TObject);
@@ -569,13 +598,14 @@ procedure TdlgProcessMM.acSelectProcessExecute(Sender: TObject);
 
   procedure OpenProcessAndInitGUI(PID: DWORD; const ProcessName: string);
   var
-    Ico: TIcon;
+    Ico: TScaledIcon;
   begin
     InternalOpenProcess(MemoryMapCore, PID, ProcessName);
-    Ico := TIcon.Create;
+    Ico := TScaledIcon.Create;
     try
       Ico.Handle := GetProcessIco(PID);
       imgProcess.Picture.Assign(Ico);
+      imgProcess.Center := True;
       lblProcessNameData.Caption := MemoryMapCore.ProcessName +
         ' (' + MemoryMapCore.ProcessPath + ')';
       lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
@@ -651,7 +681,7 @@ begin
       TaskBarBtn.Free;
     end;
   finally
-    dlgSelectProcess.Free;
+    dlgSelectProcess.Release;
   end;
   if Pid <> 0 then
     OpenProcessAndInitGUI(Pid, ProcessName);
@@ -688,6 +718,17 @@ begin
   end;
   dlgKnownData := TdlgKnownData.Create(Application);
   dlgKnownData.ShowKnownData;
+end;
+
+procedure TdlgProcessMM.acStringsExecute(Sender: TObject);
+begin
+  if dlgStringsViewer <> nil then
+  begin
+    dlgStringsViewer.BringToFront;
+    Exit;
+  end;
+  dlgStringsViewer := TdlgStringsViewer.Create(Application);
+  dlgStringsViewer.ShowStrings;
 end;
 
 procedure TdlgProcessMM.AddShieldIconToMenu;
@@ -892,7 +933,7 @@ procedure TdlgProcessMM.FormCreate(Sender: TObject);
 begin
   {$IFDEF DEBUG}
   ReportMemoryLeaksOnShutdown := True;
-  Caption := Caption + ' [DEBUG]';
+  Caption := RootCaption;
   {$ENDIF}
   if CheckIsAdmin then
   begin
@@ -918,6 +959,8 @@ begin
   Application.Title := Caption;
   FirstRun := True;
   FirstSelectProcess := True;
+
+  DebugInitialHeapSize := GetMemAlloc;
 end;
 
 procedure TdlgProcessMM.FormDestroy(Sender: TObject);
@@ -1002,6 +1045,8 @@ end;
 
 procedure TdlgProcessMM.InternalOpenProcess(AMap: TMemoryMap; PID: DWORD;
   const ProcessName: string);
+var
+  Stopwatch: TStopwatch;
 begin
   dlgProgress := TdlgProgress.Create(nil);
   try
@@ -1013,15 +1058,23 @@ begin
       Wow64Support.DisableRedirection;
       try
         AMap.DebugMapData.LoadLines := Settings.LoadLines;
+        Stopwatch.Start;
         // Сначала должно отработать ядро MemoryMap для получения данных по процессу
         AMap.InitFromProcess(PID, ProcessName);
         // Редиректору нужно знать по какому адресу расположен ApiSet
         // для пересчета адресов из локального адресного пространства в удаленное
         ApiSetRedirector.RemoteApiSetVA := ULONG_PTR64(AMap.PEB.ApiSetMap);
+        // Не забыть прокинуть настройки для строк
+        TRawPEImage.DisableLoadStrings := not Settings.LoadStrings;
+        TRawPEImage.LoadStringLength := Settings.StringMinLengh;
         // И только после этого можно запускать на выполнение RawScannerCore
         RawScannerCore.InitFromProcess(PID);
         // Последним идет подсистема плагинов
         PluginManager.OpenProcess(PID);
+        // Отладочное время
+        Stopwatch.Stop;
+        DebugElapsedMilliseconds := Stopwatch.ElapsedMilliseconds;
+        {$MESSAGE 'Разослать уведомления окнам об необходимости обновления информации'}
       finally
         Wow64Support.EnableRedirection;
       end;
@@ -1029,7 +1082,7 @@ begin
     lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
     FillTreeView;
   finally
-    FreeAndNil(dlgProgress);
+    dlgProgress.Release;
   end;
 end;
 

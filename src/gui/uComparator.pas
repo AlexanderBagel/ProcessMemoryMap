@@ -29,7 +29,8 @@ uses
   MemoryMap.RegionData,
   MemoryMap.Heaps,
   MemoryMap.Threads,
-  MemoryMap.PEImage;
+  MemoryMap.PEImage,
+  ScaledCtrls;
 
 type
   TChangeType = (ctAdd, ctChange, ctDel);

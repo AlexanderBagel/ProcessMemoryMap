@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль для работы с контекстами активации процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.8
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -19,11 +19,15 @@ unit RawScanner.ActivationContext;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   SysUtils,
   RawScanner.Types,
+  {$IFNDEF DISABLE_LOGGER}
   RawScanner.Logger,
+  {$ENDIF}
   RawScanner.SymbolStorage,
   RawScanner.Utils;
 
@@ -224,6 +228,13 @@ type
 
 implementation
 
+procedure Error(const Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Error(llContext, Description);
+  {$ENDIF}
+end;
+
 { TActivationContext }
 
 constructor TActivationContext.Create(AProcess: THandle;
@@ -250,15 +261,13 @@ begin
   if not ReadRemoteMemory(FProcess, FContextAddr,
     @ctxData, SizeOf(ACTIVATION_CONTEXT_DATA)) then
   begin
-    RawScannerLogger.Error(llContext,
-      Format(ReadError, ['ACTIVATION_CONTEXT_DATA',
+    Error(Format(ReadError, ['ACTIVATION_CONTEXT_DATA',
       FContextAddr, GetLastError, SysErrorMessage(GetLastError)]));
   end;
 
   if ctxData.Magic <> ACTIVATION_CONTEXT_DATA_MAGIC then
   begin
-    RawScannerLogger.Error(llContext,
-      Format(WrongHeader,
+    Error(Format(WrongHeader,
       ['ACTIVATION_CONTEXT_DATA_MAGIC', ctxData.Magic, FContextAddr]));
     Exit;
   end;
@@ -273,8 +282,8 @@ begin
 
   if ctxData.FormatVersion <> ACTIVATION_CONTEXT_SECTION_FORMAT_STRING_TABLE then
   begin
-    RawScannerLogger.Error(llContext,
-      Format('Unknown ACTIVATION_CONTEXT_DATA.FormatVersion %d', [ctxData.FormatVersion]));
+    Error(Format('Unknown ACTIVATION_CONTEXT_DATA.FormatVersion %d',
+      [ctxData.FormatVersion]));
     Exit;
   end;
 
@@ -296,8 +305,7 @@ begin
   if not ReadRemoteMemory(FProcess, AddrVA,
     @Header, SizeOf(ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_HEADER)) then
   begin
-    RawScannerLogger.Error(llContext,
-      Format(ReadError, ['ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_HEADER',
+    Error(Format(ReadError, ['ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_HEADER',
       AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
   end;
 
@@ -315,9 +323,8 @@ begin
     if not ReadRemoteMemory(FProcess, Item.AddrVA,
       @Entry, SizeOf(ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_ENTRY)) then
     begin
-      RawScannerLogger.Error(llContext,
-        Format(ReadErrorIndex, ['ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_ENTRY', I,
-        Item.AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
+      Error(Format(ReadErrorIndex, ['ACTIVATION_CONTEXT_DATA_ASSEMBLY_ROSTER_ENTRY',
+        I, Item.AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
     end;
 
     SymbolStorage.Add(Item);
@@ -337,15 +344,13 @@ begin
   if not ReadRemoteMemory(FProcess, AddrVA,
     @Header, SizeOf(ACTIVATION_CONTEXT_STRING_SECTION_HEADER)) then
   begin
-    RawScannerLogger.Error(llContext,
-      Format(ReadError, ['ACTIVATION_CONTEXT_STRING_SECTION_HEADER',
+    Error(Format(ReadError, ['ACTIVATION_CONTEXT_STRING_SECTION_HEADER',
       AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
   end;
 
   if Header.Magic <> ACTIVATION_CONTEXT_STRING_SECTION_MAGIC then
   begin
-    RawScannerLogger.Error(llContext,
-      Format(WrongHeader,
+    Error(Format(WrongHeader,
       ['ACTIVATION_CONTEXT_STRING_SECTION_HEADER', Header.Magic, AddrVA]));
     Exit;
   end;
@@ -365,8 +370,7 @@ begin
     if not ReadRemoteMemory(FProcess, Item.AddrVA,
       @Entry, SizeOf(ACTIVATION_CONTEXT_STRING_SECTION_ENTRY)) then
     begin
-      RawScannerLogger.Error(llContext,
-        Format(ReadErrorIndex, ['ACTIVATION_CONTEXT_STRING_SECTION_ENTRY', I,
+      Error(Format(ReadErrorIndex, ['ACTIVATION_CONTEXT_STRING_SECTION_ENTRY', I,
         Item.AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
     end;
 
@@ -392,8 +396,7 @@ begin
   if not ReadRemoteMemory(FProcess, AddrVA,
     @Header, SizeOf(ACTIVATION_CONTEXT_DATA_EXTENDED_TOC_HEADER)) then
   begin
-    RawScannerLogger.Error(llContext,
-      Format(ReadError, ['ACTIVATION_CONTEXT_DATA_EXTENDED_TOC_HEADER',
+    Error(Format(ReadError, ['ACTIVATION_CONTEXT_DATA_EXTENDED_TOC_HEADER',
       AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
   end;
 
@@ -411,8 +414,7 @@ begin
     if not ReadRemoteMemory(FProcess, Item.AddrVA,
       @Entry, SizeOf(ACTIVATION_CONTEXT_DATA_EXTENDED_TOC_ENTRY)) then
     begin
-      RawScannerLogger.Error(llContext,
-        Format(ReadErrorIndex, ['ACTIVATION_CONTEXT_DATA_EXTENDED_TOC_ENTRY', I,
+      Error(Format(ReadErrorIndex, ['ACTIVATION_CONTEXT_DATA_EXTENDED_TOC_ENTRY', I,
         Item.AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
     end;
 
@@ -432,8 +434,7 @@ begin
   if not ReadRemoteMemory(FProcess, AddrVA,
     @Header, SizeOf(ACTIVATION_CONTEXT_DATA_TOC_HEADER)) then
   begin
-    RawScannerLogger.Error(llContext,
-      Format(ReadError, ['ACTIVATION_CONTEXT_DATA_TOC_HEADER',
+    Error(Format(ReadError, ['ACTIVATION_CONTEXT_DATA_TOC_HEADER',
       AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
   end;
 
@@ -451,8 +452,7 @@ begin
     if not ReadRemoteMemory(FProcess, Item.AddrVA,
       @Entry, SizeOf(ACTIVATION_CONTEXT_DATA_TOC_ENTRY)) then
     begin
-      RawScannerLogger.Error(llContext,
-        Format(ReadErrorIndex, ['ACTIVATION_CONTEXT_DATA_TOC_ENTRY', I,
+      Error(Format(ReadErrorIndex, ['ACTIVATION_CONTEXT_DATA_TOC_ENTRY', I,
         Item.AddrVA, GetLastError, SysErrorMessage(GetLastError)]));
     end;
 

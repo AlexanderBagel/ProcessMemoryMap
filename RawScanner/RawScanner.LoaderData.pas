@@ -9,8 +9,8 @@
 //  *           : для 32 битных процессов, которым нужно получить информацию об
 //  *           : 64 битных библиотеках.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.6
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -23,11 +23,15 @@ unit RawScanner.LoaderData;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   SysUtils,
   Classes,
+  {$IFNDEF DISABLE_LOGGER}
   RawScanner.Logger,
+  {$ENDIF}
   RawScanner.SymbolStorage,
   RawScanner.Types,
   RawScanner.Wow64,
@@ -77,6 +81,20 @@ type
   end;
 
 implementation
+
+procedure Error(const Description: string);
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Error(llLoader, Description);
+  {$ENDIF}
+end;
+
+procedure Warn(const Description: string); overload;
+begin
+  {$IFNDEF DISABLE_LOGGER}
+  RawScannerLogger.Warn(llLoader, Description);
+  {$ENDIF}
+end;
 
 type
   LIST_ENTRY32 = record
@@ -218,8 +236,7 @@ begin
   if not ReadRemoteMemory(FProcess, Item.AddrVA,
     @Ldr, SizeOf(PEB_LDR_DATA32)) then
   begin
-    RawScannerLogger.Error(llLoader,
-      Format(ReadError, ['PEB_LDR_DATA32',
+    Error(Format(ReadError, ['PEB_LDR_DATA32',
       LdrAddr, GetLastError, SysErrorMessage(GetLastError)]));
     Exit;
   end;
@@ -241,8 +258,7 @@ begin
       @Module.ImagePath[1], Entry.FullDllName.Length) then
     begin
       Item.AddrVA := Entry.InLoadOrderLinks.FLink;
-      RawScannerLogger.Error(llLoader,
-        Format(ReadError, ['Entry32.FullDllName',
+      Error(Format(ReadError, ['Entry32.FullDllName',
         Entry.FullDllName.Buffer, GetLastError, SysErrorMessage(GetLastError)]));
       Continue;
     end;
@@ -284,9 +300,8 @@ begin
   end;
 
   if Entry.DllBase <> 0 then
-    RawScannerLogger.Warn(llLoader,
-      Format(ReadError, [strEntry, Item.AddrVA,
-        GetLastError, SysErrorMessage(GetLastError)]));
+    Warn(Format(ReadError, [strEntry, Item.AddrVA,
+      GetLastError, SysErrorMessage(GetLastError)]));
 end;
 
 function TLoaderData.Scan64LdrData(LdrAddr: ULONG_PTR64): Integer;
@@ -305,8 +320,7 @@ begin
   if not ReadRemoteMemory(FProcess, Item.AddrVA,
     @Ldr, SizeOf(PEB_LDR_DATA64)) then
   begin
-    RawScannerLogger.Error(llLoader,
-      Format(ReadError, ['PEB_LDR_DATA64',
+    Error(Format(ReadError, ['PEB_LDR_DATA64',
       LdrAddr, GetLastError, SysErrorMessage(GetLastError)]));
     Exit;
   end;
@@ -325,8 +339,7 @@ begin
       @Module.ImagePath[1], Entry.FullDllName.Length) then
     begin
       Item.AddrVA := Entry.InLoadOrderLinks.FLink;
-      RawScannerLogger.Error(llLoader,
-        Format(ReadError, ['Entry64.FullDllName',
+      Error(Format(ReadError, ['Entry64.FullDllName',
         Entry.FullDllName.Buffer, GetLastError, SysErrorMessage(GetLastError)]));
       Continue;
     end;
@@ -353,9 +366,8 @@ begin
   end;
 
   if Entry.DllBase <> 0 then
-    RawScannerLogger.Warn(llLoader,
-      Format(ReadError, [strEntry, Item.AddrVA,
-        GetLastError, SysErrorMessage(GetLastError)]));
+    Warn(Format(ReadError, [strEntry, Item.AddrVA,
+      GetLastError, SysErrorMessage(GetLastError)]));
 end;
 
 end.

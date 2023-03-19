@@ -6,7 +6,7 @@
 //  * Purpose   : Сканирование памяти процесса на основе адресов и контрольных сумм
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -29,7 +29,8 @@ uses
   MemoryMap.Utils,
   MemoryMap.WorkSet,
   MemoryMap.DebugMapData,
-  uDumpDisplayUtils;
+  uDumpDisplayUtils,
+  ScaledCtrls;
 
 type
   TScanSettings = record

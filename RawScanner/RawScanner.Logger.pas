@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.Logger.pas
 //  * Purpose   : Общий логер для всех модулей RawScanner
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.0.11
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -18,6 +18,8 @@
 unit RawScanner.Logger;
 
 interface
+
+  {$I rawscanner.inc}
 
 uses
   SysUtils;

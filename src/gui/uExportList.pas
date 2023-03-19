@@ -5,8 +5,8 @@
 //  * Unit Name : uExportList.pas
 //  * Purpose   : Диалог для отображения списка экспорта функций
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0.1
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -28,11 +28,16 @@ uses
   MemoryMap.Core,
   MemoryMap.Symbols,
   MemoryMap.Utils,
-  MemoryMap.DebugMapData;
+  MemoryMap.DebugMapData,
+
+  RawScanner.ModulesData;
 
 type
+  TExportStatus = (esNormal, esForvarded, esRebased, esNoExecutable, esInvalid, esDebug);
+
   TExportData = record
     dwAddress: NativeUInt;
+    Status: TExportStatus;
     AType,
     Address,
     Module,
@@ -65,6 +70,9 @@ type
     procedure lvExportsDblClick(Sender: TObject);
     procedure mnuGotoAddressClick(Sender: TObject);
     procedure mnuNextMatchClick(Sender: TObject);
+    procedure lvExportsBeforeItemErase(Sender: TBaseVirtualTree;
+      TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
+      var ItemColor: TColor; var EraseAction: TItemEraseAction);
   private
     SearchString: string;
     SearchPosition: Integer;
@@ -83,7 +91,9 @@ uses
   uUtils,
   uProgress,
   uSettings,
-  uRegionProperties;
+  uRegionProperties,
+  RawScanner.Core,
+  RawScanner.SymbolStorage;
 
 const
   RootCaption = 'Process Memory Map - Exports';
@@ -99,6 +109,7 @@ end;
 procedure TdlgExportList.FormCreate(Sender: TObject);
 begin
   List := TList<TExportData>.Create;
+  lvExports.DoubleBuffered := True;
 end;
 
 procedure TdlgExportList.FormDestroy(Sender: TObject);
@@ -153,6 +164,9 @@ begin
 end;
 
 procedure TdlgExportList.FormShow(Sender: TObject);
+const
+  SymbolExportType: array [TExportStatus] of string =
+    ('EXPORT', 'FORWARDED', 'REBASED', 'DATA', 'INVALID', 'DEBUG MAP');
 var
   I, A: Integer;
   S: TStringList;
@@ -162,6 +176,56 @@ var
   ExportData: TExportData;
   HitInfo: TVTHeaderHitInfo;
   ProcessLock: TProcessLockHandleList;
+
+  function CheckRebased(AddrVA: NativeUInt): TExportStatus;
+  var
+    Index: Integer;
+    ASymbol: TSymbolData;
+    SymbolModule: TRawPEImage;
+    ExportChunk: TExportChunk;
+  begin
+    if SymbolStorage.GetDataAtAddr(AddrVA, ASymbol) and
+      (ASymbol.DataType in [sdtExport, sdtEntryPoint, sdtPluginDescriptor, sdtInstance]) then
+    begin
+      // экспорт с убитым Rva выставленым в ноль будет указывать на инстанс модуля
+      if ASymbol.DataType = sdtInstance then
+      begin
+        Result := esInvalid;
+        Exit;
+      end;
+      if ASymbol.DataType = sdtPluginDescriptor then
+      begin
+        if ASymbol.Plugin.IsFunction then
+          Result := esNormal
+        else
+          Result := esNoExecutable;
+        Exit;
+      end;
+      SymbolModule := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
+      ExportChunk := SymbolModule.ExportList.List[ASymbol.Binary.ListIndex];
+      if ExportChunk.Executable then
+        Result := esNormal
+      else
+        if ExportChunk.ForvardedTo <> '' then
+          Result := esForvarded
+        else
+          Result := esNoExecutable;
+      Exit;
+    end;
+
+    Index := RawScannerCore.Modules.GetModule(AddrVA, True);
+    if Index < 0 then
+      Result := esRebased
+    else
+    begin
+      if AnsiSameText(Module.Path, RawScannerCore.Modules.Items[Index].ImagePath) then
+        Result := esForvarded
+      else
+        Result := esRebased;
+    end;
+
+  end;
+
 begin
   ProcessLock := nil;
   dlgProgress := TdlgProgress.Create(nil);
@@ -185,24 +249,25 @@ begin
               dlgProgress.ProgressBar.Position := I;
               Application.ProcessMessages;
               ExportData.Module := ExtractFileName(Module.Path);
-              ExportData.AType := 'DEBUG';
               MemoryMapCore.DebugMapData.GetExportFuncList(ExportData.Module, S);
               for A := 0 to S.Count - 1 do
               begin
                 ExportData.dwAddress := NativeUInt(S.Objects[A]);
                 ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                ExportData.Status := esDebug;
+                ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
                 List.Add(ExportData);
               end;
               S.Clear;
-              ExportData.AType := 'EXPORT';
               Symbols.GetExportFuncList(Module.Path, Module.BaseAddr, S);
               for A := 0 to S.Count - 1 do
               begin
                 ExportData.dwAddress := NativeUInt(S.Objects[A]);
                 ExportData.Address := UInt64ToStr(ExportData.dwAddress);
-                {$MESSAGE 'Если адрес не принадлежит файлу - подсвечивать!'}
+                ExportData.Status := CheckRebased(ExportData.dwAddress);
+                ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
                 List.Add(ExportData);
@@ -231,6 +296,21 @@ begin
   end;
 end;
 
+procedure TdlgExportList.lvExportsBeforeItemErase(Sender: TBaseVirtualTree;
+  TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
+  var ItemColor: TColor; var EraseAction: TItemEraseAction);
+begin
+  case List[Node.Index].Status of
+    esForvarded: ItemColor := $A3F4FE;
+    esRebased: ItemColor := $D2BDF3;
+    esNoExecutable: ItemColor := $E4C4CF;
+    esInvalid: ItemColor := $B092EC;
+    esDebug: ItemColor := $CCEDDF;
+  else
+    ItemColor := clWhite;
+  end;
+end;
+
 procedure TdlgExportList.lvExportsDblClick(Sender: TObject);
 var
   E: TVTVirtualNodeEnumerator;
@@ -240,7 +320,8 @@ begin
   if not E.MoveNext then Exit;
   TryStrToInt64('$' + List[E.Current^.Index].Address, Address);
   dlgRegionProps := TdlgRegionProps.Create(Application);
-  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address), True);
+  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address),
+    List[E.Current^.Index].Status in [esNormal, esDebug]);
 end;
 
 procedure TdlgExportList.lvExportsGetText(Sender: TBaseVirtualTree;

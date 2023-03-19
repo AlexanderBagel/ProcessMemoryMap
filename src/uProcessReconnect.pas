@@ -5,8 +5,8 @@
 //  * Unit Name : uProcessReconnect.pas
 //  * Purpose   : Модуль отвечающий за поиск нового PID процесса после его перезапуска
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
+//  * Version   : 1.4.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -41,6 +41,7 @@ function ProcessReconnect: TProcessReconnect;
 implementation
 
 uses
+  MemoryMap.Core,
   uUtils;
 
 var
@@ -78,14 +79,18 @@ var
   hProcessSnap: THandle;
   ProcessEntry: TProcessEntry32;
   Process: THandle;
+  MBI: TMemoryBasicInformation;
 begin
   Result := 0;
   Process := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ or
     PROCESS_VM_OPERATION, False, OldPID);
   if Process <> 0 then
-  begin
+  try
+    // дополнительная проверка, если кто-то держит хэндл на уже убитый процесс
+    if VirtualQueryEx(Process, MemoryMapCore.PebBaseAddress, MBI, SizeOf(MBI)) <> 0 then
+      Exit(OldPID);
+  finally
     CloseHandle(Process);
-    Exit(OldPID);
   end;
   Index := FProcessData.IndexOfObject(Pointer(OldPID));
   if Index < 0 then Exit;
