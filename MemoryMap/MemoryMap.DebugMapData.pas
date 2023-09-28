@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для работы с отладочным MAP файлом.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.27
+//  * Version   : 1.4.29
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -62,6 +62,8 @@ type
       AddModuleName: Boolean = True): string;
     function GetLineNumberAtAddr(BaseAddress: ULONG_PTR;
       var UnitName: string): Integer;
+    function GetLineNumberAtAddrForced(BaseAddress: ULONG_PTR;
+      Limit: Integer; var UnitName: string): Integer;
     procedure GetExportFuncList(const ModuleName: string; Value: TStringList);
     property Items: TList<TDebugMapItem> read FItems;
     property Lines: TDictionary<ULONG_PTR, TLineData> read FLines;
@@ -197,6 +199,20 @@ begin
   end
   else
     Result := -1;
+end;
+
+function TDebugMap.GetLineNumberAtAddrForced(BaseAddress: ULONG_PTR;
+  Limit: Integer; var UnitName: string): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to Limit do
+  begin
+    Result := GetLineNumberAtAddr(BaseAddress + ULONG_PTR(I), UnitName);
+    if Result > 0 then
+      Break;
+  end;
 end;
 
 procedure TDebugMap.Init(BaseAddress: ULONG_PTR; const ModulePath: string);
@@ -479,3 +495,4 @@ begin
 end;
 
 end.
+
