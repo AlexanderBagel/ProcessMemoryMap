@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.28
+//  * Version   : 1.4.29
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -210,6 +210,8 @@ var
   Module: TRawPEImage;
   Index: Integer;
   AddrVA: ULONG64;
+  Section: TImageSectionHeaderEx;
+  AddrRva: Cardinal;
 begin
   Add('AllocationBase: ' + UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
   Add('RegionSize: ' + SizeToStr(MBI.RegionSize));
@@ -232,9 +234,28 @@ begin
     Caption := Caption + ' "' + ExtractFileName(Path) + '"';
     Add('Mapped file: ' + Path);
     if CheckPEImage(Process, MBI.AllocationBase) then
-      if RawScannerCore.Modules.GetModule(ULONG64(MBI.AllocationBase)) < 0 then
-        Add(' -> No Executable PE Image!!!');
-
+    begin
+      Index := RawScannerCore.Modules.GetModule(ULONG64(MBI.AllocationBase));
+      if Index < 0 then
+        Add(' -> No Executable PE Image!!!')
+      else
+      begin
+        DescriptionAtAddr := '';
+        if RawScannerCore.Modules.Items[Index].SectionAtAddr(ULONG_PTR(Address), Section) then
+          DescriptionAtAddr := 'Section: ' + Section.DisplayName +
+            ', size: ' + SizeToStr2(Section.SizeOfRawData);
+        AddrRva := RawScannerCore.Modules.Items[Index].VaToRva(ULONG_PTR(Address));
+        Index := RawScannerCore.Modules.Items[Index].DirectoryIndexFromRva(AddrRva);
+        if Index >= 0 then
+        begin
+          if DescriptionAtAddr <> '' then
+            DescriptionAtAddr := DescriptionAtAddr + ', ';
+          DescriptionAtAddr := DescriptionAtAddr + 'Directory: ' + DataDirectoriesName[Index];
+        end;
+        if DescriptionAtAddr <> '' then
+          Add(DescriptionAtAddr);
+      end;
+    end;
     DescriptionAtAddr :=
       MemoryMapCore.DebugMapData.GetDescriptionAtAddrWithOffset(ULONG_PTR(Address));
     if DescriptionAtAddr <> '' then
@@ -248,17 +269,27 @@ begin
         DescriptionAtAddr := 'Function: ' + Module.ImageName + '!';
         Index := ExpData.Binary.ListIndex;
 
-        if ExpData.DataType = sdtEntryPoint then
-        begin
-          DescriptionAtAddr := DescriptionAtAddr +
-            Module.EntryPointList.List[Index].EntryPointName;
-          AddrVA := Module.EntryPointList.List[Index].AddrVA;
-        end
-        else  // sdtExport
-        begin
-          DescriptionAtAddr := DescriptionAtAddr +
-            Module.ExportList.List[Index].ToString;
-          AddrVA := Module.ExportList.List[Index].FuncAddrVA;
+        case ExpData.DataType of
+          sdtEntryPoint:
+          begin
+            DescriptionAtAddr := DescriptionAtAddr +
+              Module.EntryPointList.List[Index].EntryPointName;
+            AddrVA := Module.EntryPointList.List[Index].AddrVA;
+          end;
+          sdtExport:
+          begin
+            DescriptionAtAddr := DescriptionAtAddr +
+              Module.ExportList.List[Index].ToString;
+            AddrVA := Module.ExportList.List[Index].FuncAddrVA;
+          end;
+          sdtCoffFunction:
+          begin
+            DescriptionAtAddr := DescriptionAtAddr +
+              Module.DwarfDebugInfo.CoffStrings.List[Index].DisplayName;
+            AddrVA := Module.DwarfDebugInfo.CoffStrings.List[Index].FuncAddrVA;
+          end;
+        else
+          AddrVA := 0;
         end;
 
         if AddrVA <> ULONG_PTR(Address) then

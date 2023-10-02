@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Version   : 1.0.12
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -57,11 +57,16 @@ type
     sdtDelayedImportNameTable, sdtDelayedImportNameTable64,
     // табличные данные TLS каллбэков
     sdtTlsCallback32, sdtTlsCallback64,
+    // заголовки списков релокейшенов
+    sdtRelocation,
+    // данные из COFF
+    sdtCoffFunction, sdtCoffData,
 
     // структуры известные ModulesData
     sdtExportDir, sdtImportDescriptor, sdtDelayedImportDescriptor,
     sdtLoadConfig32, sdtLoadConfig64,
     sdtTLSDir32, sdtTLSDir64,
+    sdtBoundImportDescriptor, sdtBoundImportForwardRef,
 
     sdtBinaryLast,
 
@@ -231,7 +236,7 @@ begin
   begin
     Data := FItems.List[Index];
     if AType <> stAll then
-      Result := Data.DataType in [sdtExport, sdtEntryPoint];
+      Result := Data.DataType in [sdtExport, sdtEntryPoint, sdtCoffFunction];
     if Result then
       Exit;
     Result := (Data.DataType = sdtPluginDescriptor) and (Data.Plugin.IsFunction);

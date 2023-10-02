@@ -1,6 +1,7 @@
 object dlgExportList: TdlgExportList
   Left = 0
   Top = 0
+  ActiveControl = lvExports
   Caption = 'Process Memory Map - Exports'
   ClientHeight = 337
   ClientWidth = 704
@@ -26,7 +27,7 @@ object dlgExportList: TdlgExportList
     Width = 704
     Height = 337
     Align = alClient
-    Header.AutoSizeIndex = 2
+    Header.AutoSizeIndex = 3
     Header.Height = 24
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     PopupMenu = pmCopy
@@ -43,7 +44,7 @@ object dlgExportList: TdlgExportList
       item
         Position = 0
         Text = 'Type'
-        Width = 100
+        Width = 118
       end
       item
         Position = 1
@@ -53,13 +54,13 @@ object dlgExportList: TdlgExportList
       item
         Position = 2
         Text = 'Module'
-        Width = 123
+        Width = 136
       end
       item
         Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAutoSpring, coAllowFocus]
         Position = 3
         Text = 'Function'
-        Width = 331
+        Width = 296
       end>
   end
   object pmCopy: TPopupMenu

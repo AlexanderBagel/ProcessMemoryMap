@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.PEImage.pas
 //  * Purpose   : Класс собирает данные по секциям и директориям PE файла
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.16
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.29
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -52,6 +52,16 @@ type
   TTLSCallback = record
     Caption: ShortString;
     Address: Pointer;
+  end;
+
+  TCoffSymbol = packed record
+    Name: array [0..3] of Byte;
+    StrOfs: LongInt;
+    Value: LongInt;
+    Section: SmallInt;
+    Empty: Word;
+    Typ: Byte;
+    Aux: Byte;
   end;
 
   TPEImage = class
@@ -222,14 +232,31 @@ end;
 procedure TPEImage.EnumSections;
 var
   ImageSectionHeader: PImageSectionHeader;
-  I: Integer;
+  I, Index: Integer;
   Section: TSection;
+  COFFOffset, SectionNameOffset: NativeUInt;
+  SectionName: array [0..255] of AnsiChar;
 begin
   ImageSectionHeader := FImageInfo.Sections;
+  COFFOffset := FImageInfo.FileHeader.FileHeader.PointerToSymbolTable +
+    FImageInfo.FileHeader.FileHeader.NumberOfSymbols * SizeOf(TCoffSymbol);
   for I := 0 to Integer(FImageInfo.NumberOfSections) - 1 do
   begin
     Section.Caption := Copy(ShortString(
       PAnsiChar(@ImageSectionHeader^.Name[0])), 1, IMAGE_SIZEOF_SHORT_NAME);
+
+    if (COFFOffset <> 0) and (Section.Caption[1] = '/') then
+    begin
+      if TryStrToInt(Copy(string(Section.Caption), 2, 7), Index) then
+      begin
+        SectionNameOffset := COFFOffset + NativeUInt(Index);
+        SectionNameOffset := SectionNameOffset + NativeUint(FImageInfo.MappedAddress);
+        SectionName[255] := #0;
+        CopyMemory(@SectionName[0], Pointer(SectionNameOffset), 255);
+        Section.Caption := ShortString(PAnsiChar(@SectionName[0]));
+      end;
+    end;
+
     Section.Address := NativeUint(FImageBase) + ImageSectionHeader^.VirtualAddress;
     Section.Size := AlignedSectionSize(FImageInfo, ImageSectionHeader^.SizeOfRawData);
     Section.IsCode := IsExecute(ImageSectionHeader^.Characteristics);

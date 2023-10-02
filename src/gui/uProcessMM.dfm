@@ -365,6 +365,9 @@ object dlgProcessMM: TdlgProcessMM
     object N6: TMenuItem
       Caption = '-'
     end
+    object OpenInExplorer1: TMenuItem
+      Action = acOpenInExplorer
+    end
     object Regionproperties1: TMenuItem
       Action = acRegionProps
       Default = True
@@ -545,6 +548,12 @@ object dlgProcessMM: TdlgProcessMM
       Caption = 'Copy Process Path'
       OnExecute = acCopyProcessPathExecute
       OnUpdate = acCopyPIDUpdate
+    end
+    object acOpenInExplorer: TAction
+      Category = 'Edit'
+      Caption = 'Open In Explorer'
+      OnExecute = acOpenInExplorerExecute
+      OnUpdate = acOpenInExplorerUpdate
     end
   end
   object SaveDMPDialog: TSaveDialog

@@ -33,7 +33,8 @@ uses
   RawScanner.ModulesData;
 
 type
-  TExportStatus = (esNormal, esForvarded, esRebased, esNoExecutable, esInvalid, esDebug);
+  TExportStatus = (esNormal, esForvarded, esRebased,
+    esNoExecutable, esInvalid, esDebug, esCOFF);
 
   TExportData = record
     dwAddress: NativeUInt;
@@ -166,7 +167,7 @@ end;
 procedure TdlgExportList.FormShow(Sender: TObject);
 const
   SymbolExportType: array [TExportStatus] of string =
-    ('EXPORT', 'FORWARDED', 'REBASED', 'DATA', 'INVALID', 'DEBUG MAP');
+    ('EXPORT', 'FORWARDED', 'REBASED', 'DATA', 'INVALID', 'DEBUG MAP', 'COFF_DEBUG');
 var
   I, A: Integer;
   S: TStringList;
@@ -243,12 +244,28 @@ begin
             dlgProgress.ProgressBar.Max := MemoryMapCore.Modules.Count;
             for I := 0 to MemoryMapCore.Modules.Count - 1 do
             begin
-              S.Clear;
               Module := MemoryMapCore.Modules[I];
               dlgProgress.lblProgress.Caption := Module.Path;
               dlgProgress.ProgressBar.Position := I;
               Application.ProcessMessages;
               ExportData.Module := ExtractFileName(Module.Path);
+
+              // вывод данных из COFF посредством механизма RawScanner
+              S.Clear;
+              RawScannerCore.Modules.GetExportFuncList(Module.Path, S);
+              for A := 0 to S.Count - 1 do
+              begin
+                ExportData.dwAddress := NativeUInt(S.Objects[A]);
+                ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                ExportData.Status := esCOFF;
+                ExportData.AType := SymbolExportType[ExportData.Status];
+                ExportData.FunctionName := S[A];
+                ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
+                List.Add(ExportData);
+              end;
+
+              // вывод данных из отладочного MAP файла
+              S.Clear;
               MemoryMapCore.DebugMapData.GetExportFuncList(ExportData.Module, S);
               for A := 0 to S.Count - 1 do
               begin
@@ -260,6 +277,8 @@ begin
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
                 List.Add(ExportData);
               end;
+
+              // вывод данных по экспортируемым функциям посредством сиволов
               S.Clear;
               Symbols.GetExportFuncList(Module.Path, Module.BaseAddr, S);
               for A := 0 to S.Count - 1 do
@@ -269,7 +288,7 @@ begin
                 ExportData.Status := CheckRebased(ExportData.dwAddress);
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
-                ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
+                ExportData.SearchFunctionName := AnsiUpperCase(ExportData.FunctionName);
                 List.Add(ExportData);
               end;
             end;

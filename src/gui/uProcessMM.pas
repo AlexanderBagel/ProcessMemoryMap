@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.28
+//  * Version   : 1.4.29
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -145,6 +145,8 @@ type
     CopyPID1: TMenuItem;
     acCopyProcessPath: TAction;
     CopyProcessPath1: TMenuItem;
+    acOpenInExplorer: TAction;
+    OpenInExplorer1: TMenuItem;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -202,6 +204,8 @@ type
     procedure acCopyPIDExecute(Sender: TObject);
     procedure acCopyProcessPathExecute(Sender: TObject);
     procedure acStringsExecute(Sender: TObject);
+    procedure acOpenInExplorerUpdate(Sender: TObject);
+    procedure acOpenInExplorerExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -264,7 +268,7 @@ begin
   try
     dlgAbout.ShowModal;
   finally
-    dlgAbout.Release;
+    dlgAbout.Free;
   end;
 end;
 
@@ -288,7 +292,7 @@ begin
           Application.MessageBox('No changes found.',
             PChar(Application.Title), MB_ICONINFORMATION);
       finally
-        dlgComparator.Release;
+        dlgComparator.Free;
       end;
     finally
       M.Free;
@@ -374,7 +378,7 @@ begin
       DumpSize := StrToInt64(dlgSelectAddress.edSize.Text)
     end;
   finally
-    dlgSelectAddress.Release;
+    dlgSelectAddress.Free;
   end;
   if DumpAddress = nil then Exit;
   if SaveDMPDialog.Execute then
@@ -404,7 +408,7 @@ begin
           PChar(Application.Title), MB_ICONERROR)
       else
         Application.MessageBox(PChar(Format(DumpSuccess, [DumpedSize])),
-          PChar(Application.Title), MB_ICONERROR);
+          PChar(Application.Title), MB_ICONINFORMATION);
     end;
 end;
 
@@ -469,6 +473,23 @@ begin
   end;
 end;
 
+procedure TdlgProcessMM.acOpenInExplorerExecute(Sender: TObject);
+var
+  Data: PNodeData;
+begin
+  Data := GetSelectedNodeData;
+  OpenExplorerAndSelectFile(Data.Details);
+end;
+
+procedure TdlgProcessMM.acOpenInExplorerUpdate(Sender: TObject);
+var
+  Data: PNodeData;
+begin
+  Data := GetSelectedNodeData;
+  (Sender as TAction).Enabled :=
+    ProcessOpen and (Data <> nil) and FileExists(Data.Details);
+end;
+
 procedure TdlgProcessMM.acQueryAddrExecute(Sender: TObject);
 var
   QueryAddr: Pointer;
@@ -479,7 +500,7 @@ begin
     if dlgSelectAddress.ShowDlg(ctQuery) = mrOk then
       QueryAddr := Pointer(StrToInt64(dlgSelectAddress.edInt.Text));
   finally
-    dlgSelectAddress.Release;
+    dlgSelectAddress.Free;
   end;
   if QueryAddr = nil then Exit;
   dlgRegionProps := TdlgRegionProps.Create(Application);
@@ -506,7 +527,7 @@ begin
             Application.MessageBox('No changes found.',
               PChar(Application.Title), MB_ICONINFORMATION);
         finally
-          dlgComparator.Release;
+          dlgComparator.Free;
         end;
       finally
         ReplaceMemoryMap(M);
@@ -568,7 +589,7 @@ begin
     if dlgSelectAddress.ShowDlg(ctHighLight) = mrOk then
       QueryAddr := StrToInt64(dlgSelectAddress.edInt.Text);
   finally
-    dlgSelectAddress.Release;
+    dlgSelectAddress.Free;
   end;
   if QueryAddr = 0 then Exit;
   Index := -1;
@@ -681,7 +702,7 @@ begin
       TaskBarBtn.Free;
     end;
   finally
-    dlgSelectProcess.Release;
+    dlgSelectProcess.Free;
   end;
   if Pid <> 0 then
     OpenProcessAndInitGUI(Pid, ProcessName);
@@ -694,7 +715,7 @@ begin
     if dlgSettings.ShowModal = mrOk then
       FillTreeView;
   finally
-    dlgSettings.Release;
+    dlgSettings.Free;
   end;
 end;
 
@@ -1082,7 +1103,7 @@ begin
     lblProcessPIDData.Caption := IntToStr(MemoryMapCore.PID);
     FillTreeView;
   finally
-    dlgProgress.Release;
+    dlgProgress.Free;
   end;
 end;
 

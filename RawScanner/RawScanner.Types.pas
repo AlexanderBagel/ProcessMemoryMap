@@ -6,7 +6,7 @@
 //  * Purpose   : Общие типы для модулей RawScanner
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Version   : 1.0.12
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -31,6 +31,20 @@ const
   Arrow = ' -> ';
   ReadError = 'Error reading %s at addr: 0x%.1x, code: %d, %s';
   ReadErrorIndex = 'Error reading %s[I] at addr: 0x%.1x, code: %d, %s';
+
+const
+  IMAGE_REL_BASED_ABSOLUTE = 0;
+  IMAGE_REL_BASED_HIGH = 1;
+  IMAGE_REL_BASED_LOW = 2;
+  IMAGE_REL_BASED_HIGHLOW = 3;
+  IMAGE_REL_BASED_HIGHADJ = 4;
+  IMAGE_REL_BASED_MIPS_JMPADDR = 5;
+  IMAGE_REL_BASED_SECTION = 6;
+  IMAGE_REL_BASED_REL32 = 7;
+  IMAGE_REL_BASED_MIPS_JMPADDR16 = 8;
+  IMAGE_REL_BASED_IA64_IMM64 = 9;
+  IMAGE_REL_BASED_DIR64 = 10;
+  IMAGE_REL_BASED_HIGH3ADJ = 11;
 
 type
   TProgressEvent = procedure(const Step: string; APecent: Integer) of object;

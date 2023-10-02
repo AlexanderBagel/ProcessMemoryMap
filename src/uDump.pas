@@ -85,7 +85,7 @@ end;
 
 function DumpRegion(const FileName: string; Value: TRegionData): NativeInt;
 begin
-  Result := DumpAddr(FileName, Value.MBI.BaseAddress, Value.TotalRegionSize);
+  Result := DumpAddr(FileName, Value.MBI.BaseAddress, Value.MBI.RegionSize);
 end;
 
 end.

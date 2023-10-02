@@ -187,7 +187,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
         <DCC_RangeChecking>true</DCC_RangeChecking>
         <DCC_Optimize>false</DCC_Optimize>
-        <Debugger_RunParams>1208 $00007FFF04367CC8</Debugger_RunParams>
+        <Debugger_RunParams>26572 $0000000100002C90</Debugger_RunParams>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">

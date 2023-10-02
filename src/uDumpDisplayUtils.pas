@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.28
+//  * Version   : 1.4.29
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -41,6 +41,12 @@ uses
   RawScanner.Disassembler,
   distorm,
   mnemonics;
+
+const
+  DataDirectoriesName: array [0..IMAGE_NUMBEROF_DIRECTORY_ENTRIES - 1] of string =
+    ('Export', 'Import', 'Resource', 'Exception', 'Security', 'BaseReloc',
+    'Debug', 'Copyright', 'GlobalPTR', 'TLS', 'Load config', 'Bound import',
+    'Iat', 'Delay import', 'COM', 'Reserved');
 
   // Process Parameters (32) под Xp кривой
   // EnvironmentSize в конце соответствует началу блока данных из CurrentDirectory.DosPath = [20290]
@@ -602,7 +608,7 @@ begin
 end;
 
 function ExtractPAnsiChar(Process: THandle; const Buff: TMemoryDump;
-  Cursor, RvaRecalc: NativeUInt): string;
+  Cursor, RvaRecalc: NativeUInt; RvaSize: TDataType = dtDword): string;
 var
   Address: Pointer;
   Size, Dummy: NativeUInt;
@@ -610,7 +616,10 @@ var
 begin
   Result := EmptyStr;
   if Cursor > MaxSize - 4 then Exit;
-  Address := Pointer(RvaRecalc + PDWORD(@Buff[Cursor])^);
+  if RvaSize = dtWord then
+    Address := Pointer(RvaRecalc + PWORD(@Buff[Cursor])^)
+  else
+    Address := Pointer(RvaRecalc + PDWORD(@Buff[Cursor])^);
   Size := MAX_PATH;
   SetLength(ByteBuff, Size);
   ReadProcessData(Process, Address, @ByteBuff[0],
@@ -1113,11 +1122,6 @@ begin
 end;
 
 function DumpPEHeader(Process: THandle; Address: Pointer): string;
-const
-  DataDirectoriesName: array [0..IMAGE_NUMBEROF_DIRECTORY_ENTRIES - 1] of string =
-    ('Export', 'Import', 'Resource', 'Exception', 'Security', 'BaseReloc',
-    'Debug', 'Copyright', 'GlobalPTR', 'TLS', 'Load config', 'Bound import',
-    'Iat', 'Delay import', 'COM', 'Reserved');
 var
   Buff: TMemoryDump;
   RegionSize, Cursor, SavedMaxSize: NativeUInt;
@@ -1127,6 +1131,7 @@ var
   NumberOfSections: Word;
   MBI: TMemoryBasicInformation;
   dwLength: DWORD;
+  PEImage: TRawPEImage;
 
   procedure DumpDataDirectory(Index: Integer);
   begin
@@ -1137,15 +1142,21 @@ var
       ' Directory Size', @Buff[Cursor], dtDword, Cursor);
   end;
 
-  procedure DumpSection;
+  procedure DumpSection(AIndex: Integer);
+  var
+    Section: TImageSectionHeaderEx;
   begin
-    AddString(Result, 'Name', @Buff[Cursor], dtAnsiString, IMAGE_SIZEOF_SHORT_NAME, Cursor);
+    if Assigned(PEImage) and PEImage.SectionAtIndex(I, Section) and (Section.COFFDebugOffsetRaw > 0) then
+      AddString(Result, 'Name', @Buff[Cursor], dtAnsiString, IMAGE_SIZEOF_SHORT_NAME, Cursor,
+        'Mapped to "' + Section.DisplayName + '", raw: ' + IntToHex(Section.COFFDebugOffsetRaw))
+    else
+      AddString(Result, 'Name', @Buff[Cursor], dtAnsiString, IMAGE_SIZEOF_SHORT_NAME, Cursor);
     AddString(Result, 'VirtualSize', @Buff[Cursor], dtDword, Cursor);
-    AddString(Result, 'VirtualAddress', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'VirtualAddress', @Buff[Cursor], dtDword, Cursor, ULONG_PTR64(Address));
     AddString(Result, 'SizeOfRawData', @Buff[Cursor], dtDword, Cursor);
     AddString(Result, 'PointerToRawData', @Buff[Cursor], dtDword, Cursor);
-    AddString(Result, 'PointerToRelocations', @Buff[Cursor], dtDword, Cursor);
-    AddString(Result, 'PointerToLinenumbers', @Buff[Cursor], dtDword, Cursor);
+    AddString(Result, 'PointerToRelocations', @Buff[Cursor], dtDword, Cursor, ULONG_PTR64(Address));
+    AddString(Result, 'PointerToLinenumbers', @Buff[Cursor], dtDword, Cursor, ULONG_PTR64(Address));
     AddString(Result, 'NumberOfRelocations', @Buff[Cursor], dtWord, Cursor);
     AddString(Result, 'NumberOfLinenumbers', @Buff[Cursor], dtWord, Cursor);
     ValueBuff := PDWORD(@Buff[Cursor])^;
@@ -1161,6 +1172,12 @@ begin
   if not ReadProcessData(Process, Address, @Buff[0],
     MaxSize, RegionSize, rcReadAllwais) then Exit;
   Cursor := 0;
+
+  I := RawScannerCore.Modules.GetModule(ULONG64(Address));
+  if I >= 0 then
+    PEImage := RawScannerCore.Modules.Items[I]
+  else
+    PEImage := nil;
 
   dwLength := SizeOf(TMemoryBasicInformation);
   VirtualQueryEx(Process, Address, MBI, dwLength);
@@ -1215,7 +1232,11 @@ begin
   ValueBuff := PDWORD(@Buff[Cursor])^;
   AddString(Result, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
     FileHeaderTimeStampToStr(ValueBuff));
-  AddString(Result, 'PointerToSymbolTable', @Buff[Cursor], dtDword, Cursor);
+  if PDWORD(@Buff[Cursor])^ = 0 then
+    AddString(Result, 'PointerToSymbolTable', @Buff[Cursor], dtDword, Cursor)
+  else
+    AddString(Result, 'PointerToSymbolTable', @Buff[Cursor], dtDword, Cursor,
+      'COFF data haven''t been loaded into memory, because they don''t belong to any data section!');
   AddString(Result, 'NumberOfSymbols', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'SizeOfOptionalHeader', @Buff[Cursor], dtWord, Cursor);
   ValueBuff := PWord(@Buff[Cursor])^;
@@ -1290,7 +1311,7 @@ begin
   begin
     if I > 0 then
       AddString(Result, EmptyHeader);
-    DumpSection;
+    DumpSection(I);
   end;
 
   // Остальные данные
@@ -2977,6 +2998,25 @@ begin
       AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
         FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
     end;
+    sdtBoundImportDescriptor:
+    begin
+      AddString(OutString, MakeHeader('IMAGE_BOUND_IMPORT_DESCRIPTOR'));
+      AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
+        FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
+      AddString(OutString, 'OffsetModuleName', @Buff[Cursor], dtWord, Cursor,
+        ExtractPAnsiChar(Process, Buff, Cursor, AllocationBase, dtWord));
+      AddString(OutString, 'NumberOfModuleForwarderRefs',
+        @Buff[Cursor], dtWord, Cursor);
+    end;
+    sdtBoundImportForwardRef:
+    begin
+      AddString(OutString, MakeHeader('IMAGE_BOUND_FORWARDER_REF'));
+      AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor,
+        FileHeaderTimeStampToStr(PDWORD(@Buff[Cursor])^));
+      AddString(OutString, 'OffsetModuleName', @Buff[Cursor], dtWord, Cursor,
+        ExtractPAnsiChar(Process, Buff, Cursor, AllocationBase, dtWord));
+      AddString(OutString, 'Reserved', @Buff[Cursor], dtWord, Cursor);
+    end;
     sdtLoadConfig32:
     begin
       Len := PDWORD(@Buff[Cursor])^;
@@ -3176,6 +3216,43 @@ begin
   end;
 end;
 
+procedure DumpRelocation(var OutString: string; Process: THandle;
+  const Data: TSymbolData; AllocationBase: ULONG64;
+  const Buff: TMemoryDump; var Cursor: NativeUInt);
+var
+  Module: TRawPEImage;
+  RelocationData: TRelocationData;
+  Section: TImageSectionHeaderEx;
+  Tmp: string;
+  I: Integer;
+  RelocationBlock: Cardinal;
+  AddrVA: ULONG_PTR64;
+begin
+  if Data.DataType <> sdtRelocation then Exit;
+  Module := RawScannerCore.Modules.Items[Data.Binary.ModuleIndex];
+  RelocationData := Module.RelocationData[Data.Binary.ListIndex];
+  AddString(OutString, MakeHeader('IMAGE_BASE_RELOCATION'));
+  Tmp := '0x' + IntToHex(RelocationData.AddrVA);
+  if Module.SectionAtAddr(RelocationData.AddrVA, Section) then
+    Tmp := Tmp + ' "' + string(PAnsiChar(@Section.Name[0])) + '"';
+  AddString(OutString, 'VirtualAddress', @Buff[Cursor], dtDword, Cursor, Tmp);
+  Tmp := IntToStr(RelocationData.Count) + ' elements';
+  AddString(OutString, 'SizeOfBlock', @Buff[Cursor], dtDword, Cursor, Tmp);
+  AddString(OutString, MakeHeader('Relocation list'));
+  for I := 0 to RelocationData.Count - 1 do
+  begin
+    RelocationBlock := Cardinal(Module.Relocations[I + RelocationData.Index]);
+    if RelocationBlock <> 0 then
+    begin
+      AddrVA := Module.RawToVa(RelocationBlock);
+      Tmp := '0x' + IntToHex(AddrVA);
+    end
+    else
+      Tmp := '';
+    AddString(OutString, 'item', @Buff[Cursor], dtWord, Cursor, Tmp);
+  end;
+end;
+
 function GetSymbolDescription(const ASymbol: TSymbolData;
   IncludeModuleName: Boolean = True): string;
 var
@@ -3242,6 +3319,8 @@ begin
         Result := Format('DINT [%d] %s', [Ordinal, ToString]);
     sdtTlsCallback32, sdtTlsCallback64:
       Result := Format('TLS Callback Entry [%d]', [Index]);
+    sdtCoffFunction, sdtCoffData:
+      Result := Module.DwarfDebugInfo.CoffStrings[Index].DisplayName;
     sdtExportDir:
       Result := 'IMAGE_EXPORT_DIRECTORY';
     sdtImportDescriptor:
@@ -3461,6 +3540,14 @@ begin
       sdtExportDir..sdtTLSDir64:
         DumpModulesKnownStruct(OutString, Process, ptrData,
           ULONG64(MBI.AllocationBase), RawBuff, Cursor);
+      sdtBoundImportDescriptor, sdtBoundImportForwardRef:
+      begin
+        MBI.AllocationBase := Pointer(
+          RawScannerCore.Modules.Items[ptrData.Binary.ModuleIndex
+          ].BoundDirectory.VirtualAddress);
+        DumpModulesKnownStruct(OutString, Process, ptrData,
+          ULONG64(MBI.AllocationBase), RawBuff, Cursor);
+      end;
       sdtApiSetNS..sdtApiSetHashEntry:
         DumpApiSetStruct(OutString, Process, ptrData,
           ULONG64(MBI.AllocationBase), RawBuff, Cursor);
@@ -3474,6 +3561,9 @@ begin
         AddString(OutString, MakeHeader('Unicode String'));
         SkipHeader := True;
       end;
+      sdtRelocation:
+        DumpRelocation(OutString, Process, ptrData,
+          ULONG64(MBI.AllocationBase), RawBuff, Cursor);
     end;
   end;
 
@@ -3635,7 +3725,10 @@ begin
           atSegment:
             HintStr := GetTebHint(inst[I].JmpAddrVa, Is64);
         else
-          HintStr := GetCallHint(inst[I].JmpAddrVa)
+          if inst[I].AddrType = atRipOffset then
+            HintStr := GetCallHint(inst[I].RipAddrVA)
+          else
+            HintStr := GetCallHint(inst[I].JmpAddrVa)
         end;
       end;
 

@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Version   : 1.1.14
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -95,10 +95,66 @@ type
     SizeOfBlock: DWORD;
   end;
 
+  TRelocationData = record
+    AddrVA: ULONG_PTR64;
+    Index, Count: Integer;
+  end;
+
   TStringData = record
     AddrVA: ULONG_PTR64;
     Data: string;
     Unicode: Boolean;
+  end;
+
+  TImageSectionHeaderEx = record
+    Name: packed array[0..IMAGE_SIZEOF_SHORT_NAME-1] of Byte;
+    Misc: TISHMisc;
+    VirtualAddress: DWORD;
+    SizeOfRawData: DWORD;
+    PointerToRawData: DWORD;
+    PointerToRelocations: DWORD;
+    PointerToLinenumbers: DWORD;
+    NumberOfRelocations: Word;
+    NumberOfLinenumbers: Word;
+    Characteristics: DWORD;
+    COFFDebugOffsetRaw: DWORD;
+    DisplayName: string; // содержит реальное имя секции с учетом отладочных COFF символов
+  end;
+
+  TDebugCoffSymbol = packed record
+    Name: DWORD;
+    StrOfs: DWORD;
+    Value: DWORD;
+    Section: Word;
+    Empty: Word;
+    Typ: Byte;
+    Aux: Byte;
+  end;
+
+  TCoffFunction = record
+    FuncAddrVA: ULONG_PTR64;
+    DisplayName: string;
+    Executable: Boolean;
+  end;
+
+  TRawPEImage = class;
+
+  TDwarfDebugInfo = class
+  private
+    FPeImage: TRawPEImage;
+    FPresent: Boolean;
+    FAbbrevIndex, FArangesIndex, FInfoIndex, FLineIndex: Integer;
+    FCoffList: TList<TDebugCoffSymbol>;
+    FCoffStrings: TList<TCoffFunction>;
+    procedure LoadCoff(AStream: TStream);
+    procedure LoadLines(AStream: TStream);
+    function ReadBuff(AStream: TStream; var Buff; ASize: Integer): Boolean;
+  public
+    constructor Create(AImage: TRawPEImage);
+    destructor Destroy; override;
+    function Load(AStream: TStream): Boolean;
+    property Present: Boolean read FPresent;
+    property CoffStrings: TList<TCoffFunction> read FCoffStrings;
   end;
 
   TRawPEImage = class
@@ -115,6 +171,8 @@ type
       StartRVA, Size: DWORD;
     end;
   strict private
+    FBoundDir: TDirectoryData;
+    FDwarfDebugInfo: TDwarfDebugInfo;
     FIndex: Integer;
     FImageBase: ULONG_PTR64;
     FImagePath: string;
@@ -136,27 +194,29 @@ type
     FRedirected: Boolean;
     FRelocatedImages: TList<TRawPEImage>;
     FRelocationDelta: ULONG_PTR64;
+    FRelocationData: TList<TRelocationData>;
     FRelocations: TList;
-    FSections: array of TImageSectionHeader;
+    FSections: array of TImageSectionHeaderEx;
     FStrings: TList<TStringData>;
     FSizeOfFileImage: Int64;
     FVirtualSizeOfImage: Int64;
     FTlsDir: TDirectoryData;
     function AlignDown(Value: DWORD; Align: DWORD): DWORD;
     function AlignUp(Value: DWORD; Align: DWORD): DWORD;
-    function DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
     function GetSectionData(RvaAddr: DWORD; var Data: TSectionData): Boolean;
     procedure InitDirectories;
     procedure InternalProcessApiSetRedirect(
       const LibName: string; var RedirectTo: string);
     function IsExportForvarded(RvaAddr: DWORD): Boolean;
     function IsExecutable(RvaAddr: DWORD): Boolean;
+    function LoadDwarf(Raw: TStream): Boolean;
     procedure LoadFromImage;
     function LoadNtHeader(Raw: TStream): Boolean;
     function LoadSections(Raw: TStream): Boolean;
     function LoadCor20Header(Raw: TStream): Boolean;
     function LoadExport(Raw: TStream): Boolean;
     function LoadImport(Raw: TStream): Boolean;
+    function LoadBoundImport(Raw: TStream): Boolean;
     function LoadDelayImport(Raw: TStream): Boolean;
     function LoadRelocations(Raw: TStream): Boolean;
     function LoadStrings(Raw: TMemoryStream): Boolean;
@@ -165,22 +225,28 @@ type
       var ImportChunk: TImportChunk); overload;
     procedure ProcessApiSetRedirect(const LibName: string;
       var ExportChunk: TExportChunk); overload;
-    function RawToVa(RawAddr: DWORD): ULONG_PTR64;
-    function RvaToRaw(RvaAddr: DWORD): DWORD;
-    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
-    function VaToRaw(VaAddr: ULONG_PTR64): DWORD;
-    function VaToRva(VaAddr: ULONG_PTR64): DWORD;
   public
     constructor Create(const ImagePath: string; ImageBase: ULONG_PTR64); overload;
     constructor Create(const ModuleData: TModuleData; AModuleIndex: Integer); overload;
     destructor Destroy; override;
+    function DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
     function ExportIndex(const FuncName: string): Integer; overload;
     function ExportIndex(Ordinal: Word): Integer; overload;
     function GetImageAtAddr(AddrVA: ULONG_PTR64): TRawPEImage;
     function FixAddrSize(AddrVA: ULONG_PTR64; var ASize: DWORD): Boolean;
     procedure ProcessRelocations(AStream: TStream);
+    function RawToVa(RawAddr: DWORD): ULONG_PTR64;
+    function RvaToRaw(RvaAddr: DWORD): DWORD;
+    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
+    function SectionAtAddr(AddrVA: ULONG_PTR64; out Section: TImageSectionHeaderEx): Boolean;
+    function SectionAtIndex(AIndex: Integer; out Section: TImageSectionHeaderEx): Boolean;
+    function SectionAtName(const AName: string; out AIndex: Integer): Boolean;
+    function VaToRaw(VaAddr: ULONG_PTR64): DWORD;
+    function VaToRva(VaAddr: ULONG_PTR64): DWORD;
+    property BoundDirectory: TDirectoryData read FBoundDir;
     property ComPlusILOnly: Boolean read  FILOnly;
     property DelayImportDirectory: TDirectoryData read FDelayDir;
+    property DwarfDebugInfo: TDwarfDebugInfo read FDwarfDebugInfo;
     property EntryPoint: ULONG_PTR64 read FEntryPoint;
     property EntryPointList: TList<TEntryPointChunk> read FEntryPoints;
     property ExportList: TList<TExportChunk> read FExport;
@@ -197,6 +263,8 @@ type
     property OriginalName: string read FOriginalName;
     property Rebased: Boolean read FRebased;
     property Redirected: Boolean read FRedirected;
+    property RelocationData: TList<TRelocationData> read FRelocationData;
+    property Relocations: TList read FRelocations;
     property RelocatedImages: TList<TRawPEImage> read FRelocatedImages;
     property Strings: TList<TStringData> read FStrings;
     property TlsDirectory: TDirectoryData read FTlsDir;
@@ -216,7 +284,9 @@ type
     destructor Destroy; override;
     function AddImage(const AModule: TModuleData): Integer;
     procedure Clear;
-    function GetModule(AddrVa: ULONG_PTR64; CheckOwnership: Boolean = False): Integer;
+    procedure GetExportFuncList(const ModuleName: string; Value: TStringList);
+    function GetModule(AddrVa: ULONG_PTR64; CheckOwnership: Boolean = False): Integer; overload;
+    function GetModule(const AModulePath: string): Integer; overload;
     function GetProcData(const LibraryName, FuncName: string; Is64: Boolean;
       var ProcData: TExportChunk; CheckAddrVA: ULONG_PTR64): Boolean; overload;
     function GetProcData(const LibraryName: string; Ordinal: Word;
@@ -230,6 +300,7 @@ implementation
 
 const
   strPfs = ' value (0x%.1x) in "%s", offset: 0x%.1x';
+  ExecutableCode = IMAGE_SCN_CNT_CODE or IMAGE_SCN_MEM_EXECUTE;
 
 procedure Error(const Description: string);
 begin
@@ -289,6 +360,107 @@ begin
   // проверка того, что VA адрес принадлежит образу в памяти
   Result := (Image.ImageBase < CheckAddrVA) and
     (Image.ImageBase + UInt64(Image.VirtualSizeOfImage) > CheckAddrVA);
+end;
+
+{ TDwarfDebugInfo }
+
+constructor TDwarfDebugInfo.Create(AImage: TRawPEImage);
+begin
+  FPeImage := AImage;
+  FCoffList := TList<TDebugCoffSymbol>.Create;
+  FCoffStrings := TList<TCoffFunction>.Create;
+end;
+
+destructor TDwarfDebugInfo.Destroy;
+begin
+  FCoffStrings.Free;
+  FCoffList.Free;
+  inherited;
+end;
+
+function TDwarfDebugInfo.Load(AStream: TStream): Boolean;
+begin
+  Result := False;
+  FPeImage.SectionAtName('.debug_abbrev', FAbbrevIndex);
+  FPeImage.SectionAtName('.debug_aranges', FArangesIndex);
+  FPeImage.SectionAtName('.debug_info', FInfoIndex);
+  FPeImage.SectionAtName('.debug_line', FLineIndex);
+  LoadCoff(AStream);
+  LoadLines(AStream);
+end;
+
+procedure TDwarfDebugInfo.LoadCoff(AStream: TStream);
+var
+  I: Integer;
+  Buff: array [Byte] of AnsiChar;
+  ASection: TImageSectionHeaderEx;
+  StrStartPosition, StrEndPosition: Int64;
+  ACoffFunction: TCoffFunction;
+  SymbolData: TSymbolData;
+begin
+  FCoffList.Count := FPeImage.NtHeader.FileHeader.NumberOfSymbols;
+  AStream.Position := FPeImage.NtHeader.FileHeader.PointerToSymbolTable;
+  for I := 0 to FCoffList.Count - 1 do
+    AStream.ReadBuffer(FCoffList.List[I], SizeOf(TDebugCoffSymbol));
+  StrStartPosition := AStream.Position;
+  StrEndPosition := AStream.Size;
+  Buff[255] := #0;
+  for I := 0 to FCoffList.Count - 1 do
+  begin
+    // если у символа не указан номер секции, значит мы не можем рассчитать его адрес
+    // но тогда нам и имя его не нужно
+    if FCoffList.List[I].Section = 0 then
+      Continue;
+    if FCoffList.List[I].Name = 0 then
+    begin
+      AStream.Position := StrStartPosition + FCoffList.List[I].StrOfs;
+      AStream.ReadBuffer(Buff[0], Min(255, StrEndPosition - AStream.Position));
+    end
+    else
+    begin
+      Move(FCoffList.List[I].Name, Buff[0], 8);
+      Buff[9] := #0;
+    end;
+    if FPeImage.SectionAtIndex(FCoffList.List[I].Section - 1, ASection) then
+      ACoffFunction.FuncAddrVA := FPeImage.RvaToVa(FCoffList.List[I].Value + ASection.VirtualAddress)
+    else
+      ACoffFunction.FuncAddrVA := 0;
+    ACoffFunction.DisplayName := string(PAnsiChar(@Buff[0]));
+    ACoffFunction.Executable := ASection.Characteristics and ExecutableCode = ExecutableCode;
+
+    if ACoffFunction.FuncAddrVA <> 0 then
+    begin
+      SymbolData.AddrVA := ACoffFunction.FuncAddrVA;
+      if ACoffFunction.Executable then
+        SymbolData.DataType := sdtCoffFunction
+      else
+        SymbolData.DataType := sdtCoffData;
+      SymbolData.Binary.ModuleIndex := FPeImage.ModuleIndex;
+      SymbolData.Binary.ListIndex := FCoffStrings.Count;
+      SymbolStorage.Add(SymbolData);
+    end;
+
+    FCoffStrings.Add(ACoffFunction);
+  end;
+end;
+
+procedure TDwarfDebugInfo.LoadLines(AStream: TStream);
+var
+  ASection: TImageSectionHeaderEx;
+  UnitSize32: DWORD;
+//  UnitSize64: UInt64;
+begin
+  if FLineIndex < 0 then
+    Exit;
+  FPeImage.SectionAtIndex(FLineIndex, ASection);
+  AStream.Position := FPeImage.RvaToRaw(ASection.VirtualAddress);
+  ReadBuff(AStream, UnitSize32, SizeOf(UnitSize32));
+  {$MESSAGE 'Не закончено'}
+end;
+
+function TDwarfDebugInfo.ReadBuff(AStream: TStream; var Buff; ASize: Integer): Boolean;
+begin
+  Result := AStream.Read(Buff, ASize) = ASize;
 end;
 
 { TImportChunk }
@@ -351,10 +523,12 @@ begin
   FExport := TList<TExportChunk>.Create;
   FExportIndex := TDictionary<string, Integer>.Create;
   FExportOrdinalIndex := TDictionary<Word, Integer>.Create;
+  FRelocationData := TList<TRelocationData>.Create;
   FRelocations := TList.Create;
   FEntryPoints := TList<TEntryPointChunk>.Create;
   FRelocatedImages := TList<TRawPEImage>.Create;
   FStrings := TList<TStringData>.Create;
+  FDwarfDebugInfo := TDwarfDebugInfo.Create(Self);
   SymbolData.AddrVA := ImageBase;
   SymbolData.DataType := sdtInstance;
   SymbolData.Binary.ModuleIndex := ModuleIndex;
@@ -365,10 +539,12 @@ end;
 
 destructor TRawPEImage.Destroy;
 begin
+  FDwarfDebugInfo.Free;
   FStrings.Free;
   FRelocatedImages.Free;
   FEntryPoints.Free;
   FRelocations.Free;
+  FRelocationData.Free;
   FExportIndex.Free;
   FExportOrdinalIndex.Free;
   FImport.Free;
@@ -379,7 +555,11 @@ end;
 function TRawPEImage.DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
 begin
   Result := -1;
-  for var I := 0 to FNtHeader.OptionalHeader.NumberOfRvaAndSizes - 1 do
+  // Rouse_ 26.03.2023
+  // Изменением порядка поиска директории избегаем наложения директорий друг на друга
+  // например Security вообще ведет себя не понятно, постоянно влазя не на свое место
+  // из-за того что её размер может спокойно залезть на идущую следом BaseReloc
+  for var I := FNtHeader.OptionalHeader.NumberOfRvaAndSizes - 1 downto 0 do
     if RvaAddr >= FNtHeader.OptionalHeader.DataDirectory[I].VirtualAddress then
       if RvaAddr < FNtHeader.OptionalHeader.DataDirectory[I].VirtualAddress +
         FNtHeader.OptionalHeader.DataDirectory[I].Size then
@@ -484,6 +664,12 @@ begin
   SymbolData.Binary.ListIndex := 0;
   SymbolData.Binary.ModuleIndex := ModuleIndex;
 
+  with FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT] do
+  begin
+    FBoundDir.VirtualAddress := RvaToVa(VirtualAddress);
+    FBoundDir.Size := Size;
+  end;
+
   with FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT] do
   begin
     FImportAddressTable.VirtualAddress := RvaToVa(VirtualAddress);
@@ -558,8 +744,6 @@ begin
 end;
 
 function TRawPEImage.IsExecutable(RvaAddr: DWORD): Boolean;
-const
-  ExecutableCode = IMAGE_SCN_CNT_CODE or IMAGE_SCN_MEM_EXECUTE;
 var
   SectionData: TSectionData;
   PointerToRawData: DWORD;
@@ -584,6 +768,42 @@ begin
   // перенаправленые функции в качестве адреса содержат указатель на
   // строку перенаправления обычно размещенную в директории экспорта
   Result := DirectoryIndexFromRva(RvaAddr) = IMAGE_DIRECTORY_ENTRY_EXPORT;
+end;
+
+function TRawPEImage.LoadBoundImport(Raw: TStream): Boolean;
+var
+  Descr: TImageBoundImportDescriptor;
+  I: Integer;
+  SymbolData: TSymbolData;
+begin
+  Result := False;
+  if BoundDirectory.VirtualAddress = ImageBase then Exit;
+
+  ZeroMemory(@SymbolData, SizeOf(SymbolData));
+  SymbolData.AddrVA := BoundDirectory.VirtualAddress;
+  SymbolData.Binary.ModuleIndex := ModuleIndex;
+
+  Raw.Position := VaToRaw(BoundDirectory.VirtualAddress);
+  if Raw.Position = 0 then Exit;
+
+  I := 0;
+  ZeroMemory(@Descr, SizeOf(Descr));
+  while (Raw.Read(Descr, SizeOf(Descr)) =
+    SizeOf(Descr)) and (Descr.TimeDateStamp <> 0) do
+  begin
+    if I = 0 then
+    begin
+      SymbolData.DataType := sdtBoundImportDescriptor;
+      I := Descr.NumberOfModuleForwarderRefs;
+    end
+    else
+    begin
+      SymbolData.DataType := sdtBoundImportForwardRef;
+      Dec(I);
+    end;
+    SymbolStorage.Add(SymbolData);
+    Inc(SymbolData.AddrVA, SizeOf(TImageBoundImportDescriptor));
+  end;
 end;
 
 function TRawPEImage.LoadCor20Header(Raw: TStream): Boolean;
@@ -813,6 +1033,11 @@ begin
     Raw.ReadBuffer(DelayDescr, SizeOf(TImgDelayDescr));
     Inc(DescVA, SizeOf(TImgDelayDescr));
   end;
+end;
+
+function TRawPEImage.LoadDwarf(Raw: TStream): Boolean;
+begin
+  Result := FDwarfDebugInfo.Load(Raw);
 end;
 
 function TRawPEImage.LoadExport(Raw: TStream): Boolean;
@@ -1143,6 +1368,13 @@ begin
     if not DisableLoadStrings then
       LoadStrings(Raw);
 
+    // читаем привязаный импорт
+    LoadBoundImport(Raw);
+
+    // если есть COFF debug, пробуем зачитать отладочную информацию в DWARF формате
+    if NtHeader.FileHeader.PointerToSymbolTable <> 0 then
+      LoadDwarf(Raw);
+
   finally
     Raw.Free;
   end;
@@ -1337,34 +1569,24 @@ begin
 end;
 
 function TRawPEImage.LoadRelocations(Raw: TStream): Boolean;
-const
-  IMAGE_REL_BASED_ABSOLUTE = 0;
-  IMAGE_REL_BASED_HIGH = 1;
-  IMAGE_REL_BASED_LOW = 2;
-  IMAGE_REL_BASED_HIGHLOW = 3;
-  IMAGE_REL_BASED_HIGHADJ = 4;
-  IMAGE_REL_BASED_MIPS_JMPADDR = 5;
-  IMAGE_REL_BASED_SECTION = 6;
-  IMAGE_REL_BASED_REL32 = 7;
-  IMAGE_REL_BASED_MIPS_JMPADDR16 = 8;
-  IMAGE_REL_BASED_IA64_IMM64 = 9;
-  IMAGE_REL_BASED_DIR64 = 10;
-  IMAGE_REL_BASED_HIGH3ADJ = 11;
 var
   Reloc: TImageDataDirectory;
   ImageBaseRelocation: TImageBaseRelocation;
+  RelocationData: TRelocationData;
   RelocationBlock: Word;
   MaxPos: NativeInt;
   I: Integer;
+  SymbolData: TSymbolData;
 begin
-  // Проверка, нужно ли чообще подключать таблицу релокаций?
+  Result := False;
+  ZeroMemory(@SymbolData, SizeOf(SymbolData));
+  SymbolData.DataType := sdtRelocation;
+  SymbolData.Binary.ModuleIndex := ModuleIndex;
   {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
   FRelocationDelta := ImageBase - FNtHeader.OptionalHeader.ImageBase;
   {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
   if not Image64 then
     FRelocationDelta := DWORD(FRelocationDelta);
-  Result := FRelocationDelta = 0;
-  if Result then Exit;
   Reloc := FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
   if (Reloc.VirtualAddress = 0) or (Reloc.Size = 0) then Exit;
   Raw.Position := RvaToRaw(Reloc.VirtualAddress);
@@ -1375,7 +1597,16 @@ begin
     Raw.ReadBuffer(ImageBaseRelocation, SizeOf(TImageBaseRelocation));
     // SizeOfBlock включает в себя полный размер данных вместе с заголовком
     Dec(ImageBaseRelocation.SizeOfBlock, SizeOf(TImageBaseRelocation));
-    for I := 0 to Integer(ImageBaseRelocation.SizeOfBlock shr 1) - 1 do
+
+    // заголовки списков запоминаем в символах
+    RelocationData.AddrVA := RvaToVa(ImageBaseRelocation.VirtualAddress);
+    RelocationData.Index := FRelocations.Count;
+    RelocationData.Count := Integer(ImageBaseRelocation.SizeOfBlock shr 1);
+    SymbolData.AddrVA := RawToVa(Raw.Position - SizeOf(TImageBaseRelocation));
+    SymbolData.Binary.ListIndex := FRelocationData.Add(RelocationData);
+    SymbolStorage.Add(SymbolData);
+
+    for I := 0 to RelocationData.Count - 1 do
     begin
       Raw.ReadBuffer(RelocationBlock, SizeOf(Word));
       case RelocationBlock shr 12 of
@@ -1383,13 +1614,16 @@ begin
         IMAGE_REL_BASED_DIR64:
           FRelocations.Add(Pointer(RvaToRaw(ImageBaseRelocation.VirtualAddress + RelocationBlock and $FFF)));
         IMAGE_REL_BASED_ABSOLUTE:
+        begin
           // ABSOLUTE может встретится посередине, а не только в конце,
           // как утверждают некоторые источники.
           // пример такой библиотеки
           // C:\Program Files (x86)\Embarcadero\Studio\21.0\bin\dcc32270.dll
           // поэтому эта запись должна быть пропущена, и она не означает
           // конец списка
+          FRelocations.Add(nil);
           Continue;
+        end
       else
         Assert(False, 'Relocation ' + IntToStr(RelocationBlock shr 12) + ' not implemented');
       end;
@@ -1406,15 +1640,40 @@ begin
 end;
 
 function TRawPEImage.LoadSections(Raw: TStream): Boolean;
+var
+  COFFOffset: NativeUInt;
+  I, Index: Integer;
+  SectionName: array [0..255] of AnsiChar;
 begin
   Result := FNtHeader.FileHeader.NumberOfSections > 0;
   SetLength(FSections, FNtHeader.FileHeader.NumberOfSections);
-  for var I := 0 to FNtHeader.FileHeader.NumberOfSections - 1 do
+  for I := 0 to FNtHeader.FileHeader.NumberOfSections - 1 do
   begin
     Raw.ReadBuffer(FSections[I], SizeOf(TImageSectionHeader));
+    FSections[I].DisplayName := string(PAnsiChar(@FSections[I].Name[0]));
     FVirtualSizeOfImage := Max(FVirtualSizeOfImage,
       FSections[I].VirtualAddress + FSections[I].Misc.VirtualSize);
   end;
+
+  COFFOffset := FNtHeader.FileHeader.PointerToSymbolTable +
+    FNtHeader.FileHeader.NumberOfSymbols * SizeOf(TDebugCoffSymbol);
+
+  // Если отладочных COFF символов нет, то и обрабатывать нечего
+  if COFFOffset = 0 then
+    Exit;
+
+  for I := 0 to FNtHeader.FileHeader.NumberOfSections - 1 do
+    if FSections[I].Name[0] = 47 {"/"} then
+    begin
+      if TryStrToInt(string(PAnsiChar(@FSections[I].Name[1])), Index) then
+      begin
+        FSections[I].COFFDebugOffsetRaw := COFFOffset + NativeUInt(Index);
+        Raw.Position := FSections[I].COFFDebugOffsetRaw;
+        SectionName[255] := #0;
+        Raw.ReadBuffer(SectionName[0], 255);
+        FSections[I].DisplayName := string(PAnsiChar(@SectionName[0]));
+      end;
+    end;
 end;
 
 function TRawPEImage.LoadStrings(Raw: TMemoryStream): Boolean;
@@ -1627,6 +1886,8 @@ begin
   begin
     AStream.Position := Int64(RawReloc);
     AStream.ReadBuffer(Reloc, AddrSize);
+    if Reloc = 0 then
+      Continue;
     {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
     Inc(Reloc, FRelocationDelta);
     {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
@@ -1694,6 +1955,40 @@ end;
 function TRawPEImage.RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
 begin
   Result := FImageBase + RvaAddr;
+end;
+
+function TRawPEImage.SectionAtAddr(AddrVA: ULONG_PTR64;
+  out Section: TImageSectionHeaderEx): Boolean;
+var
+  SectionData: TSectionData;
+begin
+  Result := GetSectionData(VaToRva(AddrVA), SectionData);
+  if Result then
+    Section := FSections[SectionData.Index];
+end;
+
+function TRawPEImage.SectionAtIndex(AIndex: Integer;
+  out Section: TImageSectionHeaderEx): Boolean;
+begin
+  Result := (AIndex >= 0) and (AIndex < Length(FSections));
+  if Result then
+    Section := FSections[AIndex];
+end;
+
+function TRawPEImage.SectionAtName(const AName: string;
+  out AIndex: Integer): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  AIndex := -1;
+  for I := 0 to Length(FSections) - 1 do
+    if AnsiSameText(AName, FSections[I].DisplayName) then
+    begin
+      AIndex := I;
+      Result := True;
+      Break;
+    end;
 end;
 
 function TRawPEImage.VaToRaw(VaAddr: ULONG_PTR64): DWORD;
@@ -1806,16 +2101,46 @@ function TRawModules.GetModule(AddrVa: ULONG_PTR64; CheckOwnership: Boolean): In
 var
   I: Integer;
 begin
-  if not FImageBaseIndex.TryGetValue(AddrVa, Result) and CheckOwnership then
+  if not FImageBaseIndex.TryGetValue(AddrVa, Result) then
   begin
     Result := -1;
-    for I := 0 to FItems.Count - 1 do
-      if CheckImageAtAddr(FItems.List[I], AddrVa) then
-      begin
-        Result := I;
-        Break;
-      end;
+    if CheckOwnership then
+    begin
+      for I := 0 to FItems.Count - 1 do
+        if CheckImageAtAddr(FItems.List[I], AddrVa) then
+        begin
+          Result := I;
+          Break;
+        end;
+    end;
   end;
+end;
+
+procedure TRawModules.GetExportFuncList(const ModuleName: string;
+  Value: TStringList);
+var
+  Index, I: Integer;
+  CoffStrings: TList<TCoffFunction>;
+begin
+  Index := GetModule(ModuleName);
+  if Index < 0 then Exit;
+  CoffStrings := FItems[Index].DwarfDebugInfo.CoffStrings;
+  for I := 0 to CoffStrings.Count - 1 do
+    if CoffStrings[I].Executable then
+      Value.AddObject(CoffStrings[I].DisplayName, Pointer(CoffStrings[I].FuncAddrVA));
+end;
+
+function TRawModules.GetModule(const AModulePath: string): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to FItems.Count - 1 do
+    if AnsiSameText(AModulePath, FItems[I].ImagePath) then
+    begin
+      Result := I;
+      Break;
+    end;
 end;
 
 function TRawModules.GetProcData(const ForvardedFuncName: string; Is64: Boolean;
