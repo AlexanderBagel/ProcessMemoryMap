@@ -1111,6 +1111,7 @@ begin
         TRawPEImage.DisableLoadStrings := not Settings.LoadStrings;
         TRawPEImage.LoadStringLength := Settings.StringMinLengh;
         // И только после этого можно запускать на выполнение RawScannerCore
+        DebugLog.Clear;
         RawScannerLogger.OnLog := OnLog;
         RawScannerCore.InitFromProcess(PID);
         // Последним идет подсистема плагинов

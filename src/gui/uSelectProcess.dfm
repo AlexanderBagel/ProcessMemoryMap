@@ -115,6 +115,7 @@ object dlgSelectProcess: TdlgSelectProcess
     Top = 317
     Width = 75
     Height = 25
+    Anchors = [akLeft, akBottom]
     Caption = 'New...'
     TabOrder = 5
     OnClick = btnNewClick
