@@ -6,7 +6,7 @@
 //  * Purpose   : Краткая отладочная информация об открытом проекте
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.27
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,7 +38,7 @@ type
   private
     { Private declarations }
   public
-    procedure ShowDebugInfo;
+    procedure ShowDebugInfo(Advanced: TStringList);
   end;
 
 var
@@ -73,7 +73,7 @@ begin
   if Key = #27 then Close;
 end;
 
-procedure TdlgDbgInfo.ShowDebugInfo;
+procedure TdlgDbgInfo.ShowDebugInfo(Advanced: TStringList);
 var
   Tmp: string;
   I: Integer;
@@ -152,6 +152,14 @@ begin
       end;
     end;
   end;
+
+  if Advanced.Count > 0 then
+  begin
+    edDebugInfo.Lines.Add('Debug Log: ');
+    for I := 0 to Advanced.Count - 1 do
+      edDebugInfo.Lines.Add(Advanced[I]);
+  end;
+
   ShowModal;
 end;
 

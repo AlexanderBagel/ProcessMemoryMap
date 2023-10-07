@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог отображает результаты сравнения двух карт памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -30,11 +30,13 @@ uses
   MemoryMap.Heaps,
   MemoryMap.Threads,
   MemoryMap.PEImage,
-  ScaledCtrls;
+  ScaledCtrls,
+
+  uBaseForm;
 
 type
   TChangeType = (ctAdd, ctChange, ctDel);
-  TdlgComparator = class(TForm)
+  TdlgComparator = class(TBaseAppForm)
     Panel1: TPanel;
     Button1: TButton;
     btnSave: TButton;

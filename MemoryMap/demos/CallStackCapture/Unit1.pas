@@ -7,13 +7,16 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls;
 
 type
+  TShowCallStack = procedure; stdcall;
+
   TForm1 = class(TForm)
     Button1: TButton;
+    Button2: TButton;
     procedure Button1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
   private
-    { Private declarations }
-  public
-    { Public declarations }
+    LibShowCallStack: TShowCallStack;
   end;
 
 var
@@ -36,6 +39,20 @@ begin
   finally
     S.Free;
   end;
+end;
+
+procedure TForm1.Button2Click(Sender: TObject);
+begin
+  LibShowCallStack;
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+var
+  hLib: THandle;
+begin
+  hLib := LoadLibrary('callstack_library.dll');
+  @LibShowCallStack := GetProcAddress(hLib, 'ShowCallStack');
+  Button2.Enabled := Assigned(LibShowCallStack);
 end;
 
 end.

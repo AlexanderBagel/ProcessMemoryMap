@@ -5,8 +5,8 @@
 //  * Unit Name : uMemoryMapListInfoSettings.pas
 //  * Purpose   : Диалог настроек для процедуры сканирования памяти
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -21,10 +21,11 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Buttons, Vcl.StdCtrls, Vcl.ExtCtrls;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Buttons, Vcl.StdCtrls, Vcl.ExtCtrls,
+  uBaseForm;
 
 type
-  TdlgMemoryMapListInfoSettings = class(TForm)
+  TdlgMemoryMapListInfoSettings = class(TBaseAppForm)
     OpenMMListDialog: TOpenDialog;
     edMML: TLabeledEdit;
     SpeedButton1: TSpeedButton;

@@ -5,8 +5,8 @@
 //  * Unit Name : uKnownData.pas
 //  * Purpose   : Диалог для отображения списка всех известных структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.3.20
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,17 +22,19 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.ComCtrls, Generics.Collections, ClipBrd,
+  Vcl.ComCtrls, Generics.Collections, ClipBrd, System.ImageList,
+  Vcl.ImgList, VirtualTrees, Vcl.Menus,
 
   MemoryMap.Core,
   MemoryMap.RegionData,
   MemoryMap.Threads,
   MemoryMap.PEImage,
 
-  uRegionProperties, System.ImageList, Vcl.ImgList, VirtualTrees, Vcl.Menus;
+  uRegionProperties,
+  uBaseForm;
 
 type
-  TdlgKnownData = class(TForm)
+  TdlgKnownData = class(TBaseAppForm)
     il16: TImageList;
     tvData: TVirtualStringTree;
     pmCopy: TPopupMenu;

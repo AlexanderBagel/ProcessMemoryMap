@@ -6,7 +6,7 @@
 //  * Purpose   : Вспомогательный диалог для отображения прогреса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.2.28
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -24,10 +24,11 @@ uses
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
 
-  FWProgressBar;
+  FWProgressBar,
+  uBaseForm;
 
 type
-  TdlgProgress = class(TForm)
+  TdlgProgress = class(TBaseAppForm)
     Panel1: TPanel;
     lblProgress: TLabel;
     procedure FormDestroy(Sender: TObject);

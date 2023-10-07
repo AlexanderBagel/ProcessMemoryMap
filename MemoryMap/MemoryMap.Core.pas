@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.29
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,9 +36,9 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01041D00;
+  MemoryMapVersionInt = $01041E00;
   {$MESSAGE 'Версию генерить из версии экзехи'}
-  MemoryMapVersionStr = '1.4 (revision 29)';
+  MemoryMapVersionStr = '1.4 (revision 30)';
 
 type
   // Типы фильтров

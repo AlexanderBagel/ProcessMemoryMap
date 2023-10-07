@@ -5,8 +5,8 @@
 //  * Unit Name : uFindData.pas
 //  * Purpose   : Диалог для поиска данных в памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2022.
-//  * Version   : 1.3.20
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2023.
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -25,10 +25,12 @@ uses
   Vcl.StdCtrls, Vcl.ComCtrls,
 
   MemoryMap.Core,
-  MemoryMap.Utils;
+  MemoryMap.Utils,
+
+  uBaseForm;
 
 type
-  TdlgFindData = class(TForm)
+  TdlgFindData = class(TBaseAppForm)
     Label1: TLabel;
     edAnsi: TEdit;
     Label2: TLabel;

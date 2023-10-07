@@ -13,7 +13,10 @@ object dlgRegionProps: TdlgRegionProps
   KeyPreview = True
   OldCreateOrder = False
   Position = poMainFormCenter
+  OnActivate = FormActivate
   OnClose = FormClose
+  OnDestroy = FormDestroy
+  OnDeactivate = FormDeactivate
   OnKeyPress = FormKeyPress
   PixelsPerInch = 96
   TextHeight = 13
@@ -28,6 +31,7 @@ object dlgRegionProps: TdlgRegionProps
     Font.Height = -11
     Font.Name = 'Courier New'
     Font.Style = []
+    HideSelection = False
     ParentFont = False
     PopupMenu = mnuPopup
     ReadOnly = True
@@ -68,6 +72,11 @@ object dlgRegionProps: TdlgRegionProps
     end
     object N2: TMenuItem
       Caption = '-'
+    end
+    object mnuTopMostWnd: TMenuItem
+      Caption = 'TopMost Window'
+      ShortCut = 16468
+      OnClick = mnuTopMostWndClick
     end
     object mnuShowAsDisassembly: TMenuItem
       AutoCheck = True

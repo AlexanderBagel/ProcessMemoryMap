@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{9654A544-229E-4922-8061-43D53CC78112}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="CallStackCapture.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="callstack_library.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="CallStackCapture">
+        <MSBuild Projects="CallStackCapture.dproj"/>
+    </Target>
+    <Target Name="CallStackCapture:Clean">
+        <MSBuild Projects="CallStackCapture.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="CallStackCapture:Make">
+        <MSBuild Projects="CallStackCapture.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="callstack_library">
+        <MSBuild Projects="callstack_library.dproj"/>
+    </Target>
+    <Target Name="callstack_library:Clean">
+        <MSBuild Projects="callstack_library.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="callstack_library:Make">
+        <MSBuild Projects="callstack_library.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="CallStackCapture;callstack_library"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="CallStackCapture:Clean;callstack_library:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="CallStackCapture:Make;callstack_library:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

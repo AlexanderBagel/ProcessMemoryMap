@@ -74,7 +74,8 @@ uses
   Shell.TaskBarListProgress in 'Controls\Shell.TaskBarListProgress.pas',
   RawScanner.X64Gates in 'RawScanner\RawScanner.X64Gates.pas',
   uStringsViewer in 'src\gui\uStringsViewer.pas' {dlgStringsViewer},
-  ScaledCtrls in 'Controls\ScaledCtrls.pas';
+  ScaledCtrls in 'Controls\ScaledCtrls.pas',
+  uBaseForm in 'src\gui\uBaseForm.pas' {BaseAppForm};
 
 {$R *.res}
 

@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.28
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -37,6 +37,8 @@ type
   TMemoryDump = array of Byte;
 
   function CheckIsAdmin: Boolean;
+  function LaunchExecutable(const FilePath, Param: string;
+    const Verb: string = 'open'): THandle;
   function RestartAsAdmin: Boolean;
   function Run64App(const FilePath, Param: string): THandle;
   function SetDebugPriv: Boolean;
@@ -98,26 +100,33 @@ begin
   end;
 end;
 
-function RestartAsAdmin: Boolean;
+function LaunchExecutable(const FilePath, Param, Verb: string): THandle;
 var
   SEI: TShellExecuteInfo;
 begin
   ZeroMemory(@SEI, SizeOf(TShellExecuteInfo));
   SEI.cbSize := SizeOf(TShellExecuteInfo);
-  SEI.lpFile := PChar(ParamStr(0));
-  SEI.lpDirectory := PChar(ExtractFilePath(ParamStr(0)));
-  SEI.lpParameters := PChar(ParamStr(1));
-  SEI.lpVerb := PChar('runas');
-  SEI.fMask := SEE_MASK_DEFAULT;
+  SEI.lpFile := PChar(FilePath);
+  SEI.lpDirectory := PChar(ExtractFilePath(FilePath));
+  SEI.lpParameters := PChar(Param);
+  SEI.lpVerb := PChar(Verb);
+  SEI.fMask := SEE_MASK_NOCLOSEPROCESS;
   SEI.nShow := SW_SHOWNORMAL;
-  Result := ShellExecuteEx(@SEI);
+  if ShellExecuteEx(@SEI) then
+    Result := SEI.hProcess
+  else
+    Result := 0;
+end;
+
+function RestartAsAdmin: Boolean;
+begin
+  Result := LaunchExecutable(ParamStr(0), ParamStr(1), 'runas') <> 0;
 end;
 
 function Run64App(const FilePath, Param: string): THandle;
 const
   Space = ' ';
 var
-  SEI: TShellExecuteInfo;
   R: TResourceStream;
   ProcessParam: string;
   I: Integer;
@@ -137,18 +146,8 @@ begin
       R.Free;
     end;
   end;
-  ZeroMemory(@SEI, SizeOf(TShellExecuteInfo));
-  SEI.cbSize := SizeOf(TShellExecuteInfo);
-  SEI.lpFile := PChar(FilePath);
-  SEI.lpDirectory := PChar(ExtractFilePath(FilePath));
-  SEI.lpParameters := PChar(Param + ProcessParam);
-  SEI.lpVerb := PChar('open');
-  SEI.fMask := SEE_MASK_NOCLOSEPROCESS;
-  SEI.nShow := SW_SHOWNORMAL;
-  if ShellExecuteEx(@SEI) then
-    Result := SEI.hProcess
-  else
-    Result := 0;
+
+  Result := LaunchExecutable(FilePath, Param + ProcessParam);
 end;
 
 function SetDebugPriv: Boolean;

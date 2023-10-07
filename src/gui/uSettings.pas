@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.28
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -67,6 +67,8 @@ type
     cbLoadStrings: TCheckBox;
     Label10: TLabel;
     seStringLength: TSpinEdit;
+    cbDemangleNames: TCheckBox;
+    cbShowChildFormsOnTaskBar: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -96,8 +98,10 @@ type
     FUseScannerFilter: Boolean;
     FScannerMode: TScannerMode;
     FLoadLines: Boolean;
+    FDemangleNames: Boolean;
     FLoadStrings: Boolean;
     FStringMinLengh: Integer;
+    FShowChildFormsOnTaskBar: Boolean;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -113,6 +117,7 @@ type
     property MappedColor: TColorRef index 4 read GetColor write SetColor;
     property HeapColor: TColorRef index 5 read GetColor write SetColor;
     property LoadLines: Boolean read FLoadLines write FLoadLines;
+    property DemangleNames: Boolean read FDemangleNames write FDemangleNames;
     property ThreadColor: TColorRef index 6 read GetColor write SetColor;
     property SystemColor: TColorRef index 7 read GetColor write SetColor;
     property SearchDifferences: Boolean read FSearchDifferences write FSearchDifferences;
@@ -124,6 +129,7 @@ type
     property ScannerMode: TScannerMode read FScannerMode write FScannerMode;
     property LoadStrings: Boolean read FLoadStrings write FLoadStrings;
     property StringMinLengh: Integer read FStringMinLengh write FStringMinLengh;
+    property ShowChildFormsOnTaskBar: Boolean read FShowChildFormsOnTaskBar write FShowChildFormsOnTaskBar;
   end;
 
   function Settings: TSettings;
@@ -177,8 +183,10 @@ begin
   UseScannerFilter := False;
   ScannerMode := smDefault;
   LoadLines := True;
+  DemangleNames := True;
   LoadStrings := False;
   StringMinLengh := 6;
+  ShowChildFormsOnTaskBar := True;
 end;
 
 procedure TSettings.LoadSettings;
@@ -200,6 +208,8 @@ begin
         AutoReconnect := R.ReadBool('AutoReconnect');
       if R.ValueExists('LoadLines') then
         LoadLines := R.ReadBool('LoadLines');
+      if R.ValueExists('DemangleNames') then
+        DemangleNames := R.ReadBool('DemangleNames');
       if R.ValueExists('LoadStrings') then
         LoadStrings := R.ReadBool('LoadStrings');
       if R.ValueExists('StringMinLengh') then
@@ -211,6 +221,8 @@ begin
       SuspendProcess := R.ReadBool('SuspendProcess');
       UseScannerFilter := R.ReadBool('UseScannerFilter');
       ScannerMode := TScannerMode(R.ReadInteger('ScannerMode'));
+      if R.ValueExists('ShowChildFormsOnTaskBar') then
+        ShowChildFormsOnTaskBar := R.ReadBool('ShowChildFormsOnTaskBar');
       for I := 0 to 7 do
         FColors[I] := R.ReadInteger(RegKeys[I]);
     except
@@ -233,6 +245,7 @@ begin
       RaiseLastOSError;
     R.WriteBool('AutoReconnect', AutoReconnect);
     R.WriteBool('LoadLines', LoadLines);
+    R.WriteBool('DemangleNames', DemangleNames);
     R.WriteBool('LoadStrings', LoadStrings);
     R.WriteInteger('StringMinLengh', StringMinLengh);
     R.WriteBool('SearchDifferences', SearchDifferences);
@@ -242,6 +255,7 @@ begin
     R.WriteBool('SuspendProcess', SuspendProcess);
     R.WriteBool('UseScannerFilter', UseScannerFilter);
     R.WriteInteger('ScannerMode', Integer(ScannerMode));
+    R.WriteBool('ShowChildFormsOnTaskBar', ShowChildFormsOnTaskBar);
     for I := 0 to 7 do
       R.WriteInteger(RegKeys[I], FColors[I]);
   finally
@@ -275,8 +289,10 @@ begin
   Settings.UseScannerFilter := cbUseFilter.Checked;
   Settings.ScannerMode := TScannerMode(cbScannerMode.ItemIndex);
   Settings.LoadLines := cbLoadLineSymbols.Checked;
+  Settings.DemangleNames := cbDemangleNames.Checked;
   Settings.StringMinLengh := seStringLength.Value;
   Settings.LoadStrings := cbLoadStrings.Checked;
+  Settings.ShowChildFormsOnTaskBar := cbShowChildFormsOnTaskBar.Checked;
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.SaveSettings;
@@ -318,8 +334,10 @@ begin
   cbUseFilter.Checked := Settings.UseScannerFilter;
   cbScannerMode.ItemIndex := Integer(Settings.ScannerMode);
   cbLoadLineSymbols.Checked := Settings.LoadLines;
+  cbDemangleNames.Checked := Settings.DemangleNames;
   cbLoadStrings.Checked := Settings.LoadStrings;
   seStringLength.Value := Settings.StringMinLengh;
+  cbShowChildFormsOnTaskBar.Checked := Settings.ShowChildFormsOnTaskBar;
   for I := 0 to 7 do
   begin
     Colors[I] := Settings.GetColor(I);

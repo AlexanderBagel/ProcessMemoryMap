@@ -3,7 +3,7 @@ object dlgSelectProcess: TdlgSelectProcess
   Top = 0
   Caption = 'Process Memory Map - Select Process'
   ClientHeight = 350
-  ClientWidth = 481
+  ClientWidth = 546
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -15,14 +15,14 @@ object dlgSelectProcess: TdlgSelectProcess
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   DesignSize = (
-    481
+    546
     350)
   PixelsPerInch = 96
   TextHeight = 13
   object lvProcess: TListView
     Left = 0
     Top = 0
-    Width = 481
+    Width = 546
     Height = 311
     Align = alTop
     Anchors = [akLeft, akTop, akRight, akBottom]
@@ -78,7 +78,7 @@ object dlgSelectProcess: TdlgSelectProcess
     OnClick = btnRefreshClick
   end
   object btnShowAll: TButton
-    Left = 89
+    Left = 170
     Top = 317
     Width = 129
     Height = 25
@@ -89,7 +89,7 @@ object dlgSelectProcess: TdlgSelectProcess
     OnClick = btnShowAllClick
   end
   object btnCancel: TButton
-    Left = 398
+    Left = 463
     Top = 317
     Width = 75
     Height = 25
@@ -100,7 +100,7 @@ object dlgSelectProcess: TdlgSelectProcess
     TabOrder = 3
   end
   object btnDefault: TButton
-    Left = 317
+    Left = 382
     Top = 317
     Width = 75
     Height = 25
@@ -110,9 +110,23 @@ object dlgSelectProcess: TdlgSelectProcess
     TabOrder = 4
     OnClick = btnDefaultClick
   end
+  object btnNew: TButton
+    Left = 89
+    Top = 317
+    Width = 75
+    Height = 25
+    Caption = 'New...'
+    TabOrder = 5
+    OnClick = btnNewClick
+  end
   object il16: TImageList
     ColorDepth = cd32Bit
     Left = 16
+    Top = 32
+  end
+  object odNewProcess: TOpenDialog
+    Filter = 'Excutable file (*.exe)|*.exe|All files (*.*)|*.*'
+    Left = 72
     Top = 32
   end
 end

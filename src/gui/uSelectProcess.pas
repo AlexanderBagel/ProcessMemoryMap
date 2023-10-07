@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог выбора процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.26
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -42,6 +42,8 @@ type
     btnCancel: TButton;
     btnDefault: TButton;
     il16: TImageList;
+    btnNew: TButton;
+    odNewProcess: TOpenDialog;
     procedure FormCreate(Sender: TObject);
     procedure btnRefreshClick(Sender: TObject);
     procedure lvProcessSelectItem(Sender: TObject; Item: TListItem;
@@ -53,6 +55,7 @@ type
       Shift: TShiftState; X, Y: Integer);
     procedure btnDefaultClick(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure btnNewClick(Sender: TObject);
   private
     SortData: TSortData;
     DblClicked: Boolean;
@@ -76,6 +79,26 @@ procedure TdlgSelectProcess.btnDefaultClick(Sender: TObject);
 begin
   ProcessReconnect.SetKnownProcessList(ProcessList);
   ModalResult := mrOk;
+end;
+
+procedure TdlgSelectProcess.btnNewClick(Sender: TObject);
+var
+  AHandle: THandle;
+begin
+  if odNewProcess.Execute(Handle) then
+  begin
+    AHandle := LaunchExecutable(odNewProcess.FileName, '');
+    if AHandle <> 0 then
+    begin
+      Pid := GetProcessId(AHandle);
+      ProcessName := ExtractFileName(odNewProcess.FileName);
+      CloseHandle(AHandle);
+      // добавляем данные для реконнекта
+      ProcessList.AddObject(odNewProcess.FileName, Pointer(Pid));
+      ProcessReconnect.SetKnownProcessList(ProcessList);
+      ModalResult := mrOk;
+    end;
+  end;
 end;
 
 procedure TdlgSelectProcess.btnRefreshClick(Sender: TObject);

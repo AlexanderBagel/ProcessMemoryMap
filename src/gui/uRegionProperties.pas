@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.29
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,12 +35,13 @@ uses
   RawScanner.ModulesData,
   RawScanner.SymbolStorage,
 
+  uBaseForm,
   uDumpDisplayUtils,
   ScaledCtrls;
 
 type
   TDumpFunc = reference to function (Process: THandle; Address: Pointer): string;
-  TdlgRegionProps = class(TForm)
+  TdlgRegionProps = class(TBaseAppForm)
     edProperties: TRichEdit;
     mnuPopup: TPopupMenu;
     mnuCopy: TMenuItem;
@@ -55,6 +56,7 @@ type
     mnuDasmMode64: TMenuItem;
     mnuDasmModeAuto: TMenuItem;
     SelectAll1: TMenuItem;
+    mnuTopMostWnd: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuCopyClick(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
@@ -64,6 +66,10 @@ type
     procedure mnuPopupPopup(Sender: TObject);
     procedure mnuDasmModeAutoClick(Sender: TObject);
     procedure SelectAll1Click(Sender: TObject);
+    procedure mnuTopMostWndClick(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+    procedure FormDeactivate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
@@ -73,15 +79,18 @@ type
     DAsmMode: TDasmMode;
     procedure Add(const Value: string); overload;
     procedure Add(AFunc: TDumpFunc; Process: THandle; Address: Pointer); overload;
+    procedure DropActivePtr;
     procedure StartQuery(Value: Pointer);
     procedure ShowInfoFromMBI(Process: THandle;
       MBI: TMemoryBasicInformation; Address: Pointer);
   public
+    function GetSelectedAddr: ULONG_PTR;
     procedure ShowPropertyAtAddr(Value: Pointer; AsDisassembly: Boolean);
   end;
 
 var
   dlgRegionProps: TdlgRegionProps;
+  ActiveRegionProps: TdlgRegionProps;
 
 implementation
 
@@ -91,7 +100,10 @@ uses
   uDisplayUtils;
 
 const
-  DefCaption = 'Process Memory Map - Region Properties [0x%x]';
+  DefCaption = '(%d) Process Memory Map - Region Properties [0x%x]';
+
+var
+  ShowCounter, TotalCounter: Integer;
 
 {$R *.dfm}
 
@@ -114,14 +126,38 @@ begin
   edProperties.Lines.Add(Value);
 end;
 
+procedure TdlgRegionProps.DropActivePtr;
+begin
+  if ActiveRegionProps = Self then
+    ActiveRegionProps := nil;
+end;
+
 procedure TdlgRegionProps.Add(const Value: string);
 begin
   edProperties.Lines.Add(Value);
 end;
 
+procedure TdlgRegionProps.FormActivate(Sender: TObject);
+begin
+  ActiveRegionProps := Self;
+end;
+
 procedure TdlgRegionProps.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
+  Dec(TotalCounter);
+  if TotalCounter = 0 then
+    ShowCounter := 0;
   Action := ACloseAction;
+end;
+
+procedure TdlgRegionProps.FormDeactivate(Sender: TObject);
+begin
+  DropActivePtr;
+end;
+
+procedure TdlgRegionProps.FormDestroy(Sender: TObject);
+begin
+  DropActivePtr;
 end;
 
 procedure TdlgRegionProps.FormKeyPress(Sender: TObject; var Key: Char);
@@ -129,21 +165,7 @@ begin
   if Key = #27 then Close;
 end;
 
-procedure TdlgRegionProps.mnuCopyClick(Sender: TObject);
-begin
-  edProperties.CopyToClipboard;
-end;
-
-procedure TdlgRegionProps.mnuGotoAddressClick(Sender: TObject);
-begin
-  if SelectedAddr <> 0 then
-  begin
-    dlgRegionProps := TdlgRegionProps.Create(Application);
-    dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectedAddr), ShowAsDisassembly);
-  end;
-end;
-
-procedure TdlgRegionProps.mnuPopupPopup(Sender: TObject);
+function TdlgRegionProps.GetSelectedAddr: ULONG_PTR;
 var
   HexAddr: Int64;
 begin
@@ -163,7 +185,26 @@ begin
     end;
     SelectedAddr := MemoryMapCore.DebugMapData.GetAddrFromDescription(S);
   end;
-  mnuGotoAddress.Enabled := SelectedAddr <> 0;
+  Result := SelectedAddr;
+end;
+
+procedure TdlgRegionProps.mnuCopyClick(Sender: TObject);
+begin
+  edProperties.CopyToClipboard;
+end;
+
+procedure TdlgRegionProps.mnuGotoAddressClick(Sender: TObject);
+begin
+  if SelectedAddr <> 0 then
+  begin
+    dlgRegionProps := TdlgRegionProps.Create(Application);
+    dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectedAddr), ShowAsDisassembly);
+  end;
+end;
+
+procedure TdlgRegionProps.mnuPopupPopup(Sender: TObject);
+begin
+  mnuGotoAddress.Enabled := GetSelectedAddr <> 0;
 end;
 
 procedure TdlgRegionProps.mnuRefreshClick(Sender: TObject);
@@ -191,6 +232,15 @@ begin
   finally
     edProperties.Lines.EndUpdate;;
   end;
+end;
+
+procedure TdlgRegionProps.mnuTopMostWndClick(Sender: TObject);
+begin
+  mnuTopMostWnd.Checked := not mnuTopMostWnd.Checked;
+  if mnuTopMostWnd.Checked then
+    FormStyle := fsStayOnTop
+  else
+    FormStyle := fsNormal;
 end;
 
 procedure TdlgRegionProps.SelectAll1Click(Sender: TObject);
@@ -367,15 +417,21 @@ begin
   ProcessLock := nil;
   Process := OpenProcessWithReconnect;
   try
-    Caption := Format(DefCaption, [ULONG_PTR(Value)]);
+    Inc(ShowCounter);
+    Inc(TotalCounter);
+    Caption := Format(DefCaption, [ShowCounter, ULONG_PTR(Value)]);
     edProperties.Lines.Add('Info at address: ' + UInt64ToStr(ULONG_PTR(Value)));
     if Settings.SuspendProcess then
       ProcessLock := SuspendProcess(MemoryMapCore.PID);
     try
       dwLength := SizeOf(TMemoryBasicInformation);
       if VirtualQueryEx(Process,
-         Pointer(Value), MBI, dwLength) <> dwLength then
-         RaiseLastOSError;
+        Pointer(Value), MBI, dwLength) <> dwLength then
+      begin
+        if GetLastError = ERROR_INVALID_PARAMETER then
+          raise EOSError.CreateFmt('Invalid address: %p', [Value]);
+        RaiseLastOSError;
+      end;
 
       ShowInfoFromMBI(Process, MBI, Value);
 

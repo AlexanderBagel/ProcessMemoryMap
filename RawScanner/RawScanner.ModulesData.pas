@@ -140,15 +140,22 @@ type
   TRawPEImage = class;
 
   TDwarfDebugInfo = class
+  public
+    // дабы не прокидывать настройку от GUI до внутреннего класса
+    // она будет висеть глобальным классовым флагом, так проще
+    class var NeedDemangleName: Boolean;
   private
     FPeImage: TRawPEImage;
     FPresent: Boolean;
     FAbbrevIndex, FArangesIndex, FInfoIndex, FLineIndex: Integer;
     FCoffList: TList<TDebugCoffSymbol>;
     FCoffStrings: TList<TCoffFunction>;
+    function DemangleName(const AName: string; Executable: Boolean): string;
     procedure LoadCoff(AStream: TStream);
     procedure LoadLines(AStream: TStream);
     function ReadBuff(AStream: TStream; var Buff; ASize: Integer): Boolean;
+  protected
+    class constructor Create;
   public
     constructor Create(AImage: TRawPEImage);
     destructor Destroy; override;
@@ -371,6 +378,201 @@ begin
   FCoffStrings := TList<TCoffFunction>.Create;
 end;
 
+class constructor TDwarfDebugInfo.Create;
+begin
+  NeedDemangleName := True;
+end;
+
+function TDwarfDebugInfo.DemangleName(const AName: string;
+  Executable: Boolean): string;
+const
+  indClassOperatorMethod = '_$__$$_$';
+  indClassMethod = '_$__$$_';
+  indMethod = '_$$_';
+  indClass = '$_$';
+  indResult = '$$';
+  indSeparator = '_';
+  indParam = '$';
+
+type
+  TIdentifierType = (itUnknown, itUnit, itClass, itMethod, itParamType, itResultType, itEnd);
+  TIdentifierTypes = set of TIdentifierType;
+
+var
+  pCursor, pMax: PChar;
+
+  function Check(const Ind: string): Boolean;
+  begin
+    if pCursor + Length(Ind) > pMax then
+      Result := False
+    else
+      Result := StrLComp(pCursor, @Ind[1], Length(Ind)) = 0;
+  end;
+
+  function ReadStr: string;
+  var
+    pStart: PChar;
+  begin
+    pStart := pCursor;
+    while (pCursor < pMax) and (pCursor^ <> indParam) do
+    begin
+      if pCursor^ = indSeparator then
+      begin
+        if Check(indMethod) or Check(indClassMethod) or Check(indClassOperatorMethod) then
+          Break;
+      end;
+      Inc(pCursor);
+    end;
+    SetLength(Result, pCursor - pStart);
+    if Result <> '' then
+      Move(pStart^, Result[1], Length(Result) * SizeOf(Char));
+  end;
+
+  function ReadIdentifierType(APrevios: TIdentifierType): TIdentifierType;
+  begin
+    if pCursor >= pMax then
+      Exit(itEnd);
+    Result := itUnknown;
+
+    if Check(indClassOperatorMethod) then
+    begin
+      if APrevios = itClass then
+      begin
+        Result := itMethod;
+        Inc(pCursor, Length(indClassOperatorMethod));
+      end
+      else
+        Result := itUnknown;
+      Exit;
+    end;
+
+    if Check(indClassMethod) then
+    begin
+      if APrevios = itClass then
+      begin
+        Result := itMethod;
+        Inc(pCursor, Length(indClassMethod));
+      end
+      else
+        Result := itUnknown;
+      Exit;
+    end;
+
+    if Check(indMethod) then
+    begin
+      if APrevios = itUnit then
+      begin
+        Result := itMethod;
+        Inc(pCursor, Length(indMethod));
+      end
+      else
+        Result := itUnknown;
+      Exit;
+    end;
+
+    if Check(indClass) then
+    begin
+      if APrevios = itUnit then
+      begin
+        Result := itClass;
+        Inc(pCursor, Length(indClass));
+      end
+      else
+        Result := itUnknown;
+      Exit;
+    end;
+
+    if Check(indResult) then
+    begin
+      if APrevios in [itMethod, itParamType] then
+      begin
+        Result := itResultType;
+        Inc(pCursor, Length(indResult));
+      end
+      else
+        Result := itUnknown;
+      Exit;
+    end;
+
+    if Check(indParam) then
+    begin
+      if APrevios in [itMethod, itParamType] then
+      begin
+        Result := itParamType;
+        Inc(pCursor, Length(indParam));
+      end
+      else
+        Result := itUnknown;
+      Exit;
+    end;
+
+  end;
+
+var
+  AUnitName, AClassName, AMethodName, AParamsTypeList, AResultType: string;
+  NextIdentifierType: TIdentifierType;
+begin
+  if AName = '' then
+  begin
+    Result := '';
+    Exit;
+  end;
+
+  if not Executable then
+  begin
+    Result := AName;
+    Exit;
+  end;
+
+  // системные функции
+  if AName[1] = '_' then
+  begin
+    Result := AName;
+    Exit;
+  end;
+
+  pCursor := @AName[1];
+  pMax := pCursor;
+  Inc(pMax, Length(AName));
+
+  AUnitName := ReadStr;
+  NextIdentifierType := itUnit;
+  while NextIdentifierType <> itEnd do
+  begin
+    NextIdentifierType := ReadIdentifierType(NextIdentifierType);
+    case NextIdentifierType of
+      itUnknown: Break;
+      itClass: AClassName := ReadStr;
+      itMethod: AMethodName := ReadStr;
+      itParamType:
+      begin
+        if AParamsTypeList = '' then
+          AParamsTypeList := ReadStr
+        else
+          AParamsTypeList := AParamsTypeList + ', ' + ReadStr;
+      end;
+      itResultType:
+        AResultType := ReadStr;
+    end;
+  end;
+
+  // не смогли распасить или имя метода отсутствует, значит оставляем как есть
+  if (NextIdentifierType = itUnknown) or (AMethodName = '') then
+  begin
+    Result := AName;
+    Exit;
+  end;
+
+  Result := '[' + AUnitName + '] ';
+  if AClassName <> '' then
+    Result := Result + AClassName + '.';
+  Result := Result + AMethodName;
+  if AParamsTypeList <> '' then
+    Result := Result + '(' + AParamsTypeList + ')';
+  if AResultType <> '' then
+    Result := Result + ': ' + AResultType;
+end;
+
 destructor TDwarfDebugInfo.Destroy;
 begin
   FCoffStrings.Free;
@@ -424,21 +626,22 @@ begin
     if FPeImage.SectionAtIndex(FCoffList.List[I].Section - 1, ASection) then
       ACoffFunction.FuncAddrVA := FPeImage.RvaToVa(FCoffList.List[I].Value + ASection.VirtualAddress)
     else
-      ACoffFunction.FuncAddrVA := 0;
-    ACoffFunction.DisplayName := string(PAnsiChar(@Buff[0]));
-    ACoffFunction.Executable := ASection.Characteristics and ExecutableCode = ExecutableCode;
+      // если секции нет, то и работать с таким символом не получится
+      Continue;
 
-    if ACoffFunction.FuncAddrVA <> 0 then
-    begin
-      SymbolData.AddrVA := ACoffFunction.FuncAddrVA;
-      if ACoffFunction.Executable then
-        SymbolData.DataType := sdtCoffFunction
-      else
-        SymbolData.DataType := sdtCoffData;
-      SymbolData.Binary.ModuleIndex := FPeImage.ModuleIndex;
-      SymbolData.Binary.ListIndex := FCoffStrings.Count;
-      SymbolStorage.Add(SymbolData);
-    end;
+    ACoffFunction.Executable := ASection.Characteristics and ExecutableCode = ExecutableCode;
+    ACoffFunction.DisplayName := string(PAnsiChar(@Buff[0]));
+    if NeedDemangleName then
+      ACoffFunction.DisplayName := DemangleName(ACoffFunction.DisplayName, ACoffFunction.Executable);
+
+    SymbolData.AddrVA := ACoffFunction.FuncAddrVA;
+    if ACoffFunction.Executable then
+      SymbolData.DataType := sdtCoffFunction
+    else
+      SymbolData.DataType := sdtCoffData;
+    SymbolData.Binary.ModuleIndex := FPeImage.ModuleIndex;
+    SymbolData.Binary.ListIndex := FCoffStrings.Count;
+    SymbolStorage.Add(SymbolData);
 
     FCoffStrings.Add(ACoffFunction);
   end;

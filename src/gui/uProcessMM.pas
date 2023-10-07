@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.29
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,6 +38,7 @@ uses
   RawScanner.Types,
   RawScanner.Wow64,
   RawScanner.ModulesData,
+  RawScanner.Logger,
 
   uDisplayUtils,
   uIPC,
@@ -189,7 +190,6 @@ type
     procedure acDumpRegionExecute(Sender: TObject);
     procedure acDumpRegionUpdate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure FormShow(Sender: TObject);
     procedure stMemoryMapNodeDblClick(Sender: TBaseVirtualTree;
       const HitInfo: THitInfo);
     procedure acFillMMListExecute(Sender: TObject);
@@ -206,6 +206,8 @@ type
     procedure acStringsExecute(Sender: TObject);
     procedure acOpenInExplorerUpdate(Sender: TObject);
     procedure acOpenInExplorerExecute(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -216,6 +218,7 @@ type
     {$IFDEF WIN32}
     IPCServer: TIPCServer;
     {$ENDIF}
+    DebugLog: TStringList;
     procedure AddShieldIconToMenu;
     procedure CalcNodeDataArraySize;
     procedure InternalOpenProcess(AMap: TMemoryMap;
@@ -223,8 +226,11 @@ type
     procedure FillTreeView;
     function Search(const Value: string): Boolean;
     function GetSelectedNodeData: PNodeData;
+    procedure ProcessFirstRun;
     procedure OnGetWow64Heaps(Value: THeap);
     procedure OnInitProgress(const Step: string; APecent: Integer);
+    procedure OnLog(ALevel: TLogLevel; AType: TLogType;
+      const FuncName, Description: string);
   public
     function Reconnect: Boolean;
   end;
@@ -350,7 +356,7 @@ procedure TdlgProcessMM.acDebugInfoExecute(Sender: TObject);
 begin
   dlgDbgInfo := TdlgDbgInfo.Create(nil);
   try
-    dlgDbgInfo.ShowDebugInfo;
+    dlgDbgInfo.ShowDebugInfo(DebugLog);
   finally
     dlgDbgInfo.Free;
   end;
@@ -493,11 +499,16 @@ end;
 procedure TdlgProcessMM.acQueryAddrExecute(Sender: TObject);
 var
   QueryAddr: Pointer;
+  SelectAddress: UInt64;
 begin
   QueryAddr := nil;
+  if Assigned(ActiveRegionProps) then
+    SelectAddress := ActiveRegionProps.GetSelectedAddr
+  else
+    SelectAddress := 0;
   dlgSelectAddress := TdlgSelectAddress.Create(nil);
   try
-    if dlgSelectAddress.ShowDlg(ctQuery) = mrOk then
+    if dlgSelectAddress.ShowDlg(ctQuery, SelectAddress) = mrOk then
       QueryAddr := Pointer(StrToInt64(dlgSelectAddress.edInt.Text));
   finally
     dlgSelectAddress.Free;
@@ -950,6 +961,13 @@ begin
   lvSummary.RootNodeCount := 9;
 end;
 
+procedure TdlgProcessMM.FormActivate(Sender: TObject);
+begin
+  {$IFDEF DEBUG}
+  ProcessFirstRun;
+  {$ENDIF}
+end;
+
 procedure TdlgProcessMM.FormCreate(Sender: TObject);
 begin
   {$IFDEF DEBUG}
@@ -981,11 +999,14 @@ begin
   FirstRun := True;
   FirstSelectProcess := True;
 
+  DebugLog := TStringList.Create;
+
   DebugInitialHeapSize := GetMemAlloc;
 end;
 
 procedure TdlgProcessMM.FormDestroy(Sender: TObject);
 begin
+  DebugLog.Free;
   {$IFDEF WIN32}
   IPCServer.Free;
   {$ENDIF}
@@ -1044,9 +1065,9 @@ end;
 
 procedure TdlgProcessMM.FormShow(Sender: TObject);
 begin
-  if FirstRun then
-    acSelectProcess.Execute;
-  FirstRun := False;
+  {$IFNDEF DEBUG}
+  ProcessFirstRun;
+  {$ENDIF}
 end;
 
 function TdlgProcessMM.GetSelectedNodeData: PNodeData;
@@ -1079,6 +1100,7 @@ begin
       Wow64Support.DisableRedirection;
       try
         AMap.DebugMapData.LoadLines := Settings.LoadLines;
+        TDwarfDebugInfo.NeedDemangleName := Settings.DemangleNames;
         Stopwatch.Start;
         // Сначала должно отработать ядро MemoryMap для получения данных по процессу
         AMap.InitFromProcess(PID, ProcessName);
@@ -1089,6 +1111,7 @@ begin
         TRawPEImage.DisableLoadStrings := not Settings.LoadStrings;
         TRawPEImage.LoadStringLength := Settings.StringMinLengh;
         // И только после этого можно запускать на выполнение RawScannerCore
+        RawScannerLogger.OnLog := OnLog;
         RawScannerCore.InitFromProcess(PID);
         // Последним идет подсистема плагинов
         PluginManager.OpenProcess(PID);
@@ -1192,6 +1215,49 @@ begin
   dlgProgress.lblProgress.Caption := Step;
   dlgProgress.ProgressBar.Position := APecent;
   Application.ProcessMessages;
+end;
+
+procedure TdlgProcessMM.OnLog(ALevel: TLogLevel; AType: TLogType;
+  const FuncName, Description: string);
+
+  function LogStr: string;
+  begin
+    if FuncName = EmptyStr then
+      Result := Description
+    else
+      Result := FuncName + ': ' + Description;
+    case ALevel of
+      llCore: Result := 'Core: ' + Result;
+      llContext: Result := 'Context: ' + Result;
+      llPE: Result := 'PE: ' + Result;
+      llLoader: Result := 'Loader: ' + Result;
+      llApiSet: Result := 'ApiSet: ' + Result;
+      llDisasm: Result := 'Disasm: ' + Result;
+      llWow64: Result := 'Wow64: ' + Result;
+      llAnalizer: Result := 'Analizer: ' + Result;
+    end;
+  end;
+
+  procedure Add(const AType, AData: string);
+  begin
+    DebugLog.Add(AType + AData);
+  end;
+
+begin
+  case AType of
+    ltNotify:   Add('', LogStr);
+    ltInfo:     Add('[.]        ', LogStr);
+    ltWarning:  Add('[+] WARN:  ', LogStr);
+    ltError:    Add('[-] ERR:   ', LogStr);
+    ltFatal:    Add('[-] FATAL: ', LogStr);
+  end;
+end;
+
+procedure TdlgProcessMM.ProcessFirstRun;
+begin
+  if FirstRun then
+    acSelectProcess.Execute;
+  FirstRun := False;
 end;
 
 function TdlgProcessMM.Reconnect: Boolean;

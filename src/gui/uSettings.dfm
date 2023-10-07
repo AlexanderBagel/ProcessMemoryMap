@@ -71,7 +71,7 @@ object dlgSettings: TdlgSettings
     Top = 8
     Width = 306
     Height = 319
-    ActivePage = TabSheet3
+    ActivePage = TabSheet1
     Style = tsButtons
     TabOrder = 4
     object TabSheet1: TTabSheet
@@ -116,6 +116,14 @@ object dlgSettings: TdlgSettings
         Caption = 'Suspend process before scan'
         TabOrder = 4
       end
+      object cbShowChildFormsOnTaskBar: TCheckBox
+        Left = 3
+        Top = 119
+        Width = 246
+        Height = 17
+        Caption = 'Show Child Forms on TaskBar'
+        TabOrder = 5
+      end
     end
     object TabSheet2: TTabSheet
       Caption = 'TabSheet2'
@@ -123,10 +131,20 @@ object dlgSettings: TdlgSettings
       object cbLoadLineSymbols: TCheckBox
         Left = 3
         Top = 3
-        Width = 261
+        Width = 278
         Height = 17
-        Caption = 'Load Line Information from MAP file (if present)'
+        Caption = 'Load Line Information from MAP/DWARF (if present)'
         TabOrder = 0
+      end
+      object cbDemangleNames: TCheckBox
+        Left = 3
+        Top = 26
+        Width = 254
+        Height = 17
+        Caption = 'Demangle COFF/DWARF names'
+        Checked = True
+        State = cbChecked
+        TabOrder = 1
       end
     end
     object TabSheet3: TTabSheet

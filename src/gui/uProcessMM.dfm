@@ -15,6 +15,7 @@ object dlgProcessMM: TdlgProcessMM
   OldCreateOrder = False
   PopupMenu = pmGui
   Position = poScreenCenter
+  OnActivate = FormActivate
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress

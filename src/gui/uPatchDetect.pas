@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.28
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,7 +38,8 @@ uses
   RawScanner.ModulesData,
   RawScanner.Utils,
 
-  ScaledCtrls;
+  ScaledCtrls,
+  uBaseForm;
 
 type
   TCalculateHookData = record
@@ -51,7 +52,7 @@ type
     DumpStrings: TStringList;
   end;
 
-  TdlgPatches = class(TForm)
+  TdlgPatches = class(TBaseAppForm)
     edLog: TRichEdit;
     mnuPopup: TPopupMenu;
     mnuGotoAddress: TMenuItem;

@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка экспорта функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.28
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -30,7 +30,9 @@ uses
   MemoryMap.Utils,
   MemoryMap.DebugMapData,
 
-  RawScanner.ModulesData;
+  RawScanner.ModulesData,
+
+  uBaseForm;
 
 type
   TExportStatus = (esNormal, esForvarded, esRebased,
@@ -46,7 +48,7 @@ type
     SearchFunctionName: string;
   end;
 
-  TdlgExportList = class(TForm)
+  TdlgExportList = class(TBaseAppForm)
     lvExports: TVirtualStringTree;
     pmCopy: TPopupMenu;
     mnuCopyAddress: TMenuItem;
@@ -325,6 +327,7 @@ begin
     esNoExecutable: ItemColor := $E4C4CF;
     esInvalid: ItemColor := $B092EC;
     esDebug: ItemColor := $CCEDDF;
+    esCOFF: ItemColor := $DCF3E9;
   else
     ItemColor := clWhite;
   end;
@@ -340,7 +343,7 @@ begin
   TryStrToInt64('$' + List[E.Current^.Index].Address, Address);
   dlgRegionProps := TdlgRegionProps.Create(Application);
   dlgRegionProps.ShowPropertyAtAddr(Pointer(Address),
-    List[E.Current^.Index].Status in [esNormal, esDebug]);
+    List[E.Current^.Index].Status in [esNormal, esDebug, esCOFF]);
 end;
 
 procedure TdlgExportList.lvExportsGetText(Sender: TBaseVirtualTree;

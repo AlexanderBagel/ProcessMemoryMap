@@ -4,7 +4,7 @@
 //  * Unit Name : CallStackTraceUtils
 //  * Purpose   : Реализация дампа текущего стека вызовов
 //  * Author    : Александр (Rouse_) Багель
-//  * Version   : 1.00
+//  * Version   : 1.01
 //  ****************************************************************************
 //
 
@@ -21,32 +21,16 @@ uses
   MemoryMap.DebugMapData,
   MemoryMap.Utils;
 
-  function GetCallStack(BaseAddr: NativeUInt = $400000): TStringList;
+  function GetCallStack(FramesCount: Integer = 128): TStringList;
 
 implementation
 
-type
-  SYMBOL_INFO = packed record
-    SizeOfStruct: ULONG;
-    TypeIndex: ULONG;
-    Reserved: array[0..1] of ULONG64;
-    Index: ULONG;
-    Size: ULONG;
-    ModBase: ULONG64;
-    Flags: ULONG;
-    Value: ULONG64;
-    Address: ULONG64;
-    Register: ULONG;
-    Scope: ULONG;
-    Tag: ULONG;
-    NameLen: ULONG;
-    MaxNameLen: ULONG;
-    Name: array[0..0] of AnsiChar;
-  end;
-  PSymbolInfo = ^SYMBOL_INFO;
-
   function RtlCaptureStackBackTrace(FramesToSkip, FramesToCapture: ULONG;
     BackTrace: PPVOID; BackTraceHash: PULONG): USHORT; stdcall; external kernel32;
+
+  function EnumProcessModulesEx(hProcess: THandle; lphModule: PHandle;
+    cb: DWORD; var lpcbNeeded: DWORD; dwFilterFlag: DWORD): BOOL; stdcall;
+    external 'psapi.dll';
 
 function GetBaseAddr(AAddress: NativeUInt): NativeUInt;
 var
@@ -102,23 +86,51 @@ begin
   end;
 end;
 
-function GetCallStack(BaseAddr: NativeUInt): TStringList;
+procedure InitMap(Map: TDebugMap);
+const
+  LIST_MODULES_ALL = 3;
+var
+  Buff: array of THandle;
+  Needed: DWORD;
+  I: Integer;
+  FileNameBuff: array[0..MAX_PATH] of Char;
+  FileName: string;
+begin
+  EnumProcessModulesEx(GetCurrentProcess, nil, 0, Needed, LIST_MODULES_ALL);
+  SetLength(Buff, Needed shr 2);
+  if EnumProcessModulesEx(GetCurrentProcess, @Buff[0], Needed, Needed, LIST_MODULES_ALL) then
+  begin
+    for I := 0 to Integer(Needed) - 1 do
+      if Buff[I] <> 0 then
+      begin
+        FillChar(FileNameBuff, MAX_PATH, 0);
+        GetModuleFileNameEx(GetCurrentProcess, Buff[I], @FileNameBuff[0], MAX_PATH);
+        FileName := string(PChar(@FileNameBuff[0]));
+        if FileExists(ChangeFileExt(FileName, '.map')) then
+          Map.Init(Buff[I], FileName);
+      end;
+  end;
+end;
+
+function GetCallStack(FramesCount: Integer): TStringList;
 var
   Map: TDebugMap;
   Symbols: TSymbols;
-  Stack: array[0..127] of NativeUInt;
+  Stack: array of NativeUInt;
   I: Integer;
 begin
   Result := TStringList.Create;
   try
+    if FramesCount <= 0 then
+      Exit;
     Map := TDebugMap.Create;
     try
       Map.LoadLines := True;
-      if FileExists(ChangeFileExt(ParamStr(0), '.map')) then
-        Map.Init(BaseAddr, ParamStr(0));
+      InitMap(Map);
       Symbols := TSymbols.Create(GetCurrentProcess);
       try
-        for I := 1 to RtlCaptureStackBackTrace(0, 127, @Stack, nil) - 1 do
+        SetLength(Stack, FramesCount);
+        for I := 1 to RtlCaptureStackBackTrace(0, FramesCount, @Stack[0], nil) - 1 do
           Result.Add(GetDescriptionAtAddr(Stack[I], Symbols, Map));
       finally
         Symbols.Free;

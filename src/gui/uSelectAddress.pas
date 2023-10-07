@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectAddress.pas
 //  * Purpose   : Диалог для выбора адреса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016.
-//  * Version   : 1.0.1
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
+//  * Version   : 1.4.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,11 +22,11 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls;
+  Vcl.StdCtrls, uBaseForm;
 
 type
   TCaptionType = (ctDump, ctHighLight, ctQuery);
-  TdlgSelectAddress = class(TForm)
+  TdlgSelectAddress = class(TBaseAppForm)
     Label1: TLabel;
     Label2: TLabel;
     edInt: TEdit;
@@ -43,7 +43,7 @@ type
   private
     InChange: Boolean;
   public
-    function ShowDlg(CaptionType: TCaptionType): TModalResult;
+    function ShowDlg(CaptionType: TCaptionType; ASelectAddress: UInt64 = 0): TModalResult;
   end;
 
 var
@@ -73,8 +73,10 @@ end;
 
 procedure TdlgSelectAddress.edHexChange(Sender: TObject);
 var
-  I: Int64;
   TmpValue: string;
+  Index: Integer;
+  Valid: Boolean;
+  CalculatedAddr, LeftVal, RightVal: Int64;
 begin
   if InChange then Exit;
   InChange := True;
@@ -86,11 +88,46 @@ begin
       btnOk.Enabled := True;
       Exit;
     end;
-    if HexValueToInt64(TmpValue, I) then
+
+    CalculatedAddr := 0;
+    TmpValue := StringReplace(TmpValue, ' ', '', [rfReplaceAll]);
+
+    Valid := HexValueToInt64(TmpValue, LeftVal);
+    if Valid then
+      CalculatedAddr := LeftVal
+    else
+    begin
+
+      // минимальный набор адресной арифметики для быстрого перехода по оффсету
+
+      Index := Pos('+', TmpValue);
+      if Index > 0 then
+      begin
+        Valid :=
+          HexValueToInt64(Copy(TmpValue, 1, Index - 1), LeftVal) and
+          HexValueToInt64(Copy(TmpValue, Index + 1, Length(TmpValue)), RightVal);
+        CalculatedAddr := LeftVal + RightVal;
+      end
+      else
+      begin
+        Index := Pos('-', TmpValue);
+        if Index > 0 then
+        begin
+          Valid :=
+            HexValueToInt64(Copy(TmpValue, 1, Index - 1), LeftVal) and
+            HexValueToInt64(Copy(TmpValue, Index + 1, Length(TmpValue)), RightVal);
+          CalculatedAddr := LeftVal - RightVal;
+        end;
+      end;
+    end;
+
+    if Valid then
       lblHex.Font.Color := clWindowText
     else
       lblHex.Font.Color := clRed;
-    edInt.Text := IntToStr(I);
+
+    edInt.Text := IntToStr(CalculatedAddr);
+
   finally
     InChange := False;
   end;
@@ -131,10 +168,21 @@ begin
   end;
 end;
 
-function TdlgSelectAddress.ShowDlg(CaptionType: TCaptionType): TModalResult;
+function TdlgSelectAddress.ShowDlg(CaptionType: TCaptionType;
+  ASelectAddress: UInt64): TModalResult;
 var
   Offset: Integer;
 begin
+  if ASelectAddress <> 0 then
+  begin
+    InChange := True;
+    try
+      edHex.Text := TrimZeros(IntToHex(ASelectAddress, 16));
+      edInt.Text := IntToStr(ASelectAddress);
+    finally
+      InChange := False;
+    end;
+  end;
   if CaptionType = ctHighLight then
     Caption := 'Process Memory Map - HighLight Address';
   if CaptionType = ctDump then
