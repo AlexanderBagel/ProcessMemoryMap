@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.29
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -39,6 +39,8 @@ uses
   RawScanner.ModulesData,
   RawScanner.SymbolStorage,
   RawScanner.Disassembler,
+  RawScanner.CoffDwarf,
+  MemoryMap.DebugMapData,
   distorm,
   mnemonics;
 
@@ -96,7 +98,8 @@ implementation
 
 uses
   uPluginManager,
-  RawScanner.ActivationContext;
+  RawScanner.ActivationContext,
+  uSettings;
 
 // Добавить гиперссылки
 // {\field{\*\fldinst HYPERLINK "http://www.microsoft.com"}{\fldrslt Microsoft}}
@@ -318,11 +321,15 @@ begin
   Result := Result + StringOfChar(' ', (14 - Len) * 3);
 end;
 
+var
+  LastLineIsEmpty: Boolean = False;
+
 procedure AddString(var OutValue: string; const NewString, SubComment: string); overload;
 var
   Line: string;
   sLineBreakOffset, SubCommentOffset: Integer;
 begin
+  LastLineIsEmpty := False;
   if SubComment = EmptyStr then
     OutValue := OutValue + NewString + sLineBreak
   else
@@ -330,12 +337,12 @@ begin
     sLineBreakOffset := Pos(#13, NewString);
     if sLineBreakOffset = 0 then
     begin
-      SubCommentOffset := 106 - Length(NewString);
+      SubCommentOffset := 74 - Length(NewString);
       Line := NewString + StringOfChar(' ', SubCommentOffset) + ' // ' + SubComment;
     end
     else
     begin
-      SubCommentOffset := 107 - sLineBreakOffset;
+      SubCommentOffset := 75 - sLineBreakOffset;
       Line := StuffString(NewString, sLineBreakOffset, 0,
         StringOfChar(' ', SubCommentOffset) + ' // ' + SubComment);
     end;
@@ -346,6 +353,29 @@ end;
 procedure AddString(var OutValue: string; const NewString: string); overload;
 begin
   AddString(OutValue, NewString, EmptyStr);
+end;
+
+procedure AddBlockComment(AddrVA: ULONG_PTR64; var OutValue: string; const NewString: string);
+var
+  AddrVAStr: string;
+begin
+  AddrVAStr := IntToHex(AddrVA, 8) + ' ';
+  if not LastLineIsEmpty then
+    AddString(OutValue, AddrVAStr);
+  AddString(OutValue, AddrVAStr + NewString);
+  AddString(OutValue, AddrVAStr);
+  LastLineIsEmpty := True;
+end;
+
+procedure AddAlignMarker(AddrVA: ULONG_PTR64; var OutValue: string; AlignValue: Byte);
+var
+  AddrVAStr: string;
+begin
+  AddrVAStr := IntToHex(AddrVA, 8) + ' ';
+  AddString(OutValue, AddrVAStr + '; ' + StringOfChar('-', 75));
+  AddString(OutValue, AddrVAStr + StringOfChar(' ', 44) + 'align 0x' + IntToHex(AlignValue, 1));
+  AddString(OutValue, AddrVAStr);
+  LastLineIsEmpty := True;
 end;
 
 var
@@ -3266,6 +3296,9 @@ var
 
 var
   DescriptorData: TDescriptorData;
+  LineData: TLineData;
+  DwarfLinesUnit: TDwarfLinesUnit;
+  DebugMapItem: TDebugMapItem;
 begin
   case ASymbol.DataType of
     sdtPluginDescriptor:
@@ -3273,6 +3306,21 @@ begin
       if PluginManager.GetGetDescriptorData(ASymbol.Plugin.PluginHandle,
         ASymbol.Plugin.DescriptorHandle, DescriptorData) then
         Result := DescriptorData.Caption;
+      Exit;
+    end;
+    sdtDwarfLine:
+    begin
+      Module := RawScannerCore.Modules.Items[ASymbol.Dwarf.ModuleIndex];
+      DwarfLinesUnit := Module.DwarfDebugInfo.Units[ASymbol.Dwarf.UnitIndex];
+      LineData := DwarfLinesUnit.Lines[ASymbol.Dwarf.LineIndex];
+      Result := Trim(DwarfLinesUnit.GetFilePath(LineData.FileId) +
+        ' (' + IntToStr(LineData.Line) + ')');
+      Exit;
+    end;
+    sdtDebugMapFunction, sdtDebugMapData:
+    begin
+      DebugMapItem := MemoryMapCore.DebugMapData.Items[ASymbol.Binary.ListIndex];
+      Result := DebugMapItem.ModuleName + '!' + DebugMapItem.FunctionName;
       Exit;
     end;
   end;
@@ -3320,7 +3368,7 @@ begin
     sdtTlsCallback32, sdtTlsCallback64:
       Result := Format('TLS Callback Entry [%d]', [Index]);
     sdtCoffFunction, sdtCoffData:
-      Result := Module.DwarfDebugInfo.CoffStrings[Index].DisplayName;
+      Result := Module.CoffDebugInfo.CoffStrings[Index].DisplayName;
     sdtExportDir:
       Result := 'IMAGE_EXPORT_DIRECTORY';
     sdtImportDescriptor:
@@ -3522,14 +3570,14 @@ begin
         DumpTables(OutString, Address, ULONG64(MBI.AllocationBase),
           ptrData, DataList, RawBuff, Cursor);
       end;
-      sdtExport, sdtEntryPoint:
+      sdtExport, sdtEntryPoint, sdtCoffFunction,
+      sdtCoffData, sdtDwarfLine, sdtDebugMapFunction, sdtDebugMapData:
       begin
         FuncName := GetSymbolDescription(ptrData);
         if OutString = EmptyStr then
-          AddString(OutString, MemoryDumpHeader)
-        else
-          FuncName := FuncName + ' ' + StringOfChar('-', 105 - Length(FuncName));
-        AddString(OutString, FuncName);
+          AddString(OutString, MemoryDumpHeader);
+        AddBlockComment(ULONG_PTR(Address) + Cursor, OutString, FuncName);
+
         // имя экспортируемой функции или точки входа просто заменяет заголовок
         // поэтому нужно выставить флаг о том что заголовок уже добавлен
         SkipHeader := True;
@@ -3620,7 +3668,7 @@ end;
 function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
   Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt): string;
 const
-  DelimiterSet = [itNop, itInt, itRet, itUndefined, itPrivileged];
+  DelimiterSet = [itInt, itRet, itUndefined, itPrivileged];
 
   function GetCallHint(AddrVa: ULONG_PTR): string;
   var
@@ -3633,28 +3681,23 @@ const
     Result := EmptyStr;
     if AddrVa <> 0 then
     begin
-      // получение данных из MAP/PDB
-      Result := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(ULONG_PTR(AddrVa));
-      if Result = EmptyStr then
+      // получение данных из символов экспорта
+      if SymbolStorage.GetExportAtAddr(ULONG_PTR(AddrVa), stAll, ExpData) then
+        Result := GetSymbolDescription(ExpData)
+      else
+      // в противном случае просто вывод имени файла на который идет ссылка
       begin
-        // получение данных из символов экспорта
-        if SymbolStorage.GetExportAtAddr(ULONG_PTR(AddrVa), stAll, ExpData) then
-          Result := GetSymbolDescription(ExpData)
-        else
-        // в противном случае просто вывод имени файла на который идет ссылка
+        dwLength := SizeOf(TMemoryBasicInformation);
+        if VirtualQueryEx(Process,
+           Pointer(AddrVa), MBI, dwLength) <> dwLength then Exit;
+        if AllocationBase <> MBI.AllocationBase then
         begin
-          dwLength := SizeOf(TMemoryBasicInformation);
-          if VirtualQueryEx(Process,
-             Pointer(AddrVa), MBI, dwLength) <> dwLength then Exit;
-          if AllocationBase <> MBI.AllocationBase then
-          begin
-            if not CheckPEImage(Process, MBI.AllocationBase) then Exit;
-            if GetMappedFileName(Process, MBI.AllocationBase,
-              @OwnerName[0], MAX_PATH) = 0 then Exit;
-            Path := NormalizePath(string(OwnerName));
-            Result := ExtractFileName(Path) + '+' +
-              IntToHex(ULONG_PTR(AddrVa) - ULONG_PTR(MBI.AllocationBase), 1);
-          end;
+          if not CheckPEImage(Process, MBI.AllocationBase) then Exit;
+          if GetMappedFileName(Process, MBI.AllocationBase,
+            @OwnerName[0], MAX_PATH) = 0 then Exit;
+          Path := NormalizePath(string(OwnerName));
+          Result := ExtractFileName(Path) + '+' +
+            IntToHex(ULONG_PTR(AddrVa) - ULONG_PTR(MBI.AllocationBase), 1);
         end;
       end;
 
@@ -3664,18 +3707,33 @@ const
     end;
   end;
 
+  function GetAlignSize(const inst: TInstruction): Byte;
+  var
+    I: Byte;
+  begin
+    Result := 0;
+    for I in [$20, $10, 8] do
+      if (inst.AddrVa + inst.OpcodesLen) mod I = 0 then
+      begin
+        Result := I;
+        Break;
+      end;
+  end;
+
 var
   Disassembler: TDisassembler;
   inst: TInstructionArray;
   LastInsruction: TInstructionType;
-  I, LineNumber: Integer;
-  HintStr, OffsetStr, Line: string;
+  I, LineNumber, NexIndex: Integer;
+  HintStr, OffsetStr, RipOffsetStr, Line, CloseStr: string;
   ExpData: TSymbolData;
+  AAlignSize: Byte;
+  LabelList: TDictionary<ULONG_PTR64, string>;
 begin
   Disassembler := TDisassembler.Create(Process, ULONG64(Address),
     nSize, Is64);
   try
-    inst := Disassembler.DecodeBuff(@RawBuff[0], dmFull);
+    inst := Disassembler.DecodeBuff(@RawBuff[0], dmFull, Settings.ShowAligns);
   finally
     Disassembler.Free;
   end;
@@ -3683,94 +3741,173 @@ begin
   AddString(Result, DisasmDumpHeader);
   LastInsruction := itOther;
 
-  for I := 0 to Length(inst) - 1 do
-  begin
+  LabelList := TDictionary<ULONG_PTR64, string>.Create;
+  try
 
-    OffsetStr := EmptyStr;
-    HintStr := EmptyStr;
-
-    case inst[I].InstType of
-      itOther:
-        if LastInsruction in DelimiterSet then
-          AddString(Result, EmptyStr);
-      itNop:
-        if LastInsruction <> itNop then
-          AddString(Result, EmptyStr);
-      itInt:
-        if LastInsruction <> itInt then
-          AddString(Result, EmptyStr);
-      itUndefined, itPrivileged:
-        if LastInsruction <> itUndefined then
-          AddString(Result, EmptyStr);
-      itCall, itJmp, itMov, itPush:
+    for I := 0 to Length(inst) - 1 do
+      if inst[I].InstType = itJmp then
       begin
-        if LastInsruction in DelimiterSet then
-          AddString(Result, EmptyStr);
+        if LabelList.TryGetValue(inst[I].JmpAddrVa, Line) then
+          Line := Line + ', 0x' + IntToHex(inst[I].AddrVa, 8)
+        else
+          Line := '0x' + IntToHex(inst[I].AddrVa, 8);
+        LabelList.AddOrSetValue(inst[I].JmpAddrVa, Line);
+      end;
 
-        if inst[I].AddrType in [atRipOffset..atPointer8] then
+
+    for I := 0 to Length(inst) - 1 do
+    begin
+
+      // вывод адреса джампа
+      if LabelList.TryGetValue(inst[I].AddrVa, Line) then
+      begin
+        HintStr := 'loc_' + IntToHex(inst[I].AddrVa, 8) + ':';
+        AddBlockComment(inst[I].AddrVa, Result, HintStr +
+          StringOfChar(' ', 44 - Length(HintStr)) + '; jmp from: ' + Line);
+        LastInsruction := itOther;
+      end;
+
+      OffsetStr := EmptyStr;
+      HintStr := EmptyStr;
+
+      case inst[I].InstType of
+        itNop, itZero:
         begin
-          if inst[I].AddrType = atRipOffset then
-            OffsetStr := IntToHex(inst[I].RipAddrVA, 1)
-          else
-            OffsetStr := IntToHex(inst[I].JmpAddrVa, 1);
+          AAlignSize := GetAlignSize(inst[I]);
+          if Settings.ShowAligns and (AAlignSize <> 0) then
+          begin
+            AddAlignMarker(inst[I].AddrVa, Result, AAlignSize);
+            LastInsruction := inst[I].InstType;
+            Continue;
+          end;
+          if LastInsruction in DelimiterSet then
+            AddString(Result, EmptyStr);
+        end;
+        itInt:
+          if LastInsruction <> itInt then
+            AddString(Result, EmptyStr);
+        itUndefined, itPrivileged:
+          if LastInsruction <> itUndefined then
+            AddString(Result, EmptyStr);
+        itOther, itCall, itJmp, itMov, itPush, itPop:
+        begin
+          if LastInsruction in DelimiterSet then
+            AddString(Result, EmptyStr);
 
-          if Pos(OffsetStr, inst[I].DecodedString) = 0 then
-            OffsetStr := '-> 0x' + OffsetStr
-          else
-            OffsetStr := EmptyStr;
+          HintStr := '';
+          OffsetStr := '';
+          RipOffsetStr := '';
+
+          if inst[I].RipAddrVA <> 0 then
+          begin
+            RipOffsetStr :=
+              '-> 0x' +
+              IntToHex(inst[I].RipAddrVA, 1) +
+              GetCallHint(inst[I].RipAddrVA);
+          end;
+
+          if inst[I].JmpAddrVa <> 0 then
+          begin
+            OffsetStr := IntToHex(inst[I].JmpAddrVa, 1);
+            if Pos(OffsetStr, inst[I].DecodedString) = 0 then
+              OffsetStr := '-> 0x' + OffsetStr
+            else
+              OffsetStr := EmptyStr;
+            HintStr := GetCallHint(inst[I].JmpAddrVa);
+          end;
+
+          if inst[I].SegAddrVA <> 0 then
+            HintStr := GetTebHint(inst[I].SegAddrVA, Is64);
+
+          HintStr := OffsetStr + HintStr;
+          if RipOffsetStr <> '' then
+          begin
+            if HintStr = '' then
+              HintStr := RipOffsetStr
+            else
+              if inst[I].RipFirst then
+                HintStr := RipOffsetStr + ', ' + HintStr
+              else
+                HintStr := HintStr + ', ' + RipOffsetStr;
+          end;
         end;
 
-        case inst[I].AddrType of
-          atUnknown: ;
-          atSegment:
-            HintStr := GetTebHint(inst[I].JmpAddrVa, Is64);
-        else
-          if inst[I].AddrType = atRipOffset then
-            HintStr := GetCallHint(inst[I].RipAddrVA)
+      end;
+
+      LastInsruction := inst[I].InstType;
+
+      // детект начала функции
+      Line := '';
+      CloseStr := '';
+      for NexIndex := 0 to SymbolStorage.GetDataCountAtAddr(inst[I].AddrVa) - 1 do
+      begin
+        if SymbolStorage.GetExportAtAddr(inst[I].AddrVa, stExportExactMatch, ExpData, NexIndex) then
+        begin
+          if Line = '' then
+            Line := GetSymbolDescription(ExpData)
           else
-            HintStr := GetCallHint(inst[I].JmpAddrVa)
+          begin
+            if CloseStr = '' then
+            begin
+              CloseStr := ')';
+              Line := Line + ' (' + GetSymbolDescription(ExpData);
+              Continue;
+            end;
+            Line := Line + ', ' + GetSymbolDescription(ExpData);
+          end;
         end;
       end;
+      Line := Line + CloseStr;
+
+      if Line <> EmptyStr then
+      begin
+        AddBlockComment(inst[I].AddrVa, Result,
+          '; =============== S U B R O U T I N E =======================================');
+        AddBlockComment(inst[I].AddrVa, Result, Line);
+      end
+      else
+      begin
+        // детект линии через символы загруженные из DWARF
+        for NexIndex := 0 to SymbolStorage.GetDataCountAtAddr(inst[I].AddrVa) - 1 do
+          if SymbolStorage.GetDataAtAddr(inst[I].AddrVa, ExpData, NexIndex) and (ExpData.DataType = sdtDwarfLine) then
+          begin
+            Line := GetSymbolDescription(ExpData);
+            if Line <> '' then
+            begin
+              AddBlockComment(inst[I].AddrVa, Result, Line);
+              Break;
+            end;
+          end;
+
+        // Детект линий из МАР файла если они загружены
+        // Эта информация не помещается в SymbolStorage, т.к. нет смысла
+        // дублировать, ибо линии в МАР файле тоже работают через словарь
+        if MemoryMapCore.DebugMapData.LoadLines then
+        begin
+          LineNumber := MemoryMapCore.DebugMapData.GetLineNumberAtAddr(
+            inst[I].AddrVa, Line);
+          if LineNumber > 0 then
+          begin
+            Line := Format('%s (%d)', [Line, LineNumber]);
+            AddBlockComment(inst[I].AddrVa, Result, Line);
+          end;
+        end;
+      end;
+
+      AddString(Result,
+        Format('%s: %s %s %s', [
+          IntToHex(inst[I].AddrVa, 8),
+          AsmToHexStr(@inst[I].Opcodes[0], inst[I].OpcodesLen),
+          inst[I].DecodedString,
+          HintStr
+        ]));
 
     end;
-
-    LastInsruction := inst[I].InstType;
-
-    // детект начала функции
-    Line := MemoryMapCore.DebugMapData.GetDescriptionAtAddr(inst[I].AddrVa);
-    if Line = EmptyStr then
-      if SymbolStorage.GetExportAtAddr(inst[I].AddrVa, stExportExactMatch, ExpData) then
-        Line := GetSymbolDescription(ExpData);
-    if Line <> EmptyStr then
-    begin
-      if I > 0 then
-        Line := Line + ' ' + StringOfChar('-', 105 - Length(Line));
-      AddString(Result, Line);
-    end
-    else
-      // детект линии (при наличии МАР файла и подгруженых линий)
-      if MemoryMapCore.DebugMapData.LoadLines then
-      begin
-        LineNumber := MemoryMapCore.DebugMapData.GetLineNumberAtAddr(
-          inst[I].AddrVa, Line);
-        if LineNumber > 0 then
-        begin
-          Line := Format('%s (%d)', [Line, LineNumber]);
-          if I > 0 then
-            Line := Line + ' ' + StringOfChar('-', 105 - Length(Line));
-          AddString(Result, Line);
-        end;
-      end;
-
-    AddString(Result,
-      Format('%s: %s %s %s', [
-        IntToHex(inst[I].AddrVa, 8),
-        AsmToHexStr(@inst[I].Opcodes[0], inst[I].OpcodesLen),
-        inst[I].DecodedString,
-        OffsetStr + HintStr
-      ]));
-
+  finally
+    LabelList.Free;
   end;
+
+
 end;
 
 function GetTebHint(Value: ULONG; Is64: Boolean): string;

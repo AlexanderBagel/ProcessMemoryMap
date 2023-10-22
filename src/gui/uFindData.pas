@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для поиска данных в памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -251,7 +251,7 @@ begin
     if Result then
     begin
       dlgRegionProps := TdlgRegionProps.Create(Application);
-      dlgRegionProps.ShowPropertyAtAddr(Pointer(NativeInt(SearchPos) + I), False);
+      dlgRegionProps.ShowPropertyAtAddr(Pointer(NativeInt(SearchPos) + I));
       SearchPos := Pointer(NativeInt(SearchPos) + I + Length(SerchBuff));
       Exit;
     end

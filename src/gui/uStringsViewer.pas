@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка строк в удаленном процессе
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -192,7 +192,7 @@ begin
   Index := List.List[E.Current.Index];
   Address := RawScannerCore.Modules.Items[Index.Hi].Strings[Index.Lo].AddrVA;
   dlgRegionProps := TdlgRegionProps.Create(Application);
-  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address), False);
+  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address));
 end;
 
 procedure TdlgStringsViewer.lvStringsGetText(Sender: TBaseVirtualTree;

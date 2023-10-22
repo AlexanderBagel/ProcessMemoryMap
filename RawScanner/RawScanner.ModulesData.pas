@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.1.14
+//  * Version   : 1.1.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,7 +35,8 @@ uses
   {$IFNDEF DISABLE_LOGGER}
   RawScanner.Logger,
   {$ENDIF}
-  RawScanner.Utils;
+  RawScanner.Utils,
+  RawScanner.CoffDwarf;
 
   // https://wasm.in/blogs/ot-zelenogo-k-krasnomu-glava-2-format-ispolnjaemogo-fajla-os-windows-pe32-i-pe64-sposoby-zarazhenija-ispolnjaemyx-fajlov.390/
 
@@ -121,52 +122,24 @@ type
     DisplayName: string; // содержит реальное имя секции с учетом отладочных COFF символов
   end;
 
-  TDebugCoffSymbol = packed record
-    Name: DWORD;
-    StrOfs: DWORD;
-    Value: DWORD;
-    Section: Word;
-    Empty: Word;
-    Typ: Byte;
-    Aux: Byte;
-  end;
-
-  TCoffFunction = record
-    FuncAddrVA: ULONG_PTR64;
-    DisplayName: string;
-    Executable: Boolean;
-  end;
-
   TRawPEImage = class;
 
-  TDwarfDebugInfo = class
-  public
-    // дабы не прокидывать настройку от GUI до внутреннего класса
-    // она будет висеть глобальным классовым флагом, так проще
-    class var NeedDemangleName: Boolean;
+  TPeImageGate = class(TAbstractImageGate)
   private
-    FPeImage: TRawPEImage;
-    FPresent: Boolean;
-    FAbbrevIndex, FArangesIndex, FInfoIndex, FLineIndex: Integer;
-    FCoffList: TList<TDebugCoffSymbol>;
-    FCoffStrings: TList<TCoffFunction>;
-    function DemangleName(const AName: string; Executable: Boolean): string;
-    procedure LoadCoff(AStream: TStream);
-    procedure LoadLines(AStream: TStream);
-    function ReadBuff(AStream: TStream; var Buff; ASize: Integer): Boolean;
-  protected
-    class constructor Create;
+    FImage: TRawPEImage;
+    function GetSectionParams(const ASection: TImageSectionHeaderEx): TSectionParams;
   public
     constructor Create(AImage: TRawPEImage);
-    destructor Destroy; override;
-    function Load(AStream: TStream): Boolean;
-    property Present: Boolean read FPresent;
-    property CoffStrings: TList<TCoffFunction> read FCoffStrings;
+    function SectionAtIndex(AIndex: Integer; out ASection: TSectionParams): Boolean; override;
+    function SectionAtName(const AName: string; out ASection: TSectionParams): Boolean; override;
   end;
+
+  TDebugInfoType = (ditCoff, ditDwarf, ditPdb);
+  TDebugInfoTypes = set of TDebugInfoType;
 
   TRawPEImage = class
   public class var
-    // настройки загрзки строк глобально
+    // настройки загрузки строк глобально
     DisableLoadStrings: Boolean;
     LoadStringLength: Integer;
   private const
@@ -179,9 +152,12 @@ type
     end;
   strict private
     FBoundDir: TDirectoryData;
+    FCoffDebugInfo: TCoffDebugInfo;
+    FDebugData: TDebugInfoTypes;
     FDwarfDebugInfo: TDwarfDebugInfo;
     FIndex: Integer;
     FImageBase: ULONG_PTR64;
+    FImageGate: TPeImageGate;
     FImagePath: string;
     FImage64: Boolean;
     FImageName, FOriginalName: string;
@@ -216,6 +192,7 @@ type
       const LibName: string; var RedirectTo: string);
     function IsExportForvarded(RvaAddr: DWORD): Boolean;
     function IsExecutable(RvaAddr: DWORD): Boolean;
+    function LoadCoff(Raw: TStream): Boolean;
     function LoadDwarf(Raw: TStream): Boolean;
     procedure LoadFromImage;
     function LoadNtHeader(Raw: TStream): Boolean;
@@ -233,7 +210,7 @@ type
     procedure ProcessApiSetRedirect(const LibName: string;
       var ExportChunk: TExportChunk); overload;
   public
-    constructor Create(const ImagePath: string; ImageBase: ULONG_PTR64); overload;
+    constructor Create(const ImagePath: string; ImageBase: ULONG_PTR64 = 0); overload;
     constructor Create(const ModuleData: TModuleData; AModuleIndex: Integer); overload;
     destructor Destroy; override;
     function DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
@@ -251,7 +228,9 @@ type
     function VaToRaw(VaAddr: ULONG_PTR64): DWORD;
     function VaToRva(VaAddr: ULONG_PTR64): DWORD;
     property BoundDirectory: TDirectoryData read FBoundDir;
+    property CoffDebugInfo: TCoffDebugInfo read FCoffDebugInfo;
     property ComPlusILOnly: Boolean read  FILOnly;
+    property DebugData: TDebugInfoTypes read FDebugData;
     property DelayImportDirectory: TDirectoryData read FDelayDir;
     property DwarfDebugInfo: TDwarfDebugInfo read FDwarfDebugInfo;
     property EntryPoint: ULONG_PTR64 read FEntryPoint;
@@ -291,7 +270,8 @@ type
     destructor Destroy; override;
     function AddImage(const AModule: TModuleData): Integer;
     procedure Clear;
-    procedure GetExportFuncList(const ModuleName: string; Value: TStringList);
+    procedure GetExportFuncList(const ModuleName: string; Value: TStringList;
+      Executable: Boolean);
     function GetModule(AddrVa: ULONG_PTR64; CheckOwnership: Boolean = False): Integer; overload;
     function GetModule(const AModulePath: string): Integer; overload;
     function GetProcData(const LibraryName, FuncName: string; Is64: Boolean;
@@ -369,303 +349,6 @@ begin
     (Image.ImageBase + UInt64(Image.VirtualSizeOfImage) > CheckAddrVA);
 end;
 
-{ TDwarfDebugInfo }
-
-constructor TDwarfDebugInfo.Create(AImage: TRawPEImage);
-begin
-  FPeImage := AImage;
-  FCoffList := TList<TDebugCoffSymbol>.Create;
-  FCoffStrings := TList<TCoffFunction>.Create;
-end;
-
-class constructor TDwarfDebugInfo.Create;
-begin
-  NeedDemangleName := True;
-end;
-
-function TDwarfDebugInfo.DemangleName(const AName: string;
-  Executable: Boolean): string;
-const
-  indClassOperatorMethod = '_$__$$_$';
-  indClassMethod = '_$__$$_';
-  indMethod = '_$$_';
-  indClass = '$_$';
-  indResult = '$$';
-  indSeparator = '_';
-  indParam = '$';
-
-type
-  TIdentifierType = (itUnknown, itUnit, itClass, itMethod, itParamType, itResultType, itEnd);
-  TIdentifierTypes = set of TIdentifierType;
-
-var
-  pCursor, pMax: PChar;
-
-  function Check(const Ind: string): Boolean;
-  begin
-    if pCursor + Length(Ind) > pMax then
-      Result := False
-    else
-      Result := StrLComp(pCursor, @Ind[1], Length(Ind)) = 0;
-  end;
-
-  function ReadStr: string;
-  var
-    pStart: PChar;
-  begin
-    pStart := pCursor;
-    while (pCursor < pMax) and (pCursor^ <> indParam) do
-    begin
-      if pCursor^ = indSeparator then
-      begin
-        if Check(indMethod) or Check(indClassMethod) or Check(indClassOperatorMethod) then
-          Break;
-      end;
-      Inc(pCursor);
-    end;
-    SetLength(Result, pCursor - pStart);
-    if Result <> '' then
-      Move(pStart^, Result[1], Length(Result) * SizeOf(Char));
-  end;
-
-  function ReadIdentifierType(APrevios: TIdentifierType): TIdentifierType;
-  begin
-    if pCursor >= pMax then
-      Exit(itEnd);
-    Result := itUnknown;
-
-    if Check(indClassOperatorMethod) then
-    begin
-      if APrevios = itClass then
-      begin
-        Result := itMethod;
-        Inc(pCursor, Length(indClassOperatorMethod));
-      end
-      else
-        Result := itUnknown;
-      Exit;
-    end;
-
-    if Check(indClassMethod) then
-    begin
-      if APrevios = itClass then
-      begin
-        Result := itMethod;
-        Inc(pCursor, Length(indClassMethod));
-      end
-      else
-        Result := itUnknown;
-      Exit;
-    end;
-
-    if Check(indMethod) then
-    begin
-      if APrevios = itUnit then
-      begin
-        Result := itMethod;
-        Inc(pCursor, Length(indMethod));
-      end
-      else
-        Result := itUnknown;
-      Exit;
-    end;
-
-    if Check(indClass) then
-    begin
-      if APrevios = itUnit then
-      begin
-        Result := itClass;
-        Inc(pCursor, Length(indClass));
-      end
-      else
-        Result := itUnknown;
-      Exit;
-    end;
-
-    if Check(indResult) then
-    begin
-      if APrevios in [itMethod, itParamType] then
-      begin
-        Result := itResultType;
-        Inc(pCursor, Length(indResult));
-      end
-      else
-        Result := itUnknown;
-      Exit;
-    end;
-
-    if Check(indParam) then
-    begin
-      if APrevios in [itMethod, itParamType] then
-      begin
-        Result := itParamType;
-        Inc(pCursor, Length(indParam));
-      end
-      else
-        Result := itUnknown;
-      Exit;
-    end;
-
-  end;
-
-var
-  AUnitName, AClassName, AMethodName, AParamsTypeList, AResultType: string;
-  NextIdentifierType: TIdentifierType;
-begin
-  if AName = '' then
-  begin
-    Result := '';
-    Exit;
-  end;
-
-  if not Executable then
-  begin
-    Result := AName;
-    Exit;
-  end;
-
-  // системные функции
-  if AName[1] = '_' then
-  begin
-    Result := AName;
-    Exit;
-  end;
-
-  pCursor := @AName[1];
-  pMax := pCursor;
-  Inc(pMax, Length(AName));
-
-  AUnitName := ReadStr;
-  NextIdentifierType := itUnit;
-  while NextIdentifierType <> itEnd do
-  begin
-    NextIdentifierType := ReadIdentifierType(NextIdentifierType);
-    case NextIdentifierType of
-      itUnknown: Break;
-      itClass: AClassName := ReadStr;
-      itMethod: AMethodName := ReadStr;
-      itParamType:
-      begin
-        if AParamsTypeList = '' then
-          AParamsTypeList := ReadStr
-        else
-          AParamsTypeList := AParamsTypeList + ', ' + ReadStr;
-      end;
-      itResultType:
-        AResultType := ReadStr;
-    end;
-  end;
-
-  // не смогли распасить или имя метода отсутствует, значит оставляем как есть
-  if (NextIdentifierType = itUnknown) or (AMethodName = '') then
-  begin
-    Result := AName;
-    Exit;
-  end;
-
-  Result := '[' + AUnitName + '] ';
-  if AClassName <> '' then
-    Result := Result + AClassName + '.';
-  Result := Result + AMethodName;
-  if AParamsTypeList <> '' then
-    Result := Result + '(' + AParamsTypeList + ')';
-  if AResultType <> '' then
-    Result := Result + ': ' + AResultType;
-end;
-
-destructor TDwarfDebugInfo.Destroy;
-begin
-  FCoffStrings.Free;
-  FCoffList.Free;
-  inherited;
-end;
-
-function TDwarfDebugInfo.Load(AStream: TStream): Boolean;
-begin
-  Result := False;
-  FPeImage.SectionAtName('.debug_abbrev', FAbbrevIndex);
-  FPeImage.SectionAtName('.debug_aranges', FArangesIndex);
-  FPeImage.SectionAtName('.debug_info', FInfoIndex);
-  FPeImage.SectionAtName('.debug_line', FLineIndex);
-  LoadCoff(AStream);
-  LoadLines(AStream);
-end;
-
-procedure TDwarfDebugInfo.LoadCoff(AStream: TStream);
-var
-  I: Integer;
-  Buff: array [Byte] of AnsiChar;
-  ASection: TImageSectionHeaderEx;
-  StrStartPosition, StrEndPosition: Int64;
-  ACoffFunction: TCoffFunction;
-  SymbolData: TSymbolData;
-begin
-  FCoffList.Count := FPeImage.NtHeader.FileHeader.NumberOfSymbols;
-  AStream.Position := FPeImage.NtHeader.FileHeader.PointerToSymbolTable;
-  for I := 0 to FCoffList.Count - 1 do
-    AStream.ReadBuffer(FCoffList.List[I], SizeOf(TDebugCoffSymbol));
-  StrStartPosition := AStream.Position;
-  StrEndPosition := AStream.Size;
-  Buff[255] := #0;
-  for I := 0 to FCoffList.Count - 1 do
-  begin
-    // если у символа не указан номер секции, значит мы не можем рассчитать его адрес
-    // но тогда нам и имя его не нужно
-    if FCoffList.List[I].Section = 0 then
-      Continue;
-    if FCoffList.List[I].Name = 0 then
-    begin
-      AStream.Position := StrStartPosition + FCoffList.List[I].StrOfs;
-      AStream.ReadBuffer(Buff[0], Min(255, StrEndPosition - AStream.Position));
-    end
-    else
-    begin
-      Move(FCoffList.List[I].Name, Buff[0], 8);
-      Buff[9] := #0;
-    end;
-    if FPeImage.SectionAtIndex(FCoffList.List[I].Section - 1, ASection) then
-      ACoffFunction.FuncAddrVA := FPeImage.RvaToVa(FCoffList.List[I].Value + ASection.VirtualAddress)
-    else
-      // если секции нет, то и работать с таким символом не получится
-      Continue;
-
-    ACoffFunction.Executable := ASection.Characteristics and ExecutableCode = ExecutableCode;
-    ACoffFunction.DisplayName := string(PAnsiChar(@Buff[0]));
-    if NeedDemangleName then
-      ACoffFunction.DisplayName := DemangleName(ACoffFunction.DisplayName, ACoffFunction.Executable);
-
-    SymbolData.AddrVA := ACoffFunction.FuncAddrVA;
-    if ACoffFunction.Executable then
-      SymbolData.DataType := sdtCoffFunction
-    else
-      SymbolData.DataType := sdtCoffData;
-    SymbolData.Binary.ModuleIndex := FPeImage.ModuleIndex;
-    SymbolData.Binary.ListIndex := FCoffStrings.Count;
-    SymbolStorage.Add(SymbolData);
-
-    FCoffStrings.Add(ACoffFunction);
-  end;
-end;
-
-procedure TDwarfDebugInfo.LoadLines(AStream: TStream);
-var
-  ASection: TImageSectionHeaderEx;
-  UnitSize32: DWORD;
-//  UnitSize64: UInt64;
-begin
-  if FLineIndex < 0 then
-    Exit;
-  FPeImage.SectionAtIndex(FLineIndex, ASection);
-  AStream.Position := FPeImage.RvaToRaw(ASection.VirtualAddress);
-  ReadBuff(AStream, UnitSize32, SizeOf(UnitSize32));
-  {$MESSAGE 'Не закончено'}
-end;
-
-function TDwarfDebugInfo.ReadBuff(AStream: TStream; var Buff; ASize: Integer): Boolean;
-begin
-  Result := AStream.Read(Buff, ASize) = ASize;
-end;
-
 { TImportChunk }
 
 function TImportChunk.ToString: string;
@@ -691,6 +374,47 @@ begin
     Result := Result + Arrow + OriginalForvardedTo;
   if ForvardedTo <> EmptyStr then
     Result := Result + Arrow + ForvardedTo;
+end;
+
+{ TPeImageGate }
+
+constructor TPeImageGate.Create(AImage: TRawPEImage);
+begin
+  FImage := AImage;
+  ModuleIndex := AImage.ModuleIndex;
+end;
+
+function TPeImageGate.GetSectionParams(
+  const ASection: TImageSectionHeaderEx): TSectionParams;
+begin
+  Result.AddressVA := FImage.RvaToVa(ASection.VirtualAddress);
+  Result.AddressRaw := ASection.PointerToRawData;
+  Result.SizeOfRawData := ASection.SizeOfRawData;
+  Result.IsExecutable := ASection.Characteristics and ExecutableCode <> 0;
+end;
+
+function TPeImageGate.SectionAtIndex(AIndex: Integer;
+  out ASection: TSectionParams): Boolean;
+var
+  Section: TImageSectionHeaderEx;
+begin
+  Result := FImage.SectionAtIndex(AIndex, Section);
+  if Result then
+    ASection := GetSectionParams(Section);
+end;
+
+function TPeImageGate.SectionAtName(const AName: string;
+  out ASection: TSectionParams): Boolean;
+var
+  AIndex: Integer;
+  Section: TImageSectionHeaderEx;
+begin
+  Result := FImage.SectionAtName(AName, AIndex);
+  if Result then
+  begin
+    FImage.SectionAtIndex(AIndex, Section);
+    ASection := GetSectionParams(Section);
+  end;
 end;
 
 { TRawPEImage }
@@ -731,7 +455,9 @@ begin
   FEntryPoints := TList<TEntryPointChunk>.Create;
   FRelocatedImages := TList<TRawPEImage>.Create;
   FStrings := TList<TStringData>.Create;
-  FDwarfDebugInfo := TDwarfDebugInfo.Create(Self);
+  FImageGate := TPeImageGate.Create(Self);
+  FCoffDebugInfo := TCoffDebugInfo.Create(FImageGate);
+  FDwarfDebugInfo := TDwarfDebugInfo.Create(FImageGate);
   SymbolData.AddrVA := ImageBase;
   SymbolData.DataType := sdtInstance;
   SymbolData.Binary.ModuleIndex := ModuleIndex;
@@ -743,6 +469,8 @@ end;
 destructor TRawPEImage.Destroy;
 begin
   FDwarfDebugInfo.Free;
+  FCoffDebugInfo.Free;
+  FImageGate.Free;
   FStrings.Free;
   FRelocatedImages.Free;
   FEntryPoints.Free;
@@ -1009,6 +737,14 @@ begin
   end;
 end;
 
+function TRawPEImage.LoadCoff(Raw: TStream): Boolean;
+begin
+  Result := ditCoff in DebugData;
+  if Result then
+    Result := FCoffDebugInfo.Load(Raw, NtHeader.FileHeader.PointerToSymbolTable,
+      NtHeader.FileHeader.NumberOfSymbols);
+end;
+
 function TRawPEImage.LoadCor20Header(Raw: TStream): Boolean;
 const
   // Version flags for image.
@@ -1241,6 +977,8 @@ end;
 function TRawPEImage.LoadDwarf(Raw: TStream): Boolean;
 begin
   Result := FDwarfDebugInfo.Load(Raw);
+  if Result then
+    Include(FDebugData, ditDwarf);
 end;
 
 function TRawPEImage.LoadExport(Raw: TStream): Boolean;
@@ -1574,9 +1312,11 @@ begin
     // читаем привязаный импорт
     LoadBoundImport(Raw);
 
-    // если есть COFF debug, пробуем зачитать отладочную информацию в DWARF формате
-    if NtHeader.FileHeader.PointerToSymbolTable <> 0 then
-      LoadDwarf(Raw);
+    // если есть COFF debug, пробуем зачитать отладочную информацию
+    LoadCoff(Raw);
+
+    // ну и до кучи DWARF
+    LoadDwarf(Raw);
 
   finally
     Raw.Free;
@@ -1768,6 +1508,15 @@ begin
     FImage64 := True;
     Raw.ReadBuffer(FNtHeader.OptionalHeader, SizeOf(TImageOptionalHeader64));
   end;
+
+  // если база кода не указана, зачитываем её из заголовка
+  if ImageBase = 0 then
+    FImageBase := FNtHeader.OptionalHeader.ImageBase;
+
+  // если COFF в наличии, выставляем флаг
+  if NtHeader.FileHeader.PointerToSymbolTable <> 0 then
+    Include(FDebugData, ditCoff);
+
   Result := True;
 end;
 
@@ -2320,16 +2069,16 @@ begin
 end;
 
 procedure TRawModules.GetExportFuncList(const ModuleName: string;
-  Value: TStringList);
+  Value: TStringList; Executable: Boolean);
 var
   Index, I: Integer;
   CoffStrings: TList<TCoffFunction>;
 begin
   Index := GetModule(ModuleName);
   if Index < 0 then Exit;
-  CoffStrings := FItems[Index].DwarfDebugInfo.CoffStrings;
+  CoffStrings := FItems[Index].CoffDebugInfo.CoffStrings;
   for I := 0 to CoffStrings.Count - 1 do
-    if CoffStrings[I].Executable then
+    if CoffStrings[I].Executable = Executable then
       Value.AddObject(CoffStrings[I].DisplayName, Pointer(CoffStrings[I].FuncAddrVA));
 end;
 

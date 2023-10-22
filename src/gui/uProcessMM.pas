@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -25,13 +25,14 @@ uses
   Vcl.Menus, VirtualTrees, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.ImgList, Winapi.TlHelp32, Winapi.ShellAPI, Winapi.CommCtrl,
   Vcl.Clipbrd, System.Actions, Vcl.ActnList, Vcl.PlatformDefaultStyleActnCtrls,
-  Vcl.ActnMan, System.ImageList, System.Diagnostics,
+  Vcl.ActnMan, System.ImageList, System.Diagnostics, Generics.Collections,
 
   MemoryMap.Core,
   MemoryMap.RegionData,
   MemoryMap.Utils,
   MemoryMap.Threads,
   MemoryMap.Heaps,
+  MemoryMap.DebugMapData,
 
   RawScanner.Core,
   RawScanner.ApiSet,
@@ -39,6 +40,8 @@ uses
   RawScanner.Wow64,
   RawScanner.ModulesData,
   RawScanner.Logger,
+  RawScanner.CoffDwarf,
+  RawScanner.SymbolStorage,
 
   uDisplayUtils,
   uIPC,
@@ -225,6 +228,7 @@ type
       PID: DWORD; const ProcessName: string);
     procedure FillTreeView;
     function Search(const Value: string): Boolean;
+    procedure TransmitDebugMapToSymbols;
     function GetSelectedNodeData: PNodeData;
     procedure ProcessFirstRun;
     procedure OnGetWow64Heaps(Value: THeap);
@@ -515,7 +519,7 @@ begin
   end;
   if QueryAddr = nil then Exit;
   dlgRegionProps := TdlgRegionProps.Create(Application);
-  dlgRegionProps.ShowPropertyAtAddr(QueryAddr, False);
+  dlgRegionProps.ShowPropertyAtAddr(QueryAddr);
 end;
 
 procedure TdlgProcessMM.acRefreshExecute(Sender: TObject);
@@ -560,7 +564,7 @@ begin
   if Data <> nil then
   begin
     dlgRegionProps := TdlgRegionProps.Create(Application);
-    dlgRegionProps.ShowPropertyAtAddr(Pointer(Data^.Address), False);
+    dlgRegionProps.ShowPropertyAtAddr(Pointer(Data^.Address));
   end;
 end;
 
@@ -681,8 +685,7 @@ begin
         begin
           dlgRegionProps := TdlgRegionProps.Create(Application);
           dlgRegionProps.Position := poScreenCenter;
-          dlgRegionProps.ShowPropertyAtAddr(Pointer(AddrVA),
-            FindCmdLineSwitch('d', SwitchChars, True));
+          dlgRegionProps.ShowPropertyAtAddr(Pointer(AddrVA));
         end;
         Exit;
       end;
@@ -1100,7 +1103,7 @@ begin
       Wow64Support.DisableRedirection;
       try
         AMap.DebugMapData.LoadLines := Settings.LoadLines;
-        TDwarfDebugInfo.NeedDemangleName := Settings.DemangleNames;
+        RawScanner.CoffDwarf.NeedDemangleName := Settings.DemangleNames;
         Stopwatch.Start;
         // Сначала должно отработать ядро MemoryMap для получения данных по процессу
         AMap.InitFromProcess(PID, ProcessName);
@@ -1116,6 +1119,8 @@ begin
         RawScannerCore.InitFromProcess(PID);
         // Последним идет подсистема плагинов
         PluginManager.OpenProcess(PID);
+        // Теперь необходимо добавить отладочную информацию из DebugMap в отладочные символы
+        TransmitDebugMapToSymbols;
         // Отладочное время
         Stopwatch.Stop;
         DebugElapsedMilliseconds := Stopwatch.ElapsedMilliseconds;
@@ -1347,6 +1352,29 @@ procedure TdlgProcessMM.stMemoryMapNodeDblClick(Sender: TBaseVirtualTree;
 begin
   if not (vsHasChildren in HitInfo.HitNode^.States) then
     acRegionPropsExecute(nil);
+end;
+
+procedure TdlgProcessMM.TransmitDebugMapToSymbols;
+var
+  I: Integer;
+  Items: TList<TDebugMapItem>;
+  SymbolData: TSymbolData;
+begin
+  Items := MemoryMapCore.DebugMapData.Items;
+  if Items.Count = 0 then Exit;
+  for I := 0 to Items.Count - 1 do
+  begin
+    SymbolData.AddrVA := Items.List[I].Address;
+    if Items.List[I].Executable then
+      SymbolData.DataType := sdtDebugMapFunction
+    else
+      SymbolData.DataType := sdtDebugMapData;
+    SymbolData.Binary.ListIndex := I;
+    SymbolStorage.Add(SymbolData);
+  end;
+  // так как отладочные символы изменились, надо их обновить
+  // иначе никакого фокуса не получится
+  SymbolStorage.PrepareForWork;
 end;
 
 end.

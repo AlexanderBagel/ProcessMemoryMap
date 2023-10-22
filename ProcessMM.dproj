@@ -76,7 +76,7 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
         <SanitizedProjectName>ProcessMM</SanitizedProjectName>
-        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.4.30.577;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.4;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.4.31.595;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.4;Comments=</VerInfo_Keys>
         <Manifest_File>None</Manifest_File>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Icon_MainIcon>ProcessMM_Icon1.ico</Icon_MainIcon>
@@ -90,8 +90,8 @@
         <DCC_K>false</DCC_K>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_MinorVer>4</VerInfo_MinorVer>
-        <VerInfo_Release>30</VerInfo_Release>
-        <VerInfo_Build>577</VerInfo_Build>
+        <VerInfo_Release>31</VerInfo_Release>
+        <VerInfo_Build>595</VerInfo_Build>
         <DCC_MapFile>3</DCC_MapFile>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
         <VerInfo_PreRelease>true</VerInfo_PreRelease>
@@ -151,7 +151,7 @@ msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64
 brcc32 $(PROJECTDIR)\win64release.rc
 $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_DebugInformation>2</DCC_DebugInformation>
-        <Debugger_RunParams>6968</Debugger_RunParams>
+        <Debugger_RunParams>69689</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
@@ -176,18 +176,16 @@ $(PreBuildEvent)]]></PreBuildEvent>
     <PropertyGroup Condition="'$(Cfg_3_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
-        <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
         <DCC_DebugDCUs>true</DCC_DebugDCUs>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
         <DCC_MapFile>3</DCC_MapFile>
         <DCC_Define>MP;$(DCC_Define)</DCC_Define>
-        <DCC_ExeOutput>D:\buffer\</DCC_ExeOutput>
         <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
         <DCC_RangeChecking>true</DCC_RangeChecking>
         <DCC_Optimize>false</DCC_Optimize>
-        <Debugger_RunParams>26572 $0000000100002C90 -d</Debugger_RunParams>
+        <Debugger_RunParams>18720 $10019C870</Debugger_RunParams>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -284,6 +282,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
             <Form>BaseAppForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="RawScanner\RawScanner.CoffDwarf.pas"/>
         <None Include="RawScanner\rawscanner.inc"/>
         <None Include="README.md"/>
         <None Include="updates.txt"/>

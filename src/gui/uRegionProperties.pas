@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -34,6 +34,7 @@ uses
   RawScanner.Core,
   RawScanner.ModulesData,
   RawScanner.SymbolStorage,
+  RawScanner.Types,
 
   uBaseForm,
   uDumpDisplayUtils,
@@ -77,6 +78,7 @@ type
     SelectedAddr: ULONG_PTR;
     ShowAsDisassembly: Boolean;
     DAsmMode: TDasmMode;
+    DisassemblyModeInited: Boolean;
     procedure Add(const Value: string); overload;
     procedure Add(AFunc: TDumpFunc; Process: THandle; Address: Pointer); overload;
     procedure DropActivePtr;
@@ -85,7 +87,7 @@ type
       MBI: TMemoryBasicInformation; Address: Pointer);
   public
     function GetSelectedAddr: ULONG_PTR;
-    procedure ShowPropertyAtAddr(Value: Pointer; AsDisassembly: Boolean);
+    procedure ShowPropertyAtAddr(Value: Pointer);
   end;
 
 var
@@ -198,7 +200,7 @@ begin
   if SelectedAddr <> 0 then
   begin
     dlgRegionProps := TdlgRegionProps.Create(Application);
-    dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectedAddr), ShowAsDisassembly);
+    dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectedAddr));
   end;
 end;
 
@@ -252,7 +254,7 @@ procedure TdlgRegionProps.ShowInfoFromMBI(Process: THandle;
   MBI: TMemoryBasicInformation; Address: Pointer);
 var
   OwnerName: array [0..MAX_PATH - 1] of Char;
-  Path, DescriptionAtAddr: string;
+  Path, DescriptionAtAddr, FuncName, OtherFuncName: string;
   Workset: TWorkset;
   Shared: Boolean;
   SharedCount: Byte;
@@ -262,6 +264,62 @@ var
   AddrVA: ULONG64;
   Section: TImageSectionHeaderEx;
   AddrRva: Cardinal;
+  I, DataCount: Integer;
+
+  procedure UpdateFuncName(const Value: string);
+  begin
+    if FuncName = '' then
+      FuncName := Value
+    else
+      if OtherFuncName = '' then
+        OtherFuncName := Value
+      else
+        OtherFuncName := OtherFuncName + ', ' + Value;
+  end;
+
+  procedure AddOffsetToFuncName(const Offset: string);
+  begin
+    if OtherFuncName = '' then
+      FuncName := FuncName + Offset
+    else
+      OtherFuncName := OtherFuncName + Offset;
+  end;
+
+  procedure ProcessSymbol(AtIndex: Integer);
+  begin
+    // вернет запись или sdtExport, sdtEntryPoint или sdtCoffFunction
+    if SymbolStorage.GetExportAtAddr(ULONG_PTR(Address), stExport, ExpData, AtIndex) then
+    begin
+      Module := RawScannerCore.Modules.Items[ExpData.Binary.ModuleIndex];
+      if DescriptionAtAddr = '' then
+        DescriptionAtAddr := 'Function: ' + Module.ImageName + '!';
+      Index := ExpData.Binary.ListIndex;
+
+      case ExpData.DataType of
+        sdtEntryPoint:
+        begin
+          UpdateFuncName(Module.EntryPointList.List[Index].EntryPointName);
+          AddrVA := Module.EntryPointList.List[Index].AddrVA;
+        end;
+        sdtExport:
+        begin
+          UpdateFuncName(Module.ExportList.List[Index].ToString);
+          AddrVA := Module.ExportList.List[Index].FuncAddrVA;
+        end;
+        sdtCoffFunction:
+        begin
+          UpdateFuncName(Module.CoffDebugInfo.CoffStrings.List[Index].DisplayName);
+          AddrVA := Module.CoffDebugInfo.CoffStrings.List[Index].FuncAddrVA;
+        end;
+      else
+        AddrVA := 0;
+      end;
+
+      if AddrVA <> ULONG_PTR(Address) then
+        AddOffsetToFuncName(' + 0x' + IntToHex(ULONG_PTR(Address) - AddrVA, 1));
+    end;
+  end;
+
 begin
   Add('AllocationBase: ' + UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
   Add('RegionSize: ' + SizeToStr(MBI.RegionSize));
@@ -312,49 +370,33 @@ begin
       Add('Function: ' + DescriptionAtAddr)
     else
     begin
-      // вернет запись или sdtExport или sdtEntryPoint
-      if SymbolStorage.GetExportAtAddr(ULONG_PTR(Address), stExport, ExpData) then
+
+      FuncName := '';
+      OtherFuncName := '';
+
+      DataCount := SymbolStorage.GetDataCountAtAddr(ULONG_PTR(Address));
+      if DataCount > 0 then
       begin
-        Module := RawScannerCore.Modules.Items[ExpData.Binary.ModuleIndex];
-        DescriptionAtAddr := 'Function: ' + Module.ImageName + '!';
-        Index := ExpData.Binary.ListIndex;
-
-        case ExpData.DataType of
-          sdtEntryPoint:
-          begin
-            DescriptionAtAddr := DescriptionAtAddr +
-              Module.EntryPointList.List[Index].EntryPointName;
-            AddrVA := Module.EntryPointList.List[Index].AddrVA;
-          end;
-          sdtExport:
-          begin
-            DescriptionAtAddr := DescriptionAtAddr +
-              Module.ExportList.List[Index].ToString;
-            AddrVA := Module.ExportList.List[Index].FuncAddrVA;
-          end;
-          sdtCoffFunction:
-          begin
-            DescriptionAtAddr := DescriptionAtAddr +
-              Module.DwarfDebugInfo.CoffStrings.List[Index].DisplayName;
-            AddrVA := Module.DwarfDebugInfo.CoffStrings.List[Index].FuncAddrVA;
-          end;
-        else
-          AddrVA := 0;
-        end;
-
-        if AddrVA <> ULONG_PTR(Address) then
-          DescriptionAtAddr := DescriptionAtAddr + ' + 0x' +
-            IntToHex(ULONG_PTR(Address) - AddrVA, 1);
-        Add(DescriptionAtAddr);
+        for I := 0 to DataCount - 1 do
+          ProcessSymbol(I);
       end;
+
+      if DescriptionAtAddr = '' then
+        ProcessSymbol(0);
+
+      if DescriptionAtAddr <> '' then
+      begin
+        if OtherFuncName <> '' then
+          OtherFuncName := ' (' + OtherFuncName + ')';
+        Add(DescriptionAtAddr + FuncName + OtherFuncName);
+      end;
+
     end;
   end;
 end;
 
-procedure TdlgRegionProps.ShowPropertyAtAddr(Value: Pointer; AsDisassembly: Boolean);
+procedure TdlgRegionProps.ShowPropertyAtAddr(Value: Pointer);
 begin
-  ShowAsDisassembly := AsDisassembly;
-  mnuShowAsDisassembly.Checked := AsDisassembly;
   ACloseAction := caFree;
   StartQuery(Value);
   Show;
@@ -432,6 +474,21 @@ begin
           raise EOSError.CreateFmt('Invalid address: %p', [Value]);
         RaiseLastOSError;
       end;
+
+      if not DisassemblyModeInited then
+      begin
+        case MBI.Protect of
+          PAGE_EXECUTE,
+          PAGE_EXECUTE_READ,
+          PAGE_EXECUTE_READWRITE,
+          PAGE_EXECUTE_WRITECOPY:
+            ShowAsDisassembly := True;
+        else
+          ShowAsDisassembly := False;
+        end;
+        DisassemblyModeInited := True;
+      end;
+      mnuShowAsDisassembly.Checked := ShowAsDisassembly;
 
       ShowInfoFromMBI(Process, MBI, Value);
 

@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.12
+//  * Version   : 1.1.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -68,12 +68,19 @@ type
     sdtTLSDir32, sdtTLSDir64,
     sdtBoundImportDescriptor, sdtBoundImportForwardRef,
 
+    // заполняется снаружи, но в формате Binary (через TModuleKey)
+    sdtDebugMapFunction, sdtDebugMapData,
+
     sdtBinaryLast,
+
+    // данные из DWARF
+    sdtDwarfLine,
 
     // структуры ApiSet редиректора
     sdtApiSetNS, sdtApiSetNSEntry, sdtApiSetValueEntry,
     sdtApiSetRedirection, sdtApiSetHashEntry
     );
+  TSymbolDataTypes = set of TSymbolDataType;
 
   TContextData = record
   case TSymbolDataType of
@@ -101,6 +108,13 @@ type
       sdtApiSetNS: (NameSpaceSize: Integer);
   end;
 
+  {$MESSAGE 'Переработать на Binary и убрать этот тип'}
+  TDwarfData = record
+    ModuleIndex: Word;
+    UnitIndex: Integer;
+    LineIndex: Integer;
+  end;
+
   TSymbolData = record
     AddrVA: ULONG_PTR64;
     DataType: TSymbolDataType;
@@ -109,6 +123,7 @@ type
       sdtPluginDescriptor: (Plugin: TPluginData);
       sdtExport: (Binary: TModuleKey);
       sdtApiSetNS: (ApiSet: TApiSetData);
+      sdtDwarfLine: (Dwarf: TDwarfData);
   end;
 
   TSymbolType = (stExport, stExportExactMatch, stAll);
@@ -130,10 +145,11 @@ type
     procedure Clear;
     function Count: Integer;
     procedure PrepareForWork;
-    function GetDataTypeAtAddr(AddrVA: ULONG_PTR64): TSymbolDataType;
-    function GetDataAtAddr(AddrVA: ULONG_PTR64; var Data: TSymbolData): Boolean;
+    function GetDataCountAtAddr(AddrVA: ULONG_PTR64): Integer;
+    function GetDataTypeAtAddr(AddrVA: ULONG_PTR64; NextIndex: Integer = 0): TSymbolDataType;
+    function GetDataAtAddr(AddrVA: ULONG_PTR64; var Data: TSymbolData; NextIndex: Integer = 0): Boolean;
     function GetExportAtAddr(AddrVA: ULONG_PTR64; AType: TSymbolType;
-      var Data: TSymbolData): Boolean;
+      var Data: TSymbolData; NextIndex: Integer = 0): Boolean;
     function GetKnownAddrList(AddrVA: ULONG_PTR64; Size: Cardinal): TList<TSymbolData>;
     function UniqueCount: Integer;
     property Active: Boolean read FActive;
@@ -204,28 +220,50 @@ begin
 end;
 
 function TRawScannerSymbolStorage.GetDataAtAddr(AddrVA: ULONG_PTR64;
-  var Data: TSymbolData): Boolean;
+  var Data: TSymbolData; NextIndex: Integer): Boolean;
 var
   Index: Integer;
 begin
   Result := FItemIndex.TryGetValue(AddrVA, Index);
   if Result then
-    Data := FItems.List[Index];
+    Data := FItems.List[Index + NextIndex];
+end;
+
+function TRawScannerSymbolStorage.GetDataCountAtAddr(
+  AddrVA: ULONG_PTR64): Integer;
+var
+  I, Index: Integer;
+begin
+  if FItemIndex.TryGetValue(AddrVA, Index) then
+  begin
+    Result := 1;
+    for I := Index + 1 to FItems.Count - 1 do
+      if FItems.List[I].AddrVA = AddrVA then
+        Inc(Result)
+      else
+        Break;
+  end
+  else
+    Result := 0;
 end;
 
 function TRawScannerSymbolStorage.GetDataTypeAtAddr(
-  AddrVA: ULONG_PTR64): TSymbolDataType;
+  AddrVA: ULONG_PTR64; NextIndex: Integer): TSymbolDataType;
 var
   Index: Integer;
 begin
   if FItemIndex.TryGetValue(AddrVA, Index) then
-    Result := FItems.List[Index].DataType
+    Result := FItems.List[Index + NextIndex].DataType
   else
     Result := sdtNone;
 end;
 
 function TRawScannerSymbolStorage.GetExportAtAddr(AddrVA: ULONG_PTR64;
-  AType: TSymbolType; var Data: TSymbolData): Boolean;
+  AType: TSymbolType; var Data: TSymbolData; NextIndex: Integer): Boolean;
+const
+  ExecutableTypes: TSymbolDataTypes =
+    [sdtExport, sdtEntryPoint, sdtTlsCallback32, sdtTlsCallback64,
+      sdtCoffFunction, sdtDebugMapFunction];
 var
   I, Index: Integer;
   MinLimit: ULONG_PTR64;
@@ -234,23 +272,26 @@ begin
   Result := FItemIndex.TryGetValue(AddrVA, Index);
   if Result then
   begin
-    Data := FItems.List[Index];
+    Data := FItems.List[Index + NextIndex];
     if AType <> stAll then
-      Result := Data.DataType in [sdtExport, sdtEntryPoint, sdtCoffFunction];
+      Result := Data.DataType in ExecutableTypes;
     if Result then
       Exit;
     Result := (Data.DataType = sdtPluginDescriptor) and (Data.Plugin.IsFunction);
     if Result then
       Exit;
   end;
-  if AType <> stExport then Exit;
+  // сюда может прийти запись с типом sdtDwarfLine, но она всегда идет последней
+  // в блоке адресов, поэтому если перед ней нашлось имя функции, то NextIndex
+  // будет не нулевым, а вот если имя отсутствует, то тогда будем искать следующим кодом
+  if (AType <> stExport) or (NextIndex <> 0) then Exit;
   MinLimit := (AddrVA - $1000) and not $FFF;
   Index := -1;
   for I := FItems.Count - 1 downto 0 do
   begin
     Item := FItems.List[I];
     if (Item.AddrVA >= MinLimit) and (Item.AddrVA < AddrVA) and
-      (Item.DataType in [sdtExport, sdtEntryPoint]) then
+      (Item.DataType in ExecutableTypes) then
     begin
       Data := Item;
       Result := True;
@@ -303,21 +344,43 @@ end;
 
 procedure TRawScannerSymbolStorage.PrepareForWork;
 begin
+
+  // сортировка по возрастанию адресов
   FItems.Sort(TComparer<TSymbolData>.Construct(
     function (const L, R: TSymbolData): Integer
     begin
       if L.AddrVA = R.AddrVA then
-        Result := 0
+      begin
+        Result := 0;
+        if L.DataType <> R.DataType then
+        begin
+          // если на один адрес есть несколько блоков информации
+          // то контролируем чтобы информация с номером линии шла самой последней
+          if L.DataType = sdtDwarfLine then
+            Result := 1
+          else
+            if R.DataType = sdtDwarfLine then
+              Result := -1;
+        end;
+      end
       else
         if L.AddrVA < R.AddrVA then
           Result := -1
         else
           Result := 1;
     end));
+
   FItemIndex.Clear;
+
+  // сейчас все данные отсортированы по адресу
+  // причем на один адрес может идти много типов информации
+  // например имя экспортированной функции и номер строки из отладочной информации
+  // поэтому будем запоминать самое первое вхождение
+  // а дальше работать через энумератор
   for var I := 0 to FItems.Count - 1 do
     FItemIndex.TryAdd(FItems.List[I].AddrVA, I);
-  FActive := FItemIndex.Count > 0;;
+
+  FActive := FItemIndex.Count > 0;
 end;
 
 function TRawScannerSymbolStorage.UniqueCount: Integer;

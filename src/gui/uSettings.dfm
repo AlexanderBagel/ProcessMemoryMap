@@ -71,7 +71,7 @@ object dlgSettings: TdlgSettings
     Top = 8
     Width = 306
     Height = 319
-    ActivePage = TabSheet1
+    ActivePage = TabSheet2
     Style = tsButtons
     TabOrder = 4
     object TabSheet1: TTabSheet
@@ -128,6 +128,13 @@ object dlgSettings: TdlgSettings
     object TabSheet2: TTabSheet
       Caption = 'TabSheet2'
       ImageIndex = 1
+      object Label10: TLabel
+        Left = 3
+        Top = 75
+        Width = 84
+        Height = 13
+        Caption = 'String min length:'
+      end
       object cbLoadLineSymbols: TCheckBox
         Left = 3
         Top = 3
@@ -146,6 +153,32 @@ object dlgSettings: TdlgSettings
         State = cbChecked
         TabOrder = 1
       end
+      object cbLoadStrings: TCheckBox
+        Left = 3
+        Top = 49
+        Width = 190
+        Height = 17
+        Caption = 'Load Strings from PE Images'
+        TabOrder = 2
+      end
+      object seStringLength: TSpinEdit
+        Left = 93
+        Top = 72
+        Width = 60
+        Height = 22
+        MaxValue = 255
+        MinValue = 1
+        TabOrder = 3
+        Value = 4
+      end
+      object cbShowAligns: TCheckBox
+        Left = 3
+        Top = 100
+        Width = 174
+        Height = 17
+        Caption = 'Show Aligns in Disassembler'
+        TabOrder = 4
+      end
     end
     object TabSheet3: TTabSheet
       Caption = 'TabSheet3'
@@ -156,13 +189,6 @@ object dlgSettings: TdlgSettings
         Width = 109
         Height = 13
         Caption = 'Scanner update mode:'
-      end
-      object Label10: TLabel
-        Left = 3
-        Top = 72
-        Width = 84
-        Height = 13
-        Caption = 'String min length:'
       end
       object cbScannerMode: TComboBox
         Left = 118
@@ -190,24 +216,6 @@ object dlgSettings: TdlgSettings
         ParentShowHint = False
         ShowHint = True
         TabOrder = 1
-      end
-      object cbLoadStrings: TCheckBox
-        Left = 3
-        Top = 49
-        Width = 190
-        Height = 17
-        Caption = 'Load Strings from PE Images'
-        TabOrder = 2
-      end
-      object seStringLength: TSpinEdit
-        Left = 93
-        Top = 69
-        Width = 60
-        Height = 22
-        MaxValue = 255
-        MinValue = 1
-        TabOrder = 3
-        Value = 4
       end
     end
     object TabSheet4: TTabSheet

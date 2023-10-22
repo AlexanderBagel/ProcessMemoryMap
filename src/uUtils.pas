@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -224,9 +224,10 @@ end;
 
 function UInt64ToStr(Value: NativeUInt): string;
 begin
-  if MemoryMapCore.Process64 then
-    Result := IntToHex(Value, 16)
-  else
+  // а зачем нам лишние нули?
+//  if MemoryMapCore.Process64 then
+//    Result := IntToHex(Value, 16)
+//  else
     Result := IntToHex(Value, 8);
 end;
 

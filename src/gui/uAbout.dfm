@@ -4,7 +4,7 @@ object dlgAbout: TdlgAbout
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'About Process Memory Map'
-  ClientHeight = 159
+  ClientHeight = 251
   ClientWidth = 498
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -4694,10 +4694,31 @@ object dlgAbout: TdlgAbout
   end
   object Label3: TLabel
     Left = 56
-    Top = 95
+    Top = 226
     Width = 212
     Height = 13
     Caption = 'Portions based on code by Mark Russinovich'
+  end
+  object lblMMVer: TLabel
+    Left = 56
+    Top = 98
+    Width = 106
+    Height = 13
+    Caption = 'MemoryMap Core: ???'
+  end
+  object lblRawVer: TLabel
+    Left = 56
+    Top = 117
+    Width = 108
+    Height = 13
+    Caption = 'RawScanner Core: ???'
+  end
+  object Label1: TLabel
+    Left = 56
+    Top = 163
+    Width = 50
+    Height = 13
+    Caption = 'Third side:'
   end
   object LinkLabel3: TLinkLabel
     Left = 56
@@ -4723,7 +4744,7 @@ object dlgAbout: TdlgAbout
   end
   object LinkLabel4: TLinkLabel
     Left = 56
-    Top = 114
+    Top = 182
     Width = 405
     Height = 19
     Caption = 
@@ -4736,7 +4757,7 @@ object dlgAbout: TdlgAbout
   end
   object lblDistorm: TLinkLabel
     Left = 56
-    Top = 133
+    Top = 201
     Width = 188
     Height = 19
     Caption = 
@@ -4755,6 +4776,18 @@ object dlgAbout: TdlgAbout
       'Home Page: <a href="http://rouse.drkb.ru">http://rouse.drkb.ru</' +
       'a>'
     TabOrder = 4
+    UseVisualStyle = True
+    OnLinkClick = LinkLabel1LinkClick
+  end
+  object lblZipVer: TLinkLabel
+    Left = 56
+    Top = 136
+    Width = 171
+    Height = 19
+    Caption = 
+      'FWZip Compression Library: <a href="https://github.com/Alexander' +
+      'Bagel/FWZip">???</a>'
+    TabOrder = 5
     UseVisualStyle = True
     OnLinkClick = LinkLabel1LinkClick
   end

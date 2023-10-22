@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка всех известных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -396,8 +396,7 @@ begin
   if I < 0 then Exit;
   if FNodeDataList.List[I].Address = nil then Exit;
   dlgRegionProps := TdlgRegionProps.Create(Application);
-  with FNodeDataList.List[I] do
-    dlgRegionProps.ShowPropertyAtAddr(Address, IsCode);
+  dlgRegionProps.ShowPropertyAtAddr(FNodeDataList.List[I].Address);
 end;
 
 procedure TdlgKnownData.tvDataGetImageIndex(Sender: TBaseVirtualTree;

@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -64,11 +64,12 @@ type
     pnImage5: TPanel;
     pnImage6: TPanel;
     pnImage7: TPanel;
-    cbLoadStrings: TCheckBox;
-    Label10: TLabel;
-    seStringLength: TSpinEdit;
     cbDemangleNames: TCheckBox;
     cbShowChildFormsOnTaskBar: TCheckBox;
+    cbLoadStrings: TCheckBox;
+    seStringLength: TSpinEdit;
+    Label10: TLabel;
+    cbShowAligns: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -102,6 +103,7 @@ type
     FLoadStrings: Boolean;
     FStringMinLengh: Integer;
     FShowChildFormsOnTaskBar: Boolean;
+    FShowAligns: Boolean;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -130,6 +132,7 @@ type
     property LoadStrings: Boolean read FLoadStrings write FLoadStrings;
     property StringMinLengh: Integer read FStringMinLengh write FStringMinLengh;
     property ShowChildFormsOnTaskBar: Boolean read FShowChildFormsOnTaskBar write FShowChildFormsOnTaskBar;
+    property ShowAligns: Boolean read FShowAligns write FShowAligns;
   end;
 
   function Settings: TSettings;
@@ -187,6 +190,7 @@ begin
   LoadStrings := False;
   StringMinLengh := 6;
   ShowChildFormsOnTaskBar := True;
+  ShowAligns := True;
 end;
 
 procedure TSettings.LoadSettings;
@@ -223,6 +227,8 @@ begin
       ScannerMode := TScannerMode(R.ReadInteger('ScannerMode'));
       if R.ValueExists('ShowChildFormsOnTaskBar') then
         ShowChildFormsOnTaskBar := R.ReadBool('ShowChildFormsOnTaskBar');
+      if R.ValueExists('ShowAligns') then
+        ShowAligns := R.ReadBool('ShowAligns');
       for I := 0 to 7 do
         FColors[I] := R.ReadInteger(RegKeys[I]);
     except
@@ -256,6 +262,7 @@ begin
     R.WriteBool('UseScannerFilter', UseScannerFilter);
     R.WriteInteger('ScannerMode', Integer(ScannerMode));
     R.WriteBool('ShowChildFormsOnTaskBar', ShowChildFormsOnTaskBar);
+    R.WriteBool('ShowAligns', ShowAligns);
     for I := 0 to 7 do
       R.WriteInteger(RegKeys[I], FColors[I]);
   finally
@@ -293,6 +300,7 @@ begin
   Settings.StringMinLengh := seStringLength.Value;
   Settings.LoadStrings := cbLoadStrings.Checked;
   Settings.ShowChildFormsOnTaskBar := cbShowChildFormsOnTaskBar.Checked;
+  Settings.ShowAligns := cbShowAligns.Checked;
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.SaveSettings;
@@ -338,6 +346,7 @@ begin
   cbLoadStrings.Checked := Settings.LoadStrings;
   seStringLength.Value := Settings.StringMinLengh;
   cbShowChildFormsOnTaskBar.Checked := Settings.ShowChildFormsOnTaskBar;
+  cbShowAligns.Checked := Settings.ShowAligns;
   for I := 0 to 7 do
   begin
     Colors[I] := Settings.GetColor(I);

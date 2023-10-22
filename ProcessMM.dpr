@@ -75,7 +75,8 @@ uses
   RawScanner.X64Gates in 'RawScanner\RawScanner.X64Gates.pas',
   uStringsViewer in 'src\gui\uStringsViewer.pas' {dlgStringsViewer},
   ScaledCtrls in 'Controls\ScaledCtrls.pas',
-  uBaseForm in 'src\gui\uBaseForm.pas' {BaseAppForm};
+  uBaseForm in 'src\gui\uBaseForm.pas' {BaseAppForm},
+  RawScanner.CoffDwarf in 'RawScanner\RawScanner.CoffDwarf.pas';
 
 {$R *.res}
 

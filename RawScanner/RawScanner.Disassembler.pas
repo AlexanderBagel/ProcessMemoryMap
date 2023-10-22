@@ -9,7 +9,7 @@
 //  *           : и предназначен для внешнего кода.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Version   : 1.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -28,6 +28,7 @@ uses
   Windows,
   SysUtils,
   Masks,
+  Math,
   Generics.Collections,
   distorm,
   mnemonics,
@@ -40,22 +41,33 @@ uses
 type
   TAddrType = (atUnknown, atAddress, atRipOffset, atPointer4, atPointer8, atSegment);
   TInstructionType =
-    (itOther, itNop, itInt, itRet, itCall, itJmp, itMov, itPush, itPrivileged, itUndefined);
+    (itOther, itNop, itInt, itRet, itCall, itJmp, itMov, itPush, itPop, itPrivileged, itZero, itUndefined);
 
   TInstruction = record
     InstType: TInstructionType;
-    AddrType: TAddrType;
     AddrVa,
     RipAddrVA,
-    JmpAddrVa: ULONG_PTR64;
+    JmpAddrVa,
+    SegAddrVA: ULONG_PTR64;
     Opcodes: array [0..14] of Byte;
     OpcodesLen: Byte;
+    RipFirst: Boolean;
     DecodedString: string;
     class operator NotEqual(const A, B: TInstruction): Boolean;
   end;
   TInstructionArray = array of TInstruction;
 
   TDecodeMode = (dmFull, dmUntilRet, dmUntilUndefined);
+
+  TAddrData = record
+    AddrVA: ULONG_PTR64;
+    AType: TAddrType;
+  end;
+
+  TAddrTypesData = record
+    Count: Integer;
+    AddrData: array [0..3] of TAddrData;
+  end;
 
   TDisassembler = class
   private
@@ -64,7 +76,7 @@ type
     FCode64: Boolean;
     FProcessHandle: THandle;
     function FixAddr(AddrVA: ULONG_PTR64): ULONG_PTR64;
-    function GetAddrType(Inst: TDInst; out Address: ULONG_PTR64): TAddrType;
+    procedure GetAddrTypes(Inst: TDInst; out Data: TAddrTypesData);
     function GetInstructionType(Value: TDInst): TInstructionType;
     function GET_WString(w: _WString): string;
     function HexUpperCase(const Value: string): string;
@@ -72,7 +84,8 @@ type
   public
     constructor Create(AProcessHandle: THandle; AAddrVA: ULONG_PTR64;
       ABufferSize: Integer;  ACode64: Boolean);
-    function DecodeBuff(pBuff: PByte; DecodeMode: TDecodeMode): TInstructionArray;
+    function DecodeBuff(pBuff: PByte; DecodeMode: TDecodeMode;
+      CollapceZero: Boolean): TInstructionArray;
   end;
 
 implementation
@@ -106,26 +119,84 @@ begin
 end;
 
 function TDisassembler.DecodeBuff(pBuff: PByte;
-  DecodeMode: TDecodeMode): TInstructionArray;
+  DecodeMode: TDecodeMode; CollapceZero: Boolean): TInstructionArray;
 var
   DecodeResult: TDecodeResult;
   InstList: array of TDInst;
   ci: TCodeInfo;
-  I, Count: Integer;
+  I, A, Count, ZeroCount: Integer;
   Instruction: TDecodedInst;
   HintStr: string;
   OffsetAddr, AddrVA: ULONG_PTR64;
-  NeedStop: Boolean;
+  NeedStop, ZeroDetected: Boolean;
+  ATypes: TAddrTypesData;
 begin
   SetLength(InstList, FBufferSize);
 
   ci := InitCodeInfo(pBuff);
-  DecodeResult := distorm_decompose(
-    @ci, @InstList[0], FBufferSize, @Count);
-  if DecodeResult <> DECRES_SUCCESS then
+
+  if CollapceZero then
   begin
-    Warn('Buffer disassembly error: ' + IntToStr(Byte(DecodeResult)));
-    Exit;
+    Count := 0;
+    while Count < FBufferSize do
+    begin
+      DecodeResult := distorm_decompose(
+        @ci, @InstList[Count], 1, @A);
+      case DecodeResult of
+        DECRES_SUCCESS: Break;
+        DECRES_MEMORYERR: ;
+      else
+        Warn('Buffer disassembly error: ' + IntToStr(Byte(DecodeResult)));
+        Exit;
+      end;
+      Inc(ci.codeOffset, InstList[Count].size);
+      ci.code := ci.code + InstList[Count].size;
+      Dec(ci.codeLen, InstList[Count].size);
+
+      Inc(Count);
+      if Count = FBufferSize then
+        Break;
+
+      if ci.codeLen <= 0 then
+        Break;
+
+      // детектирование нулей для выравнивания
+      ZeroCount := 0;
+      while ci.codeLen > 0 do
+      begin
+        if ci.code^ = 0 then
+        begin
+          Inc(ci.code);
+          Dec(ci.codeLen);
+          Inc(ZeroCount);
+          // страховка, чтобы не упало если будем дизасмить
+          // неисполняемую  страницу с нулями
+          if ZeroCount = 32 then
+            Break;
+        end
+        else
+          Break;
+      end;
+      if ZeroCount > 0 then
+      begin
+        InstList[Count].addr := ci.nextOffset;
+        InstList[Count].size := ZeroCount;
+        Inc(ci.codeOffset, ZeroCount);
+        ci.nextOffset := 0;
+        Inc(Count);
+      end;
+    end;
+    ci := InitCodeInfo(pBuff);
+  end
+  else
+  begin
+    DecodeResult := distorm_decompose(
+      @ci, @InstList[0], FBufferSize, @Count);
+    if DecodeResult <> DECRES_SUCCESS then
+    begin
+      Warn('Buffer disassembly error: ' + IntToStr(Byte(DecodeResult)));
+      Exit;
+    end;
   end;
 
   SetLength(Result, Count);
@@ -133,13 +204,31 @@ begin
   begin
     Result[I].AddrVa := InstList[I].addr;
     Result[I].OpcodesLen := InstList[I].size;
+    Result[I].InstType := GetInstructionType(InstList[I]);
 
-    distorm_format(@ci, @InstList[I], @Instruction);
-    Result[I].DecodedString :=
-      HexUpperCase(GET_WString(Instruction.mnemonic)) + Space +
-      HexUpperCase(GET_WString(Instruction.operands)) + HintStr;
+    ZeroDetected := False;
+    if CollapceZero then
+    begin
+      if Result[I].InstType = itZero then
+      begin
+        ZeroDetected := True;
+        if DecodeMode = dmUntilUndefined then
+        begin
+          SetLength(Result, I);
+          Break;
+        end;
+      end;
+    end;
 
-    if (DecodeMode = dmUntilUndefined) and
+    if not ZeroDetected then
+    begin
+      distorm_format(@ci, @InstList[I], @Instruction);
+      Result[I].DecodedString :=
+        HexUpperCase(GET_WString(Instruction.mnemonic)) + Space +
+        HexUpperCase(GET_WString(Instruction.operands)) + HintStr;
+    end;
+
+    if (DecodeMode = dmUntilUndefined) and not CollapceZero and
       (_InstructionType(InstList[I].opcode) = I_ADD) then
     begin
       case Result[I].OpcodesLen of
@@ -156,11 +245,10 @@ begin
       end;
     end;
 
-    Move(pBuff^, Result[I].Opcodes[0], Result[I].OpcodesLen);
+    Move(pBuff^, Result[I].Opcodes[0], Min(Result[I].OpcodesLen, 14));
     Inc(pBuff, Result[I].OpcodesLen);
 
     HintStr := EmptyStr;
-    Result[I].InstType := GetInstructionType(InstList[I]);
     case Result[I].InstType of
       itRet, itInt:
       begin
@@ -170,29 +258,34 @@ begin
           Exit;
         end;
       end;
-      itCall, itJmp, itMov, itPush:
+      itCall, itJmp, itMov, itPush, itPop, itOther:
       begin
-        Result[I].AddrType := GetAddrType(InstList[I], AddrVA);
-        case Result[I].AddrType of
-          atAddress, atSegment: Result[I].JmpAddrVa := AddrVA;
-          atRipOffset:
-          begin
-            {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
-            OffsetAddr := InstList[I].addr + InstList[I].size + AddrVA;
-            {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
-            Result[I].RipAddrVA := OffsetAddr;
-            if ReadRemoteMemory(FProcessHandle, OffsetAddr, @AddrVA, 8) then
-              Result[I].JmpAddrVa := AddrVA;
+        GetAddrTypes(InstList[I], ATypes);
+        for A := 0 to ATypes.Count - 1 do
+        begin
+          case ATypes.AddrData[A].AType of
+            atAddress: Result[I].JmpAddrVa := ATypes.AddrData[A].AddrVA;
+            atSegment: Result[I].SegAddrVA := ATypes.AddrData[A].AddrVA;
+            atRipOffset:
+            begin
+              {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
+              OffsetAddr := InstList[I].addr + InstList[I].size + ATypes.AddrData[A].AddrVA;
+              {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
+              Result[I].RipAddrVA := OffsetAddr;
+              // какой по очереди встретился RIP, чтобы вывести в правильном порядке
+              Result[I].RipFirst := Result[I].JmpAddrVa = 0;
+            end;
+            atPointer4:
+            begin
+              AddrVA := 0;
+              if ReadRemoteMemory(FProcessHandle, AddrVA, @AddrVA, 4) then
+                Result[I].JmpAddrVa := ATypes.AddrData[A].AddrVA;
+            end;
+            atPointer8:
+              if ReadRemoteMemory(FProcessHandle, AddrVA, @AddrVA, 8) then
+                Result[I].JmpAddrVa := ATypes.AddrData[A].AddrVA;
           end;
-          atPointer4:
-            if ReadRemoteMemory(FProcessHandle, AddrVA, @AddrVA, 4) then
-              Result[I].JmpAddrVa := AddrVA;
-          atPointer8:
-            if ReadRemoteMemory(FProcessHandle, AddrVA, @AddrVA, 8) then
-              Result[I].JmpAddrVa := AddrVA;
         end;
-        if (Result[I].AddrType <> atSegment) and (Result[I].JmpAddrVa = 0) then
-          Result[I].AddrType := atUnknown;
       end;
       itUndefined, itPrivileged:
         if DecodeMode = dmUntilUndefined then
@@ -213,57 +306,61 @@ begin
     Result := DWORD(AddrVA);
 end;
 
-function TDisassembler.GetAddrType(Inst: TDInst;
-  out Address: ULONG_PTR64): TAddrType;
+procedure TDisassembler.GetAddrTypes(Inst: TDInst; out Data: TAddrTypesData);
 var
   I: Integer;
 begin
-  Result := atUnknown;
-  Address := 0;
-  I := Inst.opsNo - 1;
-  while I >= 0  do
+  I := 0;
+  ZeroMemory(@Data, SizeOf(Data));
+  while I < Inst.opsNo do
   begin
     case _OperandType(Inst.ops[I]._type) of
       O_IMM:
       begin
         if (Inst.flags and FLAG_IMM_SIGNED <> 0) and
           (Inst.ops[I].size = 8) and (Inst.imm.sbyte < 0) then
-          Address := FixAddr(-Inst.imm.sbyte)
+          Data.AddrData[Data.Count].AddrVA := FixAddr(-Inst.imm.sbyte)
         else
           if Inst.ops[I].size = 32 then
-            Address := FixAddr(Inst.imm.udword)
+            Data.AddrData[Data.Count].AddrVA := FixAddr(Inst.imm.udword)
           else
-            Address := FixAddr(Inst.imm.uqword);
-        Exit(atAddress);
+            Data.AddrData[Data.Count].AddrVA := FixAddr(Inst.imm.uqword);
+        Data.AddrData[Data.Count].AType := atAddress;
+        Inc(Data.Count);
       end;
       O_PC:
       begin
         {$IFDEF DEBUG} {$OVERFLOWCHECKS OFF} {$ENDIF}
-        Address := FixAddr(ULONG_PTR64(Inst.addr +
+        Data.AddrData[Data.Count].AddrVA := FixAddr(ULONG_PTR64(Inst.addr +
           Inst.size + ULONG_PTR64(Inst.imm.sqword)));
         {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
-        Exit(atAddress);
+        Data.AddrData[Data.Count].AType := atAddress;
+        Inc(Data.Count);
       end;
       O_DISP, O_SMEM:
       begin
-        Address := FixAddr(Inst.disp);
+        Data.AddrData[Data.Count].AddrVA := FixAddr(Inst.disp);
         if Inst.flags and FLAG_RIP_RELATIVE <> 0 then
-          Exit(atRipOffset)
+          Data.AddrData[Data.Count].AType := atRipOffset
         else
           // детект обрашения к TEB
           if not SEGMENT_IS_DEFAULT_OR_NONE(Inst.segment) then
+          begin
             case _RegisterType(SEGMENT_GET(Inst.segment)) of
-              R_FS: if not FCode64 then Exit(atSegment);
-              R_GS: if FCode64 then Exit(atSegment);
+              R_FS: if not FCode64 then Data.AddrData[Data.Count].AType := atSegment;
+              R_GS: if FCode64 then Data.AddrData[Data.Count].AType := atSegment;
             end;
-
-          case Inst.dispSize of
-            64: Exit(atPointer8);
-            32: Exit(atPointer4);
-          end;
+          end
+          else
+            case Inst.dispSize of
+              64: Data.AddrData[Data.Count].AType := atPointer8;
+              32: Data.AddrData[Data.Count].AType := atPointer4;
+            end;
+        if Data.AddrData[Data.Count].AType <> atUnknown then
+          Inc(Data.Count);
       end;
     end;
-    Dec(I);
+    Inc(I);
   end;
 end;
 
@@ -284,7 +381,12 @@ begin
       I_JO, I_JP, I_JRCXZ, I_JS, I_JZ: Result := itJmp;
       I_MOV: Result := itMov;
       I_PUSH: Result := itPush;
-      I_UNDEFINED: Result := itUndefined;
+      I_POP: Result := itPop;
+      I_UNDEFINED:
+        if (Value.size > 0) and (Value.undefinedFlagsMask = 0) then
+          Result := itZero
+        else
+          Result := itUndefined;
     end;
 end;
 

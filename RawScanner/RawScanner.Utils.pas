@@ -6,7 +6,7 @@
 //  * Purpose   : Набор утилитарных методов общих для модулей RawScanner.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Version   : 1.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -23,6 +23,7 @@ interface
 
 uses
   Windows,
+  Classes,
   SysUtils,
   PsApi,
   ImageHlp,

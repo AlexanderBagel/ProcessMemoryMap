@@ -6,7 +6,7 @@
 //  * Purpose   : Общие типы для модулей RawScanner
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.12
+//  * Version   : 1.0.15
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -93,7 +93,6 @@ type
       1: (Value: Int64);
       2: (Rec: Int64Rec);
   end;
-
 
 implementation
 

@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка экспорта функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,7 +36,7 @@ uses
 
 type
   TExportStatus = (esNormal, esForvarded, esRebased,
-    esNoExecutable, esInvalid, esDebug, esCOFF);
+    esNoExecutable, esInvalid, esDebug, esDebugData, esCoff, esCoffData);
 
   TExportData = record
     dwAddress: NativeUInt;
@@ -169,7 +169,8 @@ end;
 procedure TdlgExportList.FormShow(Sender: TObject);
 const
   SymbolExportType: array [TExportStatus] of string =
-    ('EXPORT', 'FORWARDED', 'REBASED', 'DATA', 'INVALID', 'DEBUG MAP', 'COFF_DEBUG');
+    ('EXPORT', 'FORWARDED', 'REBASED', 'DATA', 'INVALID',
+     'DEBUG MAP', 'DEBUG_DATA MAP', 'COFF_DEBUG', 'COFF_DATA');
 var
   I, A: Integer;
   S: TStringList;
@@ -252,28 +253,56 @@ begin
               Application.ProcessMessages;
               ExportData.Module := ExtractFileName(Module.Path);
 
-              // вывод данных из COFF посредством механизма RawScanner
+              // вывод известных функций из COFF посредством механизма RawScanner
               S.Clear;
-              RawScannerCore.Modules.GetExportFuncList(Module.Path, S);
+              RawScannerCore.Modules.GetExportFuncList(Module.Path, S, True);
               for A := 0 to S.Count - 1 do
               begin
                 ExportData.dwAddress := NativeUInt(S.Objects[A]);
                 ExportData.Address := UInt64ToStr(ExportData.dwAddress);
-                ExportData.Status := esCOFF;
+                ExportData.Status := esCoff;
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
                 List.Add(ExportData);
               end;
 
-              // вывод данных из отладочного MAP файла
+              // вывод известных данных из COFF посредством механизма RawScanner
               S.Clear;
-              MemoryMapCore.DebugMapData.GetExportFuncList(ExportData.Module, S);
+              RawScannerCore.Modules.GetExportFuncList(Module.Path, S, False);
+              for A := 0 to S.Count - 1 do
+              begin
+                ExportData.dwAddress := NativeUInt(S.Objects[A]);
+                ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                ExportData.Status := esCoffData;
+                ExportData.AType := SymbolExportType[ExportData.Status];
+                ExportData.FunctionName := S[A];
+                ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
+                List.Add(ExportData);
+              end;
+
+              // вывод известных функций из отладочного MAP файла
+              S.Clear;
+              MemoryMapCore.DebugMapData.GetExportFuncList(ExportData.Module, S, True);
               for A := 0 to S.Count - 1 do
               begin
                 ExportData.dwAddress := NativeUInt(S.Objects[A]);
                 ExportData.Address := UInt64ToStr(ExportData.dwAddress);
                 ExportData.Status := esDebug;
+                ExportData.AType := SymbolExportType[ExportData.Status];
+                ExportData.FunctionName := S[A];
+                ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
+                List.Add(ExportData);
+              end;
+
+              // вывод известных данных из отладочного MAP файла
+              S.Clear;
+              MemoryMapCore.DebugMapData.GetExportFuncList(ExportData.Module, S, False);
+              for A := 0 to S.Count - 1 do
+              begin
+                ExportData.dwAddress := NativeUInt(S.Objects[A]);
+                ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                ExportData.Status := esDebugData;
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
@@ -324,10 +353,9 @@ begin
   case List[Node.Index].Status of
     esForvarded: ItemColor := $A3F4FE;
     esRebased: ItemColor := $D2BDF3;
-    esNoExecutable: ItemColor := $E4C4CF;
+    esNoExecutable, esCoffData, esDebugData: ItemColor := $E4C4CF;
     esInvalid: ItemColor := $B092EC;
-    esDebug: ItemColor := $CCEDDF;
-    esCOFF: ItemColor := $DCF3E9;
+    esDebug, esCoff: ItemColor := $CCEDDF;
   else
     ItemColor := clWhite;
   end;
@@ -342,8 +370,7 @@ begin
   if not E.MoveNext then Exit;
   TryStrToInt64('$' + List[E.Current^.Index].Address, Address);
   dlgRegionProps := TdlgRegionProps.Create(Application);
-  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address),
-    List[E.Current^.Index].Status in [esNormal, esDebug, esCOFF]);
+  dlgRegionProps.ShowPropertyAtAddr(Pointer(Address));
 end;
 
 procedure TdlgExportList.lvExportsGetText(Sender: TBaseVirtualTree;

@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для работы с отладочным MAP файлом.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.29
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -32,6 +32,7 @@ type
     Address: NativeUInt;
     ModuleName,
     FunctionName: string;
+    Executable: Boolean;
   end;
 
   TDebugMap = class
@@ -40,6 +41,7 @@ type
       Index: Integer;
       StartAddr: DWORD;
       Length: DWORD;
+      Executable: Boolean;
     end;
     TLineData = record
       UnitIndex: Integer;
@@ -57,14 +59,16 @@ type
     destructor Destroy; override;
     procedure Init(BaseAddress: ULONG_PTR; const ModulePath: string);
     function GetAddrFromDescription(const Value: string): ULONG_PTR;
-    function GetDescriptionAtAddr(Address: ULONG_PTR): string;
+    function GetDescriptionAtAddr(Address: ULONG_PTR;
+      AddModuleName: Boolean = True): string;
     function GetDescriptionAtAddrWithOffset(Address: ULONG_PTR;
       AddModuleName: Boolean = True): string;
     function GetLineNumberAtAddr(BaseAddress: ULONG_PTR;
       var UnitName: string): Integer;
     function GetLineNumberAtAddrForced(BaseAddress: ULONG_PTR;
       Limit: Integer; var UnitName: string): Integer;
-    procedure GetExportFuncList(const ModuleName: string; Value: TStringList);
+    procedure GetExportFuncList(const ModuleName: string; Value: TStringList;
+      Executable: Boolean);
     property Items: TList<TDebugMapItem> read FItems;
     property Lines: TDictionary<ULONG_PTR, TLineData> read FLines;
     property LoadLines: Boolean read FLoadLines write FLoadLines;
@@ -127,7 +131,8 @@ begin
   end;
 end;
 
-function TDebugMap.GetDescriptionAtAddr(Address: ULONG_PTR): string;
+function TDebugMap.GetDescriptionAtAddr(Address: ULONG_PTR;
+  AddModuleName: Boolean): string;
 var
   I: Integer;
   Item: TDebugMapItem;
@@ -136,7 +141,10 @@ begin
   Item.Address := Address;
   if FItems.BinarySearch(Item, I) then
     if I >= 0 then
-      Result := FItems.List[I].ModuleName + '!' + FItems.List[I].FunctionName;
+      if AddModuleName then
+        Result := FItems.List[I].ModuleName + '!' + FItems.List[I].FunctionName
+      else
+        Result := FItems.List[I].FunctionName
 end;
 
 function TDebugMap.GetDescriptionAtAddrWithOffset(Address: ULONG_PTR;
@@ -178,13 +186,14 @@ begin
 end;
 
 procedure TDebugMap.GetExportFuncList(const ModuleName: string;
-  Value: TStringList);
+  Value: TStringList; Executable: Boolean);
 var
   I: Integer;
 begin
   for I := 0 to FItems.Count - 1 do
     if FItems[I].ModuleName = ModuleName then
-      Value.AddObject(FItems[I].FunctionName, Pointer(FItems[I].Address));
+      if FItems[I].Executable = Executable then
+        Value.AddObject(FItems[I].FunctionName, Pointer(FItems[I].Address));
 end;
 
 function TDebugMap.GetLineNumberAtAddr(BaseAddress: ULONG_PTR;
@@ -366,12 +375,10 @@ begin
               if (PEImage.Sections[A].Caption = ShortString(SectionName)) or
                 (PEImage.Sections[A].Caption = ShortString(SectionClass)) then
               begin
-                if PEImage.Sections[A].IsCode then
-                begin
-                  Section.StartAddr := PEImage.Sections[A].Address + BaseAddress;
-                  Section.Length := PEImage.Sections[A].Size;
-                  SectionDataList.Add(Section);
-                end;
+                Section.StartAddr := PEImage.Sections[A].Address + BaseAddress;
+                Section.Length := PEImage.Sections[A].Size;
+                Section.Executable := PEImage.Sections[A].IsCode;
+                SectionDataList.Add(Section);
                 Break;
               end;
 
@@ -405,6 +412,7 @@ begin
             if SectionDataList[A].Index = SectionIndex then
             begin
               SectionAddress := SectionDataList[A].StartAddr;
+              DebugMapItem.Executable := SectionDataList[A].Executable;
               Break;
             end;
           if SectionAddress = $FFFFFFFF then

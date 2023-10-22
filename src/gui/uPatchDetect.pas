@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -185,7 +185,7 @@ begin
   Disasm := TDisassembler.Create(chd.ProcessHandle, chd.AddrVA,
     DefaultBuffSize, chd.Is64Code);
   try
-    Inst := Disasm.DecodeBuff(@Buff[0], dmUntilUndefined);
+    Inst := Disasm.DecodeBuff(@Buff[0], dmUntilUndefined, Settings.ShowAligns);
     if Length(Inst) = 0 then Exit;
   finally
     Disasm.Free;
@@ -428,7 +428,7 @@ begin
   if SelectedAddr <> 0 then
   begin
     dlgRegionProps := TdlgRegionProps.Create(Application);
-    dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectedAddr), True);
+    dlgRegionProps.ShowPropertyAtAddr(Pointer(SelectedAddr));
   end;
 end;
 
@@ -514,10 +514,10 @@ begin
     Data.ProcessHandle, Data.AddrVA, Data.BufSize, Data.Image64);
   try
 
-    RawDecodedInst := Disasm.DecodeBuff(Data.Raw, dmUntilUndefined);
+    RawDecodedInst := Disasm.DecodeBuff(Data.Raw, dmUntilUndefined, Settings.ShowAligns);
     RawCount := Length(RawDecodedInst);
 
-    RemoteDecodedInst := Disasm.DecodeBuff(Data.Remote, dmUntilRet);
+    RemoteDecodedInst := Disasm.DecodeBuff(Data.Remote, dmUntilRet, Settings.ShowAligns);
     RemoteCount := Length(RemoteDecodedInst);
   finally
     Disasm.Free;
