@@ -15,6 +15,7 @@ object dlgRegionProps: TdlgRegionProps
   Position = poMainFormCenter
   OnActivate = FormActivate
   OnClose = FormClose
+  OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnDeactivate = FormDeactivate
   OnKeyPress = FormKeyPress

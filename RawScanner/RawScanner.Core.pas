@@ -555,7 +555,7 @@ begin
           if ExtractFileName(Module.ImagePath).ToLower = 'ntdll.dll' then
           begin
             // если нашли (а мы должны найти) инициализирем с учетом её инстанса
-            NtDll := TRawPEImage.Create(Module.ImagePath, Module.ImageBase);
+            NtDll := TRawPEImage.Create(Module.ImagePath, False, Module.ImageBase);
             try
               // и только теперь получаем адрес NtQueryVirtualMemory
               // который актуален применительно к нашему процессу

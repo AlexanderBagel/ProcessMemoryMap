@@ -222,6 +222,7 @@ type
     IPCServer: TIPCServer;
     {$ENDIF}
     DebugLog: TStringList;
+    LastProgressCaption: string;
     procedure AddShieldIconToMenu;
     procedure CalcNodeDataArraySize;
     procedure InternalOpenProcess(AMap: TMemoryMap;
@@ -1103,7 +1104,6 @@ begin
       Wow64Support.DisableRedirection;
       try
         AMap.DebugMapData.LoadLines := Settings.LoadLines;
-        RawScanner.CoffDwarf.NeedDemangleName := Settings.DemangleNames;
         Stopwatch.Start;
         // Сначала должно отработать ядро MemoryMap для получения данных по процессу
         AMap.InitFromProcess(PID, ProcessName);
@@ -1115,6 +1115,18 @@ begin
         TRawPEImage.LoadStringLength := Settings.StringMinLengh;
         // И только после этого можно запускать на выполнение RawScannerCore
         DebugLog.Clear;
+        // загрузка DWARF не быстрый процесс, поэтому нужно тоже выводить прогресс
+        TDwarfDebugInfo.LoadCallback := procedure(ALinesLoad: Boolean; ACurrent, AMax: Int64)
+        begin
+          if ALinesLoad then
+            dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF lines.'
+          else
+            dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF.';
+          dlgProgress.ProgressBarAdv.Visible := ACurrent <> AMax;
+          dlgProgress.ProgressBarAdv.Max := AMax;
+          dlgProgress.ProgressBarAdv.Position := ACurrent;
+          Application.ProcessMessages;
+        end;
         RawScannerLogger.OnLog := OnLog;
         RawScannerCore.InitFromProcess(PID);
         // Последним идет подсистема плагинов
@@ -1218,6 +1230,7 @@ end;
 procedure TdlgProcessMM.OnInitProgress(const Step: string; APecent: Integer);
 begin
   if dlgProgress = nil then Exit;
+  LastProgressCaption := Step;
   dlgProgress.lblProgress.Caption := Step;
   dlgProgress.ProgressBar.Position := APecent;
   Application.ProcessMessages;
@@ -1362,6 +1375,8 @@ var
 begin
   Items := MemoryMapCore.DebugMapData.Items;
   if Items.Count = 0 then Exit;
+  SymbolData.Binary.ModuleIndex := 0;
+  SymbolData.Binary.Param := 0;
   for I := 0 to Items.Count - 1 do
   begin
     SymbolData.AddrVA := Items.List[I].Address;

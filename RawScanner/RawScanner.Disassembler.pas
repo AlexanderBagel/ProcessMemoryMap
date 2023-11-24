@@ -47,6 +47,7 @@ type
     InstType: TInstructionType;
     AddrVa,
     RipAddrVA,
+    RipAddrPtr,
     JmpAddrVa,
     SegAddrVA: ULONG_PTR64;
     Opcodes: array [0..14] of Byte;
@@ -272,18 +273,30 @@ begin
               OffsetAddr := InstList[I].addr + InstList[I].size + ATypes.AddrData[A].AddrVA;
               {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
               Result[I].RipAddrVA := OffsetAddr;
+              ReadRemoteMemory(FProcessHandle, OffsetAddr, @Result[I].RipAddrPtr, 8);
               // какой по очереди встретился RIP, чтобы вывести в правильном порядке
               Result[I].RipFirst := Result[I].JmpAddrVa = 0;
+              if Result[I].RipFirst then
+                Result[I].JmpAddrVa := Result[I].RipAddrPtr;
             end;
             atPointer4:
             begin
               AddrVA := 0;
-              if ReadRemoteMemory(FProcessHandle, AddrVA, @AddrVA, 4) then
-                Result[I].JmpAddrVa := ATypes.AddrData[A].AddrVA;
+              if ReadRemoteMemory(FProcessHandle, ATypes.AddrData[A].AddrVA, @AddrVA, 4) then
+              begin
+                if FCode64 then
+                  Result[I].JmpAddrVa := AddrVA
+                else
+                begin
+                  Result[I].RipAddrVA := AddrVA;
+                  Result[I].RipFirst := False;
+                  Result[I].JmpAddrVa := ATypes.AddrData[A].AddrVA;
+                end;
+              end;
             end;
             atPointer8:
-              if ReadRemoteMemory(FProcessHandle, AddrVA, @AddrVA, 8) then
-                Result[I].JmpAddrVa := ATypes.AddrData[A].AddrVA;
+              if ReadRemoteMemory(FProcessHandle, ATypes.AddrData[A].AddrVA, @AddrVA, 8) then
+                Result[I].JmpAddrVa := AddrVA;
           end;
         end;
       end;

@@ -568,7 +568,7 @@ begin
   Result := False;
   FRegions.Clear;
   FModules.Clear;
-  FDebugMapData.Items.Clear;
+  FDebugMapData.Clear;
   FFilter := fiNone;
   ProcessLock := nil;
   FProcessPath := EmptyStr;

@@ -36,7 +36,11 @@ uses
 
 type
   TExportStatus = (esNormal, esForvarded, esRebased,
-    esNoExecutable, esInvalid, esDebug, esDebugData, esCoff, esCoffData);
+    esNoExecutable, esInvalid,
+    esDebug, esDebugData, // MAP
+    esCoff, esCoffData,   // COFF
+    esDwarf, esDwarfData  // DWARF
+    );
 
   TExportData = record
     dwAddress: NativeUInt;
@@ -170,7 +174,8 @@ procedure TdlgExportList.FormShow(Sender: TObject);
 const
   SymbolExportType: array [TExportStatus] of string =
     ('EXPORT', 'FORWARDED', 'REBASED', 'DATA', 'INVALID',
-     'DEBUG MAP', 'DEBUG_DATA MAP', 'COFF_DEBUG', 'COFF_DATA');
+     'DEBUG_MAP FUNC', 'DEBUG_MAP DATA', 'COFF FUNC', 'COFF DATA',
+     'DWARF FUNC', 'DWARF DATA');
 var
   I, A: Integer;
   S: TStringList;
@@ -255,7 +260,7 @@ begin
 
               // вывод известных функций из COFF посредством механизма RawScanner
               S.Clear;
-              RawScannerCore.Modules.GetExportFuncList(Module.Path, S, True);
+              RawScannerCore.Modules.GetCoffData(Module.Path, S, True);
               for A := 0 to S.Count - 1 do
               begin
                 ExportData.dwAddress := NativeUInt(S.Objects[A]);
@@ -269,12 +274,40 @@ begin
 
               // вывод известных данных из COFF посредством механизма RawScanner
               S.Clear;
-              RawScannerCore.Modules.GetExportFuncList(Module.Path, S, False);
+              RawScannerCore.Modules.GetCoffData(Module.Path, S, False);
               for A := 0 to S.Count - 1 do
               begin
                 ExportData.dwAddress := NativeUInt(S.Objects[A]);
                 ExportData.Address := UInt64ToStr(ExportData.dwAddress);
                 ExportData.Status := esCoffData;
+                ExportData.AType := SymbolExportType[ExportData.Status];
+                ExportData.FunctionName := S[A];
+                ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
+                List.Add(ExportData);
+              end;
+
+              // вывод известных функций из DWARF посредством механизма RawScanner
+              S.Clear;
+              RawScannerCore.Modules.GetDwarfData(Module.Path, S, True);
+              for A := 0 to S.Count - 1 do
+              begin
+                ExportData.dwAddress := NativeUInt(S.Objects[A]);
+                ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                ExportData.Status := esDwarf;
+                ExportData.AType := SymbolExportType[ExportData.Status];
+                ExportData.FunctionName := S[A];
+                ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
+                List.Add(ExportData);
+              end;
+
+              // вывод известных данных из DWARF посредством механизма RawScanner
+              S.Clear;
+              RawScannerCore.Modules.GetDwarfData(Module.Path, S, False);
+              for A := 0 to S.Count - 1 do
+              begin
+                ExportData.dwAddress := NativeUInt(S.Objects[A]);
+                ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                ExportData.Status := esDwarfData;
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
@@ -356,6 +389,8 @@ begin
     esNoExecutable, esCoffData, esDebugData: ItemColor := $E4C4CF;
     esInvalid: ItemColor := $B092EC;
     esDebug, esCoff: ItemColor := $CCEDDF;
+    esDwarf: ItemColor := $A1D0A3;
+    esDwarfData: ItemColor := $F0DFE5;
   else
     ItemColor := clWhite;
   end;

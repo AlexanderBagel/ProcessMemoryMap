@@ -45,7 +45,8 @@ uses
   MemoryMap.DebugMapData,
   RawScanner.ModulesData,
   RawScanner.Disassembler,
-  RawScanner.SymbolStorage;
+  RawScanner.SymbolStorage,
+  RawScanner.CoffDwarf;
 
 procedure LoadLazarusUnitInitOrder(APEImage: TRawPEImage;
   AData: TUnitInitOrderList);
@@ -359,7 +360,7 @@ begin
   SymbolStorage.Clear;
 
   // грузим сам образ
-  PEImage := TRawPEImage.Create(FilePath);
+  PEImage := TRawPEImage.Create(FilePath, False);
   try
     // если в образе присутствует отладочные COFF символы,
     // значит это скорее всего Lazarus/FPC, проверяем наличие таблицы "INITFINAL"

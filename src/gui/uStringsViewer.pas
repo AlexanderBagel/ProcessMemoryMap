@@ -204,6 +204,7 @@ var
 begin
   Index := List.List[Node.Index];
   PEImage := RawScannerCore.Modules.Items[Index.Hi];
+  if Index.Lo >= PEImage.Strings.Count then Exit;
   case Column of
     0: CellText := '0x' + IntToHex(PEImage.Strings.List[Index.Lo].AddrVA, 1);
     1: CellText := PEImage.ImageName;

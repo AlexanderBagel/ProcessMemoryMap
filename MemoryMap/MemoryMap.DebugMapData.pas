@@ -57,14 +57,15 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+    procedure Clear;
     procedure Init(BaseAddress: ULONG_PTR; const ModulePath: string);
     function GetAddrFromDescription(const Value: string): ULONG_PTR;
     function GetDescriptionAtAddr(Address: ULONG_PTR;
       AddModuleName: Boolean = True): string;
     function GetDescriptionAtAddrWithOffset(Address: ULONG_PTR;
-      AddModuleName: Boolean = True): string;
+      const CheckModuleName: string; AddModuleName: Boolean = True): string;
     function GetLineNumberAtAddr(BaseAddress: ULONG_PTR;
-      var UnitName: string): Integer;
+      var AUnitName: string): Integer;
     function GetLineNumberAtAddrForced(BaseAddress: ULONG_PTR;
       Limit: Integer; var UnitName: string): Integer;
     procedure GetExportFuncList(const ModuleName: string; Value: TStringList;
@@ -82,6 +83,14 @@ uses
   MemoryMap.PEImage;
 
 { TDebugMap }
+
+procedure TDebugMap.Clear;
+begin
+  FItems.Clear;
+  FLoadedMap.Clear;
+  FUnits.Clear;
+  FLines.Clear;
+end;
 
 constructor TDebugMap.Create;
 begin
@@ -148,7 +157,7 @@ begin
 end;
 
 function TDebugMap.GetDescriptionAtAddrWithOffset(Address: ULONG_PTR;
-  AddModuleName: Boolean): string;
+  const CheckModuleName: string; AddModuleName: Boolean): string;
 var
   I: Integer;
   Item: TDebugMapItem;
@@ -169,6 +178,9 @@ begin
 
   // проверка на выход за диапазон
   if I >= FItems.Count then Exit;
+
+  if not AnsiSameText(ExtractFileName(CheckModuleName),
+    FItems.List[I].ModuleName) then Exit;
 
   if AddModuleName then
     Result := FItems.List[I].ModuleName + '!' + FItems.List[I].FunctionName
@@ -197,13 +209,13 @@ begin
 end;
 
 function TDebugMap.GetLineNumberAtAddr(BaseAddress: ULONG_PTR;
-  var UnitName: string): Integer;
+  var AUnitName: string): Integer;
 var
   Data: TLineData;
 begin
   if FLines.TryGetValue(BaseAddress, Data) then
   begin
-    UnitName := FUnits[Data.UnitIndex];
+    AUnitName := FUnits[Data.UnitIndex];
     Result := Data.LineNumber;
   end
   else

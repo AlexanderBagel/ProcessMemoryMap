@@ -68,20 +68,23 @@ function GetDescriptionAtAddr(AAddress: NativeUInt; ASymbols: TSymbols;
   AMap: TDebugMap): string;
 var
   LineNumber: Integer;
-  AUnitName, AFuncName: string;
+  AModuleName, AUnitName, AFuncName: string;
   BaseAddr: NativeUInt;
 begin
   LineNumber := AMap.GetLineNumberAtAddrForced(AAddress, 400, AUnitName);
-  AFuncName := AMap.GetDescriptionAtAddrWithOffset(AAddress);
+  AModuleName := GetModuleNameFromAddr(BaseAddr);
+  AFuncName := AMap.GetDescriptionAtAddrWithOffset(AAddress, AModuleName);
   if LineNumber <= 0 then
   begin
     BaseAddr := GetBaseAddr(AAddress);
-    Result := ASymbols.GetDescriptionAtAddr(AAddress, BaseAddr, GetModuleNameFromAddr(BaseAddr));
+    Result := ASymbols.GetDescriptionAtAddr(AAddress, BaseAddr, AModuleName);
     Result := Format('%.8x: %s', [AAddress, Result]);
   end
   else
   begin
-    AFuncName := GetFunction(AFuncName);
+    if AFuncName <> '' then
+      AUnitName := '';
+    AFuncName := AUnitName + GetFunction(AFuncName);
     Result := Format('%.8x: %s line %d', [AAddress, AFuncName, LineNumber]);
   end;
 end;

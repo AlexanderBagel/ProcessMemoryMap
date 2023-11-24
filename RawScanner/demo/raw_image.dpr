@@ -12,7 +12,6 @@ uses
   Math,
   System.TypInfo,
   Generics.Collections,
-  Patches.Win32Version,
   RawScanner.ModulesData in '..\RawScanner.ModulesData.pas',
   RawScanner.Analyzer in '..\RawScanner.Analyzer.pas',
   RawScanner.Wow64 in '..\RawScanner.Wow64.pas',
@@ -28,7 +27,9 @@ uses
   display_utils in 'display_utils.pas',
   RawScanner.ActivationContext in '..\RawScanner.ActivationContext.pas',
   RawScanner.Core in '..\RawScanner.Core.pas',
-  RawScanner.SymbolStorage in '..\RawScanner.SymbolStorage.pas';
+  RawScanner.SymbolStorage in '..\RawScanner.SymbolStorage.pas',
+  RawScanner.X64Gates in '..\RawScanner.X64Gates.pas',
+  RawScanner.CoffDwarf in '..\RawScanner.CoffDwarf.pas';
 
 var
   AProcessID: DWORD;

@@ -35,6 +35,7 @@ uses
   RawScanner.ModulesData,
   RawScanner.SymbolStorage,
   RawScanner.Types,
+  RawScanner.CoffDwarf,
 
   uBaseForm,
   uDumpDisplayUtils,
@@ -71,6 +72,7 @@ type
     procedure FormActivate(Sender: TObject);
     procedure FormDeactivate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
@@ -150,6 +152,13 @@ begin
   if TotalCounter = 0 then
     ShowCounter := 0;
   Action := ACloseAction;
+end;
+
+procedure TdlgRegionProps.FormCreate(Sender: TObject);
+begin
+  inherited;
+  Inc(ShowCounter);
+  Inc(TotalCounter);
 end;
 
 procedure TdlgRegionProps.FormDeactivate(Sender: TObject);
@@ -254,72 +263,14 @@ procedure TdlgRegionProps.ShowInfoFromMBI(Process: THandle;
   MBI: TMemoryBasicInformation; Address: Pointer);
 var
   OwnerName: array [0..MAX_PATH - 1] of Char;
-  Path, DescriptionAtAddr, FuncName, OtherFuncName: string;
+  Path, DescriptionAtAddr: string;
   Workset: TWorkset;
   Shared: Boolean;
   SharedCount: Byte;
-  ExpData: TSymbolData;
-  Module: TRawPEImage;
   Index: Integer;
-  AddrVA: ULONG64;
   Section: TImageSectionHeaderEx;
   AddrRva: Cardinal;
-  I, DataCount: Integer;
-
-  procedure UpdateFuncName(const Value: string);
-  begin
-    if FuncName = '' then
-      FuncName := Value
-    else
-      if OtherFuncName = '' then
-        OtherFuncName := Value
-      else
-        OtherFuncName := OtherFuncName + ', ' + Value;
-  end;
-
-  procedure AddOffsetToFuncName(const Offset: string);
-  begin
-    if OtherFuncName = '' then
-      FuncName := FuncName + Offset
-    else
-      OtherFuncName := OtherFuncName + Offset;
-  end;
-
-  procedure ProcessSymbol(AtIndex: Integer);
-  begin
-    // вернет запись или sdtExport, sdtEntryPoint или sdtCoffFunction
-    if SymbolStorage.GetExportAtAddr(ULONG_PTR(Address), stExport, ExpData, AtIndex) then
-    begin
-      Module := RawScannerCore.Modules.Items[ExpData.Binary.ModuleIndex];
-      if DescriptionAtAddr = '' then
-        DescriptionAtAddr := 'Function: ' + Module.ImageName + '!';
-      Index := ExpData.Binary.ListIndex;
-
-      case ExpData.DataType of
-        sdtEntryPoint:
-        begin
-          UpdateFuncName(Module.EntryPointList.List[Index].EntryPointName);
-          AddrVA := Module.EntryPointList.List[Index].AddrVA;
-        end;
-        sdtExport:
-        begin
-          UpdateFuncName(Module.ExportList.List[Index].ToString);
-          AddrVA := Module.ExportList.List[Index].FuncAddrVA;
-        end;
-        sdtCoffFunction:
-        begin
-          UpdateFuncName(Module.CoffDebugInfo.CoffStrings.List[Index].DisplayName);
-          AddrVA := Module.CoffDebugInfo.CoffStrings.List[Index].FuncAddrVA;
-        end;
-      else
-        AddrVA := 0;
-      end;
-
-      if AddrVA <> ULONG_PTR(Address) then
-        AddOffsetToFuncName(' + 0x' + IntToHex(ULONG_PTR(Address) - AddrVA, 1));
-    end;
-  end;
-
+  KnownTypes: TSymbolDataTypes;
 begin
   Add('AllocationBase: ' + UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
   Add('RegionSize: ' + SizeToStr(MBI.RegionSize));
@@ -365,32 +316,15 @@ begin
       end;
     end;
     DescriptionAtAddr :=
-      MemoryMapCore.DebugMapData.GetDescriptionAtAddrWithOffset(ULONG_PTR(Address));
+      MemoryMapCore.DebugMapData.GetDescriptionAtAddrWithOffset(ULONG_PTR(Address),
+      Path);
     if DescriptionAtAddr <> '' then
       Add('Function: ' + DescriptionAtAddr)
     else
     begin
-
-      FuncName := '';
-      OtherFuncName := '';
-
-      DataCount := SymbolStorage.GetDataCountAtAddr(ULONG_PTR(Address));
-      if DataCount > 0 then
-      begin
-        for I := 0 to DataCount - 1 do
-          ProcessSymbol(I);
-      end;
-
-      if DescriptionAtAddr = '' then
-        ProcessSymbol(0);
-
+      DescriptionAtAddr := GetAddrDescription(ULONG_PTR(Address), stExport, KnownTypes, True, True);
       if DescriptionAtAddr <> '' then
-      begin
-        if OtherFuncName <> '' then
-          OtherFuncName := ' (' + OtherFuncName + ')';
-        Add(DescriptionAtAddr + FuncName + OtherFuncName);
-      end;
-
+        Add('Function: ' + DescriptionAtAddr);
     end;
   end;
 end;
@@ -459,8 +393,6 @@ begin
   ProcessLock := nil;
   Process := OpenProcessWithReconnect;
   try
-    Inc(ShowCounter);
-    Inc(TotalCounter);
     Caption := Format(DefCaption, [ShowCounter, ULONG_PTR(Value)]);
     edProperties.Lines.Add('Info at address: ' + UInt64ToStr(ULONG_PTR(Value)));
     if Settings.SuspendProcess then

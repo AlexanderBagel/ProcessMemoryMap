@@ -129,6 +129,8 @@
         <DCCReference Include="..\RawScanner.ActivationContext.pas"/>
         <DCCReference Include="..\RawScanner.Core.pas"/>
         <DCCReference Include="..\RawScanner.SymbolStorage.pas"/>
+        <DCCReference Include="..\RawScanner.X64Gates.pas"/>
+        <DCCReference Include="..\RawScanner.CoffDwarf.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -179,12 +181,6 @@
                 <DeployFile LocalName="Win64\Debug\raw_image.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win64">
                         <RemoteName>raw_image.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="Win64\Debug\raw_image.rsm" Configuration="Debug" Class="DebugSymbols">
-                    <Platform Name="Win64">
-                        <RemoteName>raw_image.rsm</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

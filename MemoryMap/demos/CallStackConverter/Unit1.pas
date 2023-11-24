@@ -280,7 +280,7 @@ begin
       BaseExport.Sorted := True;
       ExportList := TStringList.Create;
       try
-        FDebugMap.GetExportFuncList(BinaryFileName, ExportList);
+        FDebugMap.GetExportFuncList(BinaryFileName, ExportList, True);
         for I := 0 to memStack.Lines.Count - 1 do
         begin
           Item := lvStack.Items.Add;
@@ -309,7 +309,7 @@ begin
             FuncAddr := BaseAddr + FuncOffset;
             Item.Caption := '0x' + IntToHex(FuncAddr);
             LineNumber := FDebugMap.GetLineNumberAtAddr(FuncAddr, AUnitName);
-            FuncName := FDebugMap.GetDescriptionAtAddrWithOffset(FuncAddr, False);
+            FuncName := FDebugMap.GetDescriptionAtAddrWithOffset(FuncAddr, BinaryFileName, False);
             if LineNumber <= 0 then
             begin
               Item.SubItems.Add(EmptyStr);

@@ -80,6 +80,9 @@ type
     Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt): string;
 
   function GetTebHint(Value: ULONG; Is64: Boolean): string;
+  function GetAddrDescription(AddrVa: ULONG_PTR; ASymbolType: TSymbolType;
+    out KnownTypes: TSymbolDataTypes; IncludeModuleName: Boolean;
+    DemangleCoffName: Boolean = False): string;
 
 type
   ENoMoreDataException = class(Exception)
@@ -310,6 +313,9 @@ begin
   end;
 end;
 
+var
+  LastLineIsEmpty: Boolean = False;
+
 function AsmToHexStr(Data: Pointer;
   Len: Integer): string;
 var
@@ -320,9 +326,6 @@ begin
     Result := Result + IntToHex(GetByteAtAddr(Data, I), 2) + ' ';
   Result := Result + StringOfChar(' ', (14 - Len) * 3);
 end;
-
-var
-  LastLineIsEmpty: Boolean = False;
 
 procedure AddString(var OutValue: string; const NewString, SubComment: string); overload;
 var
@@ -337,12 +340,12 @@ begin
     sLineBreakOffset := Pos(#13, NewString);
     if sLineBreakOffset = 0 then
     begin
-      SubCommentOffset := 74 - Length(NewString);
+      SubCommentOffset := 106 - Length(NewString);
       Line := NewString + StringOfChar(' ', SubCommentOffset) + ' // ' + SubComment;
     end
     else
     begin
-      SubCommentOffset := 75 - sLineBreakOffset;
+      SubCommentOffset := 107 - sLineBreakOffset;
       Line := StuffString(NewString, sLineBreakOffset, 0,
         StringOfChar(' ', SubCommentOffset) + ' // ' + SubComment);
     end;
@@ -3297,7 +3300,9 @@ var
 var
   DescriptorData: TDescriptorData;
   LineData: TLineData;
+  DwarfData: TDebugInformationEntry;
   DwarfLinesUnit: TDwarfLinesUnit;
+  DwarfInfoUnit: TDwarfInfoUnit;
   DebugMapItem: TDebugMapItem;
 begin
   case ASymbol.DataType of
@@ -3306,15 +3311,6 @@ begin
       if PluginManager.GetGetDescriptorData(ASymbol.Plugin.PluginHandle,
         ASymbol.Plugin.DescriptorHandle, DescriptorData) then
         Result := DescriptorData.Caption;
-      Exit;
-    end;
-    sdtDwarfLine:
-    begin
-      Module := RawScannerCore.Modules.Items[ASymbol.Dwarf.ModuleIndex];
-      DwarfLinesUnit := Module.DwarfDebugInfo.Units[ASymbol.Dwarf.UnitIndex];
-      LineData := DwarfLinesUnit.Lines[ASymbol.Dwarf.LineIndex];
-      Result := Trim(DwarfLinesUnit.GetFilePath(LineData.FileId) +
-        ' (' + IntToStr(LineData.Line) + ')');
       Exit;
     end;
     sdtDebugMapFunction, sdtDebugMapData:
@@ -3369,6 +3365,25 @@ begin
       Result := Format('TLS Callback Entry [%d]', [Index]);
     sdtCoffFunction, sdtCoffData:
       Result := Module.CoffDebugInfo.CoffStrings[Index].DisplayName;
+    sdtDwarfLine:
+    begin
+      DwarfLinesUnit := Module.DwarfDebugInfo.UnitLines[Index];
+      LineData := DwarfLinesUnit.Lines[ASymbol.Binary.Param];
+      Result := Trim(DwarfLinesUnit.GetFilePath(LineData.FileId) +
+        ' (' + IntToStr(LineData.Line) + ')');
+    end;
+    sdtDwarfProc, sdtDwarfEndProc, sdtDwarfData:
+    begin
+      DwarfInfoUnit := Module.DwarfDebugInfo.UnitInfos[Index];
+      DwarfData := DwarfInfoUnit.Data[ASymbol.Binary.Param];
+      if ASymbol.DataType = sdtDwarfEndProc then
+        Result := DwarfData.ShortName + ' endp'
+      else
+        if IncludeModuleName then
+          Result := DwarfData.ShortName
+        else
+          Result := DwarfData.LongName;
+    end;
     sdtExportDir:
       Result := 'IMAGE_EXPORT_DIRECTORY';
     sdtImportDescriptor:
@@ -3452,12 +3467,12 @@ begin
   // вывод табличных данных
   repeat
 
-    // конкретно у таблицы имен отложеного испорта запись может идти без
+    // конкретно у таблицы имен отложеного импорта запись может идти без
     // указания на структуру, просто ввиде ординала, в этом случае
-    // не нжно делать преобразование в RVA, а нужно выводить как есть.
+    // не нужно делать преобразование в RVA, а нужно выводить как есть.
     if ptrData.DataType in [sdtDelayedImportNameTable, sdtDelayedImportNameTable64] then
     begin
-      if ptrData.Binary.DelayedNameEmpty then
+      if ptrData.Binary.Param <> 0 then
         RvaRecalc := 0
       else
         RvaRecalc := AllocationBase;
@@ -3515,6 +3530,133 @@ begin
   until ListCount = 0;
 end;
 
+procedure DumpDwarfUnit(var OutValue: string;
+  const ASymbol: TSymbolData; AddrVA: ULONG64; ChangeLastLineFlag: Boolean = True);
+
+  function LangToStr(Value: Byte): string;
+  begin
+    case Value of
+      DW_LANG_C89: Result := 'DW_LANG_C89';
+      DW_LANG_C: Result := 'DW_LANG_C';
+      DW_LANG_Ada83: Result := 'DW_LANG_Ada83';
+      DW_LANG_C_plus_plus: Result := 'DW_LANG_C_plus_plus';
+      DW_LANG_Cobol74: Result := 'DW_LANG_Cobol74';
+      DW_LANG_Cobol85: Result := 'DW_LANG_Cobol85';
+      DW_LANG_Fortran77: Result := 'DW_LANG_Fortran77';
+      DW_LANG_Fortran90: Result := 'DW_LANG_Fortran90';
+      DW_LANG_Pascal83: Result := 'DW_LANG_Pascal83';
+      DW_LANG_Modula2: Result := 'DW_LANG_Modula2';
+      DW_LANG_Java: Result := 'DW_LANG_Java';
+      DW_LANG_C99: Result := 'DW_LANG_C99';
+      DW_LANG_Ada95: Result := 'DW_LANG_Ada95';
+      DW_LANG_Fortran95: Result := 'DW_LANG_Fortran95';
+      DW_LANG_PLI: Result := 'DW_LANG_PLI';
+      DW_LANG_ObjC: Result := 'DW_LANG_ObjC';
+      DW_LANG_ObjC_plus_plus: Result := 'DW_LANG_ObjC_plus_plus';
+      DW_LANG_UPC: Result := 'DW_LANG_UPC';
+      DW_LANG_D: Result := 'DW_LANG_D';
+      DW_LANG_Python: Result := 'DW_LANG_Python';
+      DW_LANG_OpenCL: Result := 'DW_LANG_OpenCL';
+      DW_LANG_Go: Result := 'DW_LANG_Go';
+      DW_LANG_Modula3: Result := 'DW_LANG_Modula3';
+      DW_LANG_Haskell: Result := 'DW_LANG_Haskell';
+      DW_LANG_C_plus_plus_03: Result := 'DW_LANG_C_plus_plus_03';
+      DW_LANG_C_plus_plus_11: Result := 'DW_LANG_C_plus_plus_11';
+      DW_LANG_OCaml: Result := 'DW_LANG_OCaml';
+      DW_LANG_Rust: Result := 'DW_LANG_Rust';
+      DW_LANG_C11: Result := 'DW_LANG_C11';
+      DW_LANG_Swift: Result := 'DW_LANG_Swift';
+      DW_LANG_Julia: Result := 'DW_LANG_Julia';
+      DW_LANG_Dylan: Result := 'DW_LANG_Dylan';
+      DW_LANG_C_plus_plus_14: Result := 'DW_LANG_C_plus_plus_14';
+      DW_LANG_Fortran03: Result := 'DW_LANG_Fortran03';
+      DW_LANG_Fortran08: Result := 'DW_LANG_Fortran08';
+      DW_LANG_RenderScript: Result := 'DW_LANG_RenderScript';
+      DW_LANG_BLISS: Result := 'DW_LANG_BLISS';
+      DW_LANG_Kotlin: Result := 'DW_LANG_Kotlin';
+      DW_LANG_Zig: Result := 'DW_LANG_Zig';
+      DW_LANG_Crystal: Result := 'DW_LANG_Crystal';
+      DW_LANG_C_plus_plus_17: Result := 'DW_LANG_C_plus_plus_17';
+      DW_LANG_C_plus_plus_20: Result := 'DW_LANG_C_plus_plus_20';
+      DW_LANG_C17: Result := 'DW_LANG_C17';
+      DW_LANG_Fortran18: Result := 'DW_LANG_Fortran18';
+      DW_LANG_Ada2005: Result := 'DW_LANG_Ada2005';
+      DW_LANG_Ada2012: Result := 'DW_LANG_Ada2012';
+      DW_LANG_HIP: Result := 'DW_LANG_HIP';
+      DW_LANG_Assembly: Result := 'DW_LANG_Assembly';
+      DW_LANG_C_sharp: Result := 'DW_LANG_C_sharp';
+      DW_LANG_Mojo: Result := 'DW_LANG_Mojo';
+      DW_LANG_GLSL: Result := 'DW_LANG_GLSL';
+      DW_LANG_GLSL_ES: Result := 'DW_LANG_GLSL_ES';
+      DW_LANG_HLSL: Result := 'DW_LANG_HLSL';
+      DW_LANG_OpenCL_CPP: Result := 'DW_LANG_OpenCL_CPP';
+      DW_LANG_CPP_for_OpenCL: Result := 'DW_LANG_CPP_for_OpenCL';
+      DW_LANG_SYCL: Result := 'DW_LANG_SYCL';
+    else
+      Result := Format('Unknown (%d)', [Value]);
+    end;
+  end;
+
+var
+  AddrVAStr: string;
+  Module: TRawPEImage;
+  DwarfInfoUnit: TDwarfInfoUnit;
+begin
+  Module := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
+  DwarfInfoUnit := Module.DwarfDebugInfo.UnitInfos[ASymbol.Binary.ListIndex];
+  if DwarfInfoUnit.AddrStart = 0 then Exit;
+  AddrVAStr := IntToHex(AddrVA, 8) + ' ';
+  if not LastLineIsEmpty then
+    AddString(OutValue, AddrVAStr);
+  AddString(OutValue, AddrVAStr + 'Unit: ' + DwarfInfoUnit.SourceDir + DwarfInfoUnit.UnitName);
+  AddString(OutValue, AddrVAStr + 'Producer: ' + DwarfInfoUnit.Producer);
+  AddString(OutValue, AddrVAStr + 'AddrVA: 0x' + IntToHex(DwarfInfoUnit.AddrStart, 1) +
+    ' - 0x' + IntToHex(DwarfInfoUnit.AddrEnd, 1));
+  AddString(OutValue, AddrVAStr + 'Language: ' + LangToStr(DwarfInfoUnit.Language));
+  AddString(OutValue, AddrVAStr + '; ' + StringOfChar('-', 75));
+  AddString(OutValue, AddrVAStr);
+  if ChangeLastLineFlag then
+    LastLineIsEmpty := True;
+end;
+
+function GetDwarfUnitAtAddr(AddrVA: ULONG64; out ASymbol: TSymbolData): Boolean;
+var
+  I, Count: Integer;
+  Tmp: TSymbolData;
+  Module: TRawPEImage;
+  DwarfInfoUnit: TDwarfInfoUnit;
+begin
+  Result := False;
+  Count := SymbolStorage.GetDataCountAtAddr(AddrVA);
+  for I := 0 to Count - 1 do
+  begin
+    SymbolStorage.GetDataAtAddr(AddrVA, Tmp, I);
+    case Tmp.DataType of
+      sdtDwarfUnit:
+      begin
+        ASymbol := Tmp;
+        Exit(True);
+      end;
+      // из этих типов можно вытащить данные по модулю
+      sdtDwarfLine, sdtDwarfProc, sdtDwarfEndProc, sdtDwarfData:
+      begin
+        Module := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
+        // линии технически мапятся на аналогичный модуль из .debug_info
+        {$message 'нужно сделать линк индекса, ибо если модуль не загрузился - будет промах'}
+        if Tmp.DataType = sdtDwarfLine then
+          if ASymbol.Binary.ListIndex >= Module.DwarfDebugInfo.UnitInfos.Count then
+            Continue;
+        DwarfInfoUnit := Module.DwarfDebugInfo.UnitInfos[ASymbol.Binary.ListIndex];
+        ASymbol := Tmp;
+        ASymbol.DataType := sdtDwarfUnit;
+        ASymbol.AddrVA := DwarfInfoUnit.AddrStart;
+        ASymbol.Binary.Param := 0;
+        Result := True;
+      end;
+    end;
+  end;
+end;
+
 procedure DumpMemoryFromBuffWithCheckRawData(var OutString: string;
   Process: THandle; Address: Pointer; RawBuff: TMemoryDump;
   Cursor: NativeUInt; Limit: NativeUInt);
@@ -3526,6 +3668,7 @@ var
   SkipHeader: Boolean;
   dwLength: DWORD;
   MBI: TMemoryBasicInformation;
+  I: Integer;
 begin
   MaxSize := Length(RawBuff);
   if (Limit > 0) and (Limit < MaxSize) then
@@ -3537,6 +3680,20 @@ begin
   // проверка всех известных данных, полученых от RawScanner-а
   SkipHeader := False;
   DataList := SymbolStorage.GetKnownAddrList(ULONG_PTR(Address) + Cursor, MaxSize - Cursor);
+
+  // вывод имени модуля, если в наличии есть информация от DWARF
+  for I := 0 to DataList.Count - 1 do
+    if DataList.List[I].DataType in [sdtDwarfFirst..sdtDwarfLast] then
+    begin
+      if DataList.List[I].DataType <> sdtDwarfUnit then
+      begin
+        AddString(OutString, MemoryDumpHeader);
+        DumpDwarfUnit(OutString, DataList.List[I], ULONG_PTR(Address));
+        SkipHeader := True;
+      end;
+      Break;
+    end;
+
   while DataList.Count > 0 do
   begin
     ptrData := DataList.List[0];
@@ -3570,8 +3727,10 @@ begin
         DumpTables(OutString, Address, ULONG64(MBI.AllocationBase),
           ptrData, DataList, RawBuff, Cursor);
       end;
-      sdtExport, sdtEntryPoint, sdtCoffFunction,
-      sdtCoffData, sdtDwarfLine, sdtDebugMapFunction, sdtDebugMapData:
+      sdtExport, sdtEntryPoint,
+      sdtCoffFunction, sdtCoffData,
+      sdtDwarfLine, sdtDwarfProc, sdtDwarfEndProc, sdtDwarfData,
+      sdtDebugMapFunction, sdtDebugMapData:
       begin
         FuncName := GetSymbolDescription(ptrData);
         if OutString = EmptyStr then
@@ -3580,6 +3739,13 @@ begin
 
         // имя экспортируемой функции или точки входа просто заменяет заголовок
         // поэтому нужно выставить флаг о том что заголовок уже добавлен
+        SkipHeader := True;
+      end;
+      sdtDwarfUnit:
+      begin
+        if OutString = EmptyStr then
+          AddString(OutString, MemoryDumpHeader);
+        DumpDwarfUnit(OutString, ptrData, ULONG_PTR(Address));
         SkipHeader := True;
       end;
       sdtEATAddr..sdtTlsCallback64:
@@ -3665,6 +3831,78 @@ begin
   end;
 end;
 
+function GetAddrDescription(AddrVa: ULONG_PTR; ASymbolType: TSymbolType;
+  out KnownTypes: TSymbolDataTypes; IncludeModuleName: Boolean;
+  DemangleCoffName: Boolean): string;
+var
+  I, Count: Integer;
+  ExpData: TSymbolData;
+  Dwarf, Coff, Map, Line, CloseLine: string;
+
+  function CheckAddrEqual: string;
+  begin
+    if (ASymbolType = stExport) and (AddrVa <> ExpData.AddrVA) then
+      Result := ' + 0x' + IntToHex(AddrVA - ExpData.AddrVA, 1)
+    else
+      Result := '';
+  end;
+
+begin
+  Result := '';
+  KnownTypes := [];
+  Count := SymbolStorage.GetDataCountAtAddr(AddrVa);
+
+  // если адрес в середине функции и нам нужно вытащить её название
+  // тогда принудительно запускаем один запрос данных,
+  // GetExportAtAddr вернет данные по которым можно вытянуть оффсет
+  if (Count = 0) and (ASymbolType = stExport) then
+    Count := 1;
+
+  if ASymbolType in [stExport, stExportExactMatch] then
+    IncludeModuleName := False;
+
+  for I := 0 to Count - 1 do
+  begin
+    Include(KnownTypes, SymbolStorage.GetDataTypeAtAddr(AddrVa, I));
+    // в случае stExportExactMatch вернутся только записи на функции
+    // без блоков данных, поэтому дополнительный контроль не нужен
+    if SymbolStorage.GetExportAtAddr(AddrVa, ASymbolType, ExpData, I) then
+    begin
+      case ExpData.DataType of
+        sdtCoffFunction,
+        sdtCoffData:
+        begin
+          Coff := GetSymbolDescription(ExpData, IncludeModuleName);
+          if DemangleCoffName then
+            Coff := DemangleName(Coff, ExpData.DataType = sdtCoffFunction);
+          Coff := Coff + CheckAddrEqual;
+        end;
+        sdtDwarfLine: Line := GetSymbolDescription(ExpData, False) + CheckAddrEqual;
+        sdtDwarfProc,
+        sdtDwarfData: Dwarf := GetSymbolDescription(ExpData, IncludeModuleName) + CheckAddrEqual;
+        sdtDwarfUnit, sdtDwarfEndProc: ; // игнорируемые типы
+        sdtDebugMapFunction,
+        sdtDebugMapData: Map := GetSymbolDescription(ExpData, IncludeModuleName) + CheckAddrEqual;
+      else
+        Result := GetSymbolDescription(ExpData, IncludeModuleName) + CheckAddrEqual;
+      end;
+    end;
+  end;
+
+  // приоритет вывода Dwarf, DebugMap, other, Coff, Line
+  if Dwarf <> '' then
+    Exit(Dwarf);
+
+  if Map <> '' then
+    Exit(Map);
+
+  if Result = '' then
+    if Coff <> '' then
+      Result := Coff + Line + CloseLine
+    else
+      Result := Line;
+end;
+
 function DisassemblyFromBuff(Process: THandle; RawBuff: TMemoryDump;
   Address, AllocationBase: Pointer; Is64: Boolean; nSize: NativeUInt): string;
 const
@@ -3676,16 +3914,15 @@ const
     dwLength: Cardinal;
     OwnerName: array [0..MAX_PATH - 1] of Char;
     Path, HexAddr: string;
-    ExpData: TSymbolData;
+    KnownTypes: TSymbolDataTypes;
   begin
     Result := EmptyStr;
     if AddrVa <> 0 then
     begin
-      // получение данных из символов экспорта
-      if SymbolStorage.GetExportAtAddr(ULONG_PTR(AddrVa), stAll, ExpData) then
-        Result := GetSymbolDescription(ExpData)
-      else
+      // получение данных из символов
+      Result := GetAddrDescription(AddrVa, stAll, KnownTypes, True);
       // в противном случае просто вывод имени файла на который идет ссылка
+      if Result = '' then
       begin
         dwLength := SizeOf(TMemoryBasicInformation);
         if VirtualQueryEx(Process,
@@ -3701,7 +3938,7 @@ const
         end;
       end;
 
-      if Result <> EmptyStr then
+      if Result <> '' then
         Result := ' ; ' + Result;
       Result := HexAddr + Result;
     end;
@@ -3720,15 +3957,127 @@ const
       end;
   end;
 
+  procedure CheckSourceLine(const inst: TInstruction);
+  var
+    I, LineNumber: Integer;
+    ExpData: TSymbolData;
+    Line: string;
+  begin
+    for I := 0 to SymbolStorage.GetDataCountAtAddr(inst.AddrVa) - 1 do
+      if SymbolStorage.GetDataAtAddr(inst.AddrVa, ExpData, I) and (ExpData.DataType in [sdtDwarfLine, sdtDwarfEndProc]) then
+      begin
+        Line := GetSymbolDescription(ExpData, False);
+        if Line <> '' then
+        begin
+          AddBlockComment(inst.AddrVa, Result, Line);
+          Exit;
+        end;
+      end;
+
+    // Детект линий из МАР файла если они загружены
+    // Эта информация не помещается в SymbolStorage, т.к. нет смысла
+    // дублировать, ибо линии в МАР файле тоже работают через словарь
+    if MemoryMapCore.DebugMapData.LoadLines then
+    begin
+      LineNumber := MemoryMapCore.DebugMapData.GetLineNumberAtAddr(inst.AddrVa, Line);
+      if LineNumber > 0 then
+      begin
+        Line := Format('%s (%d)', [Line, LineNumber]);
+        AddBlockComment(inst.AddrVa, Result, Line);
+      end;
+    end;
+  end;
+
+  procedure ProcessSubProgramm(const inst: TInstruction;
+    FirstLine: string; AKnownTypes: TSymbolDataTypes);
+  var
+    I: Integer;
+    ExpData, DwarfData: TSymbolData;
+    Line, AddrVAStr, AddrVAStr2: string;
+    ExtendInfoAdded, DwarfFound: Boolean;
+    Module: TRawPEImage;
+    DwarfInfoUnit: TDwarfInfoUnit;
+    Die: TDebugInformationEntry;
+  begin
+    // вывод описания функции
+    if (AKnownTypes * [sdtCoffFunction, sdtDwarfProc] = [sdtCoffFunction]) and Settings.DemangleNames then
+      FirstLine := DemangleName(FirstLine, True);
+    AddBlockComment(inst.AddrVa, Result, FirstLine);
+
+    // вывод дополнительных данных по функции (скорее всего это будет COFF)
+    ExtendInfoAdded := False;
+    DwarfFound := False;
+    if sdtCoffFunction in AKnownTypes then
+    begin
+      AddrVAStr := IntToHex(inst.AddrVA, 8) + ' ';
+      AddrVAStr2 := AddrVAStr + '  ';
+      for I := 0 to SymbolStorage.GetDataCountAtAddr(inst.AddrVa) - 1 do
+        if SymbolStorage.GetDataAtAddr(inst.AddrVa, ExpData, I) then
+        begin
+          case ExpData.DataType of
+            sdtDwarfLine, sdtDwarfEndProc: Continue;
+            sdtDwarfProc:
+            begin
+              DwarfData := ExpData;
+              DwarfFound := True;
+            end;
+          end;
+          Line := GetSymbolDescription(ExpData, False);
+          if Line.IsEmpty or (Line = FirstLine) then Continue;
+          if not ExtendInfoAdded then
+          begin
+            AddString(Result, AddrVAStr + 'Extended description:');
+            ExtendInfoAdded := True;
+          end;
+          AddString(Result, AddrVAStr2 + Line);
+        end;
+    end;
+
+    if ExtendInfoAdded then
+    begin
+      AddString(Result, AddrVAStr);
+      LastLineIsEmpty := True;
+    end;
+
+    // вывод локального стека функции
+    if DwarfFound then
+    begin
+      Module := RawScannerCore.Modules.Items[DwarfData.Binary.ModuleIndex];
+      DwarfInfoUnit := Module.DwarfDebugInfo.UnitInfos[DwarfData.Binary.ListIndex];
+      Die := DwarfInfoUnit.Data[DwarfData.Binary.Param];
+      ExtendInfoAdded := False;
+      for I := 0 to Die.ParamCount - 1 do
+      begin
+        if not ExtendInfoAdded then
+        begin
+          AddString(Result, AddrVAStr + 'Local variables:');
+          ExtendInfoAdded := True;
+        end;
+        AddString(Result, AddrVAStr2 + Die.Param[I]);
+      end;
+    end;
+
+    if ExtendInfoAdded and not LastLineIsEmpty then
+    begin
+      AddString(Result, AddrVAStr);
+      LastLineIsEmpty := True;
+    end;
+
+    // вывод строки с которо начинается функция
+    CheckSourceLine(inst);
+  end;
+
 var
   Disassembler: TDisassembler;
   inst: TInstructionArray;
   LastInsruction: TInstructionType;
-  I, LineNumber, NexIndex: Integer;
-  HintStr, OffsetStr, RipOffsetStr, Line, CloseStr: string;
-  ExpData: TSymbolData;
+  I: Integer;
+  Header, HintStr, OffsetStr, RipOffsetStr, Line: string;
   AAlignSize: Byte;
   LabelList: TDictionary<ULONG_PTR64, string>;
+  KnownTypes: TSymbolDataTypes;
+  CurrentDwarfUnitVA: UInt64;
+  ASymbol: TSymbolData;
 begin
   Disassembler := TDisassembler.Create(Process, ULONG64(Address),
     nSize, Is64);
@@ -3738,7 +4087,7 @@ begin
     Disassembler.Free;
   end;
 
-  AddString(Result, DisasmDumpHeader);
+  AddString(Header, DisasmDumpHeader);
   LastInsruction := itOther;
 
   LabelList := TDictionary<ULONG_PTR64, string>.Create;
@@ -3754,6 +4103,7 @@ begin
         LabelList.AddOrSetValue(inst[I].JmpAddrVa, Line);
       end;
 
+    CurrentDwarfUnitVA := 0;
 
     for I := 0 to Length(inst) - 1 do
     begin
@@ -3776,6 +4126,7 @@ begin
           AAlignSize := GetAlignSize(inst[I]);
           if Settings.ShowAligns and (AAlignSize <> 0) then
           begin
+            CheckSourceLine(inst[I]);
             AddAlignMarker(inst[I].AddrVa, Result, AAlignSize);
             LastInsruction := inst[I].InstType;
             Continue;
@@ -3800,10 +4151,15 @@ begin
 
           if inst[I].RipAddrVA <> 0 then
           begin
+            RipOffsetStr := GetCallHint(inst[I].RipAddrPtr);
+            if RipOffsetStr <> '' then
+              RipOffsetStr := ' -> 0x' + IntToHex(inst[I].RipAddrPtr, 1) + RipOffsetStr;
             RipOffsetStr :=
-              '-> 0x' +
-              IntToHex(inst[I].RipAddrVA, 1) +
-              GetCallHint(inst[I].RipAddrVA);
+              '-> [0x' +
+              IntToHex(inst[I].RipAddrVA, 1) + ']' +
+              GetCallHint(inst[I].RipAddrVA) + RipOffsetStr;
+            if inst[I].RipAddrPtr = inst[I].JmpAddrVa then
+              inst[I].JmpAddrVa := 0;
           end;
 
           if inst[I].JmpAddrVa <> 0 then
@@ -3826,9 +4182,9 @@ begin
               HintStr := RipOffsetStr
             else
               if inst[I].RipFirst then
-                HintStr := RipOffsetStr + ', ' + HintStr
+                HintStr := RipOffsetStr + ' ' + HintStr
               else
-                HintStr := HintStr + ', ' + RipOffsetStr;
+                HintStr := HintStr + ' ' + RipOffsetStr;
           end;
         end;
 
@@ -3837,62 +4193,37 @@ begin
       LastInsruction := inst[I].InstType;
 
       // детект начала функции
-      Line := '';
-      CloseStr := '';
-      for NexIndex := 0 to SymbolStorage.GetDataCountAtAddr(inst[I].AddrVa) - 1 do
+      Line := GetAddrDescription(inst[I].AddrVa, stExportExactMatch, KnownTypes, False);
+
+      // детект начала модуля
+      if (sdtDwarfUnit in KnownTypes) or (CurrentDwarfUnitVA = 0) then
       begin
-        if SymbolStorage.GetExportAtAddr(inst[I].AddrVa, stExportExactMatch, ExpData, NexIndex) then
+        if GetDwarfUnitAtAddr(inst[I].AddrVa, ASymbol) then
         begin
-          if Line = '' then
-            Line := GetSymbolDescription(ExpData)
-          else
+          if (CurrentDwarfUnitVA <> ASymbol.AddrVA) and (ASymbol.AddrVA <> 0) then
           begin
-            if CloseStr = '' then
+            if ASymbol.AddrVA < UInt64(Address) then
             begin
-              CloseStr := ')';
-              Line := Line + ' (' + GetSymbolDescription(ExpData);
-              Continue;
-            end;
-            Line := Line + ', ' + GetSymbolDescription(ExpData);
+              DumpDwarfUnit(Header, ASymbol, UInt64(Address), False);
+              if Result = '' then
+                LastLineIsEmpty := True;
+            end
+            else
+              DumpDwarfUnit(Result, ASymbol, inst[I].AddrVa);
+            CurrentDwarfUnitVA := ASymbol.AddrVA;
           end;
         end;
       end;
-      Line := Line + CloseStr;
 
       if Line <> EmptyStr then
       begin
         AddBlockComment(inst[I].AddrVa, Result,
           '; =============== S U B R O U T I N E =======================================');
-        AddBlockComment(inst[I].AddrVa, Result, Line);
+        ProcessSubProgramm(inst[I], Line, KnownTypes);
       end
       else
-      begin
         // детект линии через символы загруженные из DWARF
-        for NexIndex := 0 to SymbolStorage.GetDataCountAtAddr(inst[I].AddrVa) - 1 do
-          if SymbolStorage.GetDataAtAddr(inst[I].AddrVa, ExpData, NexIndex) and (ExpData.DataType = sdtDwarfLine) then
-          begin
-            Line := GetSymbolDescription(ExpData);
-            if Line <> '' then
-            begin
-              AddBlockComment(inst[I].AddrVa, Result, Line);
-              Break;
-            end;
-          end;
-
-        // Детект линий из МАР файла если они загружены
-        // Эта информация не помещается в SymbolStorage, т.к. нет смысла
-        // дублировать, ибо линии в МАР файле тоже работают через словарь
-        if MemoryMapCore.DebugMapData.LoadLines then
-        begin
-          LineNumber := MemoryMapCore.DebugMapData.GetLineNumberAtAddr(
-            inst[I].AddrVa, Line);
-          if LineNumber > 0 then
-          begin
-            Line := Format('%s (%d)', [Line, LineNumber]);
-            AddBlockComment(inst[I].AddrVa, Result, Line);
-          end;
-        end;
-      end;
+        CheckSourceLine(inst[I]);
 
       AddString(Result,
         Format('%s: %s %s %s', [
@@ -3907,7 +4238,7 @@ begin
     LabelList.Free;
   end;
 
-
+  Result := Header + Result;
 end;
 
 function GetTebHint(Value: ULONG; Is64: Boolean): string;

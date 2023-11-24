@@ -61,6 +61,10 @@ type
     sdtRelocation,
     // данные из COFF
     sdtCoffFunction, sdtCoffData,
+    // данные из DWARF
+    sdtDwarfFirst,
+    sdtDwarfLine, sdtDwarfUnit, sdtDwarfProc, sdtDwarfEndProc, sdtDwarfData,
+    sdtDwarfLast,
 
     // структуры известные ModulesData
     sdtExportDir, sdtImportDescriptor, sdtDelayedImportDescriptor,
@@ -72,9 +76,6 @@ type
     sdtDebugMapFunction, sdtDebugMapData,
 
     sdtBinaryLast,
-
-    // данные из DWARF
-    sdtDwarfLine,
 
     // структуры ApiSet редиректора
     sdtApiSetNS, sdtApiSetNSEntry, sdtApiSetValueEntry,
@@ -89,9 +90,9 @@ type
   end;
 
   TModuleKey = record
-    DelayedNameEmpty: Boolean;
     ModuleIndex: Word;
     ListIndex: Integer;
+    Param: UInt64;
   end;
 
   TPluginData = record
@@ -108,13 +109,6 @@ type
       sdtApiSetNS: (NameSpaceSize: Integer);
   end;
 
-  {$MESSAGE 'Переработать на Binary и убрать этот тип'}
-  TDwarfData = record
-    ModuleIndex: Word;
-    UnitIndex: Integer;
-    LineIndex: Integer;
-  end;
-
   TSymbolData = record
     AddrVA: ULONG_PTR64;
     DataType: TSymbolDataType;
@@ -123,7 +117,6 @@ type
       sdtPluginDescriptor: (Plugin: TPluginData);
       sdtExport: (Binary: TModuleKey);
       sdtApiSetNS: (ApiSet: TApiSetData);
-      sdtDwarfLine: (Dwarf: TDwarfData);
   end;
 
   TSymbolType = (stExport, stExportExactMatch, stAll);
@@ -171,6 +164,7 @@ end;
 function MakeItem(AddrVA: ULONG_PTR64;
   DataType: TSymbolDataType): TSymbolData;
 begin
+  ZeroMemory(@Result, SizeOf(Result));
   Result.AddrVA := AddrVA;
   Result.DataType := DataType;
 end;
@@ -263,7 +257,7 @@ function TRawScannerSymbolStorage.GetExportAtAddr(AddrVA: ULONG_PTR64;
 const
   ExecutableTypes: TSymbolDataTypes =
     [sdtExport, sdtEntryPoint, sdtTlsCallback32, sdtTlsCallback64,
-      sdtCoffFunction, sdtDebugMapFunction];
+      sdtCoffFunction, sdtDwarfProc, sdtDebugMapFunction];
 var
   I, Index: Integer;
   MinLimit: ULONG_PTR64;
@@ -281,22 +275,27 @@ begin
     if Result then
       Exit;
   end;
-  // сюда может прийти запись с типом sdtDwarfLine, но она всегда идет последней
-  // в блоке адресов, поэтому если перед ней нашлось имя функции, то NextIndex
-  // будет не нулевым, а вот если имя отсутствует, то тогда будем искать следующим кодом
-  if (AType <> stExport) or (NextIndex <> 0) then Exit;
+  if AType <> stExport then Exit;
   MinLimit := (AddrVA - $1000) and not $FFF;
-  Index := -1;
   for I := FItems.Count - 1 downto 0 do
   begin
     Item := FItems.List[I];
-    if (Item.AddrVA >= MinLimit) and (Item.AddrVA < AddrVA) and
+    if (Item.AddrVA >= MinLimit) and (Item.AddrVA <= AddrVA) and
       (Item.DataType in ExecutableTypes) then
     begin
       Data := Item;
       Result := True;
-      Break;
-    end;
+      // DWARF данные будут идти самыми первыми
+      // поэтому если поймали COFF совпадение, то скорее всего DWARF выше,
+      // поэтому крутим дальше, пока не выйдем за найденый адрес
+      if Item.DataType = sdtCoffFunction then
+        MinLimit := Item.AddrVA
+      else
+        Break;
+    end
+    else
+      if Result then
+        Break;
   end;
 end;
 
@@ -348,20 +347,31 @@ begin
   // сортировка по возрастанию адресов
   FItems.Sort(TComparer<TSymbolData>.Construct(
     function (const L, R: TSymbolData): Integer
+
+      function GetSymbolWeight(const ASymbol: TSymbolData): Integer;
+      begin
+        case ASymbol.DataType of
+          sdtDwarfUnit: Result := 0;
+          sdtDwarfData: Result := 1;
+          sdtCoffData: Result := 2;
+          sdtDwarfProc: Result := 4;
+          sdtCoffFunction: Result := 5;
+          sdtDwarfLine, sdtDwarfEndProc: Result := 6;
+        else
+          Result := 3;
+        end;
+      end;
+
     begin
       if L.AddrVA = R.AddrVA then
       begin
-        Result := 0;
-        if L.DataType <> R.DataType then
-        begin
-          // если на один адрес есть несколько блоков информации
-          // то контролируем чтобы информация с номером линии шла самой последней
-          if L.DataType = sdtDwarfLine then
-            Result := 1
+        if GetSymbolWeight(L) = GetSymbolWeight(R) then
+          Result := 0
+        else
+          if GetSymbolWeight(L) < GetSymbolWeight(R) then
+            Result := -1
           else
-            if R.DataType = sdtDwarfLine then
-              Result := -1;
-        end;
+            Result := 1;
       end
       else
         if L.AddrVA < R.AddrVA then

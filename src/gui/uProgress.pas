@@ -6,7 +6,7 @@
 //  * Purpose   : Вспомогательный диалог для отображения прогреса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.30
+//  * Version   : 1.4.31
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,7 +36,7 @@ type
   private
     { Private declarations }
   public
-    ProgressBar: TFWProgressBar;
+    ProgressBar, ProgressBarAdv: TFWProgressBar;
     procedure ShowWithCallback(Value: TProc);
   end;
 
@@ -61,6 +61,14 @@ begin
     ToDpi(35, FCurrentPPI),
     ClientWidth - ToDpi(16, FCurrentPPI) shl 1,
     ToDpi(17, FCurrentPPI));
+  ProgressBarAdv := TFWProgressBar.Create(Self);
+  ProgressBarAdv.Parent := Self;
+  ProgressBarAdv.SetBounds(
+    ToDpi(16, FCurrentPPI),
+    ToDpi(48, FCurrentPPI),
+    ClientWidth - ToDpi(16, FCurrentPPI) shl 1,
+    ToDpi(17, FCurrentPPI));
+  ProgressBarAdv.Visible := False;
 end;
 
 procedure TdlgProgress.FormDestroy(Sender: TObject);

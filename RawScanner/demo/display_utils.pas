@@ -224,7 +224,7 @@ begin
   Disasm := TDisassembler.Create(chd.ProcessHandle, chd.AddrVA,
     DefaultBuffSize, chd.Is64Code);
   try
-    Inst := Disasm.DecodeBuff(@Buff[0], True);
+    Inst := Disasm.DecodeBuff(@Buff[0], dmUntilUndefined, True);
     if Length(Inst) = 0 then Exit;
   finally
     Disasm.Free;
@@ -391,10 +391,10 @@ begin
     Data.ProcessHandle, Data.AddrVA, Data.BufSize, Data.Image64);
   try
 
-    RawDecodedInst := Disasm.DecodeBuff(Data.Raw, True);
+    RawDecodedInst := Disasm.DecodeBuff(Data.Raw, dmUntilUndefined, True);
     RawCount := Length(RawDecodedInst);
 
-    RemoteDecodedInst := Disasm.DecodeBuff(Data.Remote, False);
+    RemoteDecodedInst := Disasm.DecodeBuff(Data.Remote, dmUntilRet, False);
     RemoteCount := Length(RemoteDecodedInst);
   finally
     Disasm.Free;
