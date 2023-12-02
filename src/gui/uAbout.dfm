@@ -4745,12 +4745,12 @@ object dlgAbout: TdlgAbout
   object LinkLabel4: TLinkLabel
     Left = 56
     Top = 182
-    Width = 405
+    Width = 423
     Height = 19
     Caption = 
-      'Virtual Treeview component: <a href="https://github.com/TurboPac' +
-      'k/VirtualTreeView">https://github.com/TurboPack/VirtualTreeView<' +
-      '/a>'
+      'Virtual TreeView: <a href="https://github.com/JAM-Software/Virtu' +
+      'al-TreeView">https://github.com/JAM-Software/Virtual-TreeView ve' +
+      'rsion 8.0</a>'
     TabOrder = 2
     UseVisualStyle = True
     OnLinkClick = LinkLabel1LinkClick

@@ -7,7 +7,7 @@
 //  *           : информации в форматах COFF и DWARF.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.15
+//  * Version   : 1.0.16
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1234,9 +1234,9 @@ type
       // индекс в масссиве с типом элемента (массив, базовый тип, ссылка и т.п.)
       ATypeIndex,
       // индекс в масссиве с именем элемента (не обязательно будет идти самым первым в дереве)
-      ATypeNameIndex,
+      ATypeNameIndex: DWORD;
       // размер типа (рассчитывается от базового)
-      ATypeSize: DWORD;
+      ATypeSize: UInt64;
       // вспомогательный сет, содержащий из каких типосв состоит текущий
       ATypeSet: TByteSet;
 
@@ -2003,7 +2003,6 @@ begin
   {$endif}
   FImage := AImage;
   IsMemoryStream := AImageStream is TMemoryStream;
-  {$message 'Секции могут быть внешними в отдельном отладочном файле!'}
   for I := 0 to KnownSectionCount - 1 do
     if Image.SectionAtName(SectionName[I], ASection) then
     begin
