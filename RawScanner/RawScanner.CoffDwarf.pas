@@ -7,7 +7,7 @@
 //  *           : информации в форматах COFF и DWARF.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.16
+//  * Version   : 1.0.17
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1135,6 +1135,7 @@ type
     FDirList: TStringList;
     FFiles: TList<TFileEntry>;
     FLines: TLineList;
+    FMappedUnitIndex: Integer;
     function ReadFileEntry(AStream: TDwarfStream): TFileEntry;
   protected
     procedure AddLine(ACtx: TDwarfContext;
@@ -1142,11 +1143,12 @@ type
     property DirList: TStringList read FDirList;
     property Files: TList<TFileEntry> read FFiles;
   public
-    constructor Create(AModuleIndex, AUnitIndex: Integer);
+    constructor Create(AModuleIndex, AUnitIndex, AMappedUnitIndex: Integer);
     destructor Destroy; override;
     function Load(ACtx: TDwarfContext): Boolean;
     function GetFilePath(FileId: Word): string;
     property Lines: TLineList read FLines;
+    property MappedUnitIndex: Integer read FMappedUnitIndex;
   end;
 
   TDebugInformationEntry = class
@@ -1316,7 +1318,7 @@ type
     procedure LoadCompileUnit(const AAbbrevDescr: TAbbrevDescr);
     procedure LoadDIE(const AAbbrevDescr: TAbbrevDescr; ADie: TDie);
     function LoadLocation(const Attribute: TAttribute): TLocationData;
-    procedure LoadUnit;
+    function LoadUnit: Boolean;
     procedure RaiseInternal(const AMessage: string);
     function ReadAttribute(const Attribute: TAttribute;
       pBuff: Pointer; ASize: UInt64): Int64;
@@ -1351,6 +1353,7 @@ type
     function LoadInfo(Ctx: TDwarfContext): Boolean;
     function LoadLines(Ctx: TDwarfContext): Boolean;
     function LoadStub(Ctx: TDwarfContext): Boolean;
+    function GetUnitAtStmt(StmtOffset: DWORD): Integer;
   protected
     procedure DoCallback(ALinesLoad: Boolean; ACurrent, AMax: Int64);
   public
@@ -2057,10 +2060,12 @@ begin
   FLines.Add(LineData);
 end;
 
-constructor TDwarfLinesUnit.Create(AModuleIndex, AUnitIndex: Integer);
+constructor TDwarfLinesUnit.Create(AModuleIndex, AUnitIndex,
+  AMappedUnitIndex: Integer);
 begin
   FModuleIndex := AModuleIndex;
   FUnitIndex := AUnitIndex;
+  FMappedUnitIndex := AMappedUnitIndex;
   FDirList := TStringList.Create;
   FFiles := TList<TFileEntry>.Create;
   FLines := TLineList.Create;
@@ -2104,6 +2109,13 @@ var
   AddrVAInited: Boolean;
 begin
   Result := True;
+
+  if ACtx.debug_line.Size - ACtx.debug_line.Position < SizeOf(TDwarfLineNumberProgramHeader64)  then
+  begin
+    ACtx.debug_line.SeekToEnd;
+    Result := False;
+    Exit;
+  end;
 
   UnitStream := TDwarfStream.Create(ACtx.debug_line, ACtx.debug_line.Position, 0);
   try
@@ -2980,6 +2992,14 @@ begin
     for I := 0 to ARawData.Count - 1 do
       AddrDict.Add(ARawData.List[I].OffsetID, I);
 
+    if FAddrStart <> 0 then
+    begin
+      SymbolData := MakeItem(FCtx.Image.Rebase(FAddrStart), sdtDwarfUnit);
+      SymbolData.Binary.ModuleIndex := FModuleIndex;
+      SymbolData.Binary.ListIndex := FUnitIndex;
+      SymbolStorage.Add(SymbolData);
+    end;
+
     I := 0;
     Count := ARawData.Count;
     while I < Count do
@@ -3120,6 +3140,13 @@ begin
   Result := True;
   FCtx := Ctx;
 
+  if Ctx.debug_info.Size - Ctx.debug_info.Position < SizeOf(TDebugInfoProgramHeader64)  then
+  begin
+    Ctx.debug_info.SeekToEnd;
+    Result := False;
+    Exit;
+  end;
+
   FStream := TDwarfStream.Create(Ctx.debug_info, Ctx.debug_info.Position, 0);
   try
 
@@ -3169,9 +3196,9 @@ begin
       LoadAbbrev(Ctx.debug_abbrev);
 
       if FAbbrevDescrList.Count = 0 then
-        RaiseInternal('AbbrevData is empty.');
+        Exit(False);
 
-      LoadUnit;
+      Result := LoadUnit;
     end;
 
     if not FStream.EOF then
@@ -3215,7 +3242,6 @@ procedure TDwarfInfoUnit.LoadCompileUnit(const AAbbrevDescr: TAbbrevDescr);
 var
   I: Integer;
   Attribute: TAttribute;
-  SymbolData: TSymbolData;
   TmpStrAttr: PAnsiChar;
 begin
   for I := 0 to AAbbrevDescr.AttrCount - 1 do
@@ -3249,14 +3275,6 @@ begin
     else
       SkipUnknownAttribute(Attribute.Form);
     end;
-  end;
-
-  if FAddrStart <> 0 then
-  begin
-    SymbolData := MakeItem(FCtx.Image.Rebase(FAddrStart), sdtDwarfUnit);
-    SymbolData.Binary.ModuleIndex := FModuleIndex;
-    SymbolData.Binary.ListIndex := FUnitIndex;
-    SymbolStorage.Add(SymbolData);
   end;
 end;
 
@@ -3431,7 +3449,7 @@ begin
   until FLocationStream.EOF;
 end;
 
-procedure TDwarfInfoUnit.LoadUnit;
+function TDwarfInfoUnit.LoadUnit: Boolean;
 var
   Data: TObjectList<TDie>;
   AbbrevIndex: UInt64;
@@ -3439,6 +3457,7 @@ var
   DieCurrent,
   DieNew: TDie;
 begin
+  Result := False;
   Data := TObjectList<TDie>.Create;
   try
     DieCurrent := nil;
@@ -3455,16 +3474,24 @@ begin
       AbbrevDescr := FAbbrevDescrList.List[AbbrevIndex - 1];
       DieNew := CreateDie(AbbrevDescr);
 
-      if AbbrevDescr.Tag = DW_TAG_compile_unit then
-      begin
-        // этот тэг должен идти самым первым и единственным
-        // на всей последовательности
-        if FUnitName <> '' then
-          RaiseInternal('Unexpected DW_TAG_compile_unit');
-        LoadCompileUnit(AbbrevDescr);
-      end
-      else
-        LoadDIE(AbbrevDescr, DieNew);
+      try
+
+        if AbbrevDescr.Tag = DW_TAG_compile_unit then
+        begin
+          // этот тэг должен идти самым первым и единственным
+          // на всей последовательности
+          if FUnitName <> '' then
+            RaiseInternal('Unexpected DW_TAG_compile_unit');
+          LoadCompileUnit(AbbrevDescr);
+        end
+        else
+          LoadDIE(AbbrevDescr, DieNew);
+
+      except
+        DieNew.Free;
+        FStream.SeekToEnd;
+        Exit;
+      end;
 
       AddToList(DieCurrent, DieNew, Data);
       if AbbrevDescr.Children > 0 then
@@ -3477,7 +3504,11 @@ begin
 
     end;
 
-    FillDwarfData(Data);
+    if Data.Count > 0 then
+    begin
+      FillDwarfData(Data);
+      Result := True;
+    end;
 
   finally
     Data.Free;
@@ -3760,6 +3791,19 @@ begin
     LoadCallback(ALinesLoad, ACurrent, AMax);
 end;
 
+function TDwarfDebugInfo.GetUnitAtStmt(StmtOffset: DWORD): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to FUnitInfos.Count - 1 do
+    if FUnitInfos[I].StmtOffset = StmtOffset then
+    begin
+      Result := I;
+      Break;
+    end;
+end;
+
 function TDwarfDebugInfo.Load(AStream: TStream): TDebugInfoTypes;
 var
   Ctx: TDwarfContext;
@@ -3791,11 +3835,9 @@ begin
     AUnit := TDwarfInfoUnit.Create(FImage.ModuleIndex, FUnitInfos.Count);
     try
       if not AUnit.Load(Ctx) then
-      begin
-        FreeAndNil(AUnit);
-        Break;
-      end;
-      FUnitInfos.Add(AUnit);
+        FreeAndNil(AUnit)
+      else
+        FUnitInfos.Add(AUnit);
       DoCallback(False, Ctx.debug_info.Position, Ctx.debug_info.Size);
     except
       AUnit.Free;
@@ -3815,7 +3857,8 @@ begin
   DoCallback(True, 0, Ctx.debug_line.Size);
   while not Ctx.debug_line.EOF do
   begin
-    AUnit := TDwarfLinesUnit.Create(FImage.ModuleIndex, FUnitLines.Count);
+    AUnit := TDwarfLinesUnit.Create(FImage.ModuleIndex, FUnitLines.Count,
+      GetUnitAtStmt(Ctx.debug_line.Position));
     try
       if not AUnit.Load(Ctx) then
       begin
@@ -3950,10 +3993,10 @@ begin
   ALineListIndex := FDwarf.UnitLines.Count;
 
   // стабы не самостоятельны и будут добавлены отдельной записью в общий пул
-  ALineUnit := TDwarfLinesUnit.Create(AModuleIndex, ALineListIndex);
-  FDwarf.UnitLines.Add(ALineUnit);
   AInfoUnit := TDwarfInfoUnit.Create(AModuleIndex, AUnitListIndex);
-  FDwarf.UnitInfos.Add(AInfoUnit);
+  ALineUnit := TDwarfLinesUnit.Create(AModuleIndex, ALineListIndex,
+    FDwarf.UnitInfos.Add(AInfoUnit));
+  FDwarf.UnitLines.Add(ALineUnit);
 
   for I := 0 to Count - 1 do
     case AStubs[I].n_type of

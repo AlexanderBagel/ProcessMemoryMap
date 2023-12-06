@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.31
+//  * Version   : 1.4.33
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,10 +22,16 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.Menus, VirtualTrees, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
+  Vcl.Menus, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.ImgList, Winapi.TlHelp32, Winapi.ShellAPI, Winapi.CommCtrl,
   Vcl.Clipbrd, System.Actions, Vcl.ActnList, Vcl.PlatformDefaultStyleActnCtrls,
   Vcl.ActnMan, System.ImageList, System.Diagnostics, Generics.Collections,
+
+  VirtualTrees,
+  VirtualTrees.BaseTree,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.AncestorVCL,
+  VirtualTrees.Types,
 
   MemoryMap.Core,
   MemoryMap.RegionData,

@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка всех известных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.31
+//  * Version   : 1.4.33
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -23,7 +23,10 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.ComCtrls, Generics.Collections, ClipBrd, System.ImageList,
-  Vcl.ImgList, VirtualTrees, Vcl.Menus,
+  Vcl.ImgList, Vcl.Menus,
+
+  VirtualTrees,
+  VirtualTrees.Types,
 
   MemoryMap.Core,
   MemoryMap.RegionData,
@@ -31,7 +34,8 @@ uses
   MemoryMap.PEImage,
 
   uRegionProperties,
-  uBaseForm;
+  uBaseForm, VirtualTrees.BaseAncestorVCL, VirtualTrees.BaseTree,
+  VirtualTrees.AncestorVCL;
 
 type
   TdlgKnownData = class(TBaseAppForm)

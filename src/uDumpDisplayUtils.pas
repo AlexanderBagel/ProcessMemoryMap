@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.31
+//  * Version   : 1.4.33
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -3641,11 +3641,16 @@ begin
       sdtDwarfLine, sdtDwarfProc, sdtDwarfEndProc, sdtDwarfData:
       begin
         Module := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
-        // линии технически мапятся на аналогичный модуль из .debug_info
-        {$message 'нужно сделать линк индекса, ибо если модуль не загрузился - будет промах'}
+        // линии мапятся на аналогичный модуль из .debug_info
+        // но через MappedUnitIndex, т.к. предполагается что при ошибке
+        // парсинга, TDwarfInfoUnit просто не будет загружен в список
         if Tmp.DataType = sdtDwarfLine then
-          if ASymbol.Binary.ListIndex >= Module.DwarfDebugInfo.UnitInfos.Count then
+        begin
+          ASymbol.Binary.ListIndex :=
+            Module.DwarfDebugInfo.UnitLines[Tmp.Binary.ListIndex].MappedUnitIndex;
+          if ASymbol.Binary.ListIndex < 0 then
             Continue;
+        end;
         DwarfInfoUnit := Module.DwarfDebugInfo.UnitInfos[ASymbol.Binary.ListIndex];
         ASymbol := Tmp;
         ASymbol.DataType := sdtDwarfUnit;

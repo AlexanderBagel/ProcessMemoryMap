@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка строк в удаленном процессе
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.31
+//  * Version   : 1.4.33
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,11 +22,17 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, VirtualTrees, Vcl.Menus,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Menus,
   Generics.Collections, Generics.Defaults,
 
-  RawScanner.Types,
-  uBaseForm;
+  VirtualTrees,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.BaseTree,
+  VirtualTrees.AncestorVCL,
+  VirtualTrees.Types,
+
+  uBaseForm,
+  RawScanner.Types;
 
 type
   TdlgStringsViewer = class(TBaseAppForm)

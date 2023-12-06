@@ -75,7 +75,7 @@ object dlgProcessMM: TdlgProcessMM
       Height = 198
       Align = alClient
       Header.AutoSizeIndex = 0
-      Header.Height = 24
+      Header.Height = 17
       Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
       TabOrder = 0
       TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
@@ -118,7 +118,7 @@ object dlgProcessMM: TdlgProcessMM
     Height = 315
     Anchors = [akLeft, akTop, akRight, akBottom]
     Header.AutoSizeIndex = 0
-    Header.Height = 24
+    Header.Height = 17
     Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     PopupMenu = PopupMenu
     TabOrder = 1

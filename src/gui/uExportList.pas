@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка экспорта функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.31
+//  * Version   : 1.4.33
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,8 +22,14 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls, VirtualTrees,
+  Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
   Generics.Collections, Generics.Defaults, Vcl.Clipbrd, Vcl.Menus,
+
+  VirtualTrees,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.BaseTree,
+  VirtualTrees.AncestorVCL,
+  VirtualTrees.Types,
 
   MemoryMap.Core,
   MemoryMap.Symbols,
@@ -359,7 +365,7 @@ begin
             lvExports.RootNodeCount := dlgExportList.List.Count;
             lvExports.Header.SortDirection := sdAscending;
             lvExports.Header.SortColumn := 0;
-            HitInfo.Column := 2;
+            HitInfo.Column := 1;
             lvExportsHeaderClick(nil, HitInfo);
           finally
             Symbols.Free;

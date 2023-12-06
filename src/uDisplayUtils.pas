@@ -5,8 +5,8 @@
 //  * Unit Name : uDisplayUtils.pas
 //  * Purpose   : Вспомогательный модуль для отображения полученой информации
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.1
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.33
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -240,6 +240,7 @@ function AddDataToLevel1Node(ARegion: TRegionData; Node: PNodeData): TColorRef;
 begin
   Node^.Region := ARegion;
   Node^.Address := NativeUInt(ARegion.MBI.BaseAddress);
+
   Node^.Size := ARegion.TotalRegionSize;
   Node^.RegionType := GetLevel1RegionTypeString(ARegion);
   Node^.Access := ExtractAccessString(ARegion.MBI.Protect);
@@ -316,10 +317,10 @@ end;
 
 function GetLevel2NodeColor(ARegion: TRegionData; AColor: TColorRef): TColorRef;
 begin
-  if not Settings.ShowColors then Exit($FFFFFF);
-  if AColor = 0 then
-    AColor := GetRegionColor(ARegion, False);
-  Result := AColor;
+  if Settings.ShowColors then
+    Result := GetRegionColor(ARegion, False)
+  else
+    Result := $FFFFFF;
 end;
 
 procedure AddDataToLevel2Node(ARegion: TRegionData; Node: PNodeData;

@@ -27,6 +27,7 @@ object dlgKnownData: TdlgKnownData
     Height = 544
     Align = alClient
     Header.AutoSizeIndex = 0
+    Header.Height = 13
     Header.MainColumn = -1
     Images = il16
     PopupMenu = pmCopy
