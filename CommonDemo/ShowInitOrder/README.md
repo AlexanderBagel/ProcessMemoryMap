@@ -4,11 +4,11 @@ Show Delphi/Lazarus Unit Init Order
 Демонстрация работы с классами TDebugMap, TRawPEImage, TRawScannerSymbolStorage и TDisassembler.
 Демо-пример реализует вывод списка используемых модулей в порядке их инициализации, включая вызовы классовых конструкторов/деструкторов.
 
-###Внешний вид:
+### Внешний вид:
 
 ![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/CommonDemo/ShowInitOrder/img/1.png?raw=true "Внешний вид")
 
-###Принцип работы
+### Принцип работы
 
 В отладочной информации Delphi, конкретно в МАР файле отсутствует информация об адресе таблицы инициализации модулей, поэтому реализована функция LoadDelphiUnitInitOrder,
 в которой дизассемблируется точка входа в приложение и производится поиск вызова функции "@InitExe" или "SysInit.@InitExe".
