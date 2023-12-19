@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.33
+//  * Version   : 1.4.34
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -83,6 +83,8 @@ type
   function GetAddrDescription(AddrVa: ULONG_PTR; ASymbolType: TSymbolType;
     out KnownTypes: TSymbolDataTypes; IncludeModuleName: Boolean;
     DemangleCoffName: Boolean = False): string;
+
+  procedure SetCurrentModuleName(const AModuleName: string);
 
 type
   ENoMoreDataException = class(Exception)
@@ -184,6 +186,14 @@ const
     '---------------------------------------- IMAGE_EXPORT_DIRECTORY ------------------------------------------';
   IMAGE_IMPORT_DESCRIPTOR_STR =
     '--------------------------------------- IMAGE_IMPORT_DESCRIPTOR ------------------------------------------';
+
+var
+  _CurrentModuleName: string = '';
+
+procedure SetCurrentModuleName(const AModuleName: string);
+begin
+  _CurrentModuleName := AModuleName;
+end;
 
 type
   TDataType = (dtByte, dtWord, dtDword,
@@ -3397,7 +3407,7 @@ begin
     sdtTLSDir32, sdtTLSDir64:
       Result := 'IMAGE_TLS_DIRECTORY';
   end;
-  if IncludeModuleName and not Result.IsEmpty then
+  if IncludeModuleName and not Result.IsEmpty and not AnsiSameText(Module.ImageName, _CurrentModuleName) then
     Result := ModuleName + Result;
 end;
 

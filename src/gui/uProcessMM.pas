@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.33
+//  * Version   : 1.4.34
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -931,6 +931,8 @@ begin
       if Region.RegionType in [rtDefault, rtSystem] then
         NodesColor := 0;
       PEImage := Region.RegionType in [rtExecutableImage, rtExecutableImage64];
+      // если секции просто отмаплены, то они пойдут именно как мап
+      PEImage := PEImage and not (Region.MBI.Type_9 = MEM_MAPPED);
       if PEImage then
         NodesColor := Settings.ImagePartColor;
 

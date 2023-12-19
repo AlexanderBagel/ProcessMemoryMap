@@ -6,7 +6,7 @@
 //  * Purpose   : Вспомогательный модуль для отображения полученой информации
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.33
+//  * Version   : 1.4.34
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -335,7 +335,10 @@ begin
   Node^.Details := GetLevel2DetailString(ARegion, PEImage);
   Node^.Section := string(ARegion.Section.Caption);
   Node^.Contains := GetRegionDirectoryes(ARegion);
-  Node^.Color := GetLevel2NodeColor(ARegion, AColor);
+  if PEImage then
+    Node^.Color := AColor
+  else
+    Node^.Color := GetLevel2NodeColor(ARegion, AColor);
   Node^.SearchAddress := UInt64ToStr(Node^.Address);
   Node^.SearchDetails := AnsiUpperCase(Node^.Details);
 end;

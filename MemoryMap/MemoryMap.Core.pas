@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.32
+//  * Version   : 1.4.33
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,8 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01040020;
-  MemoryMapVersionStr = '1.4 (revision 32)';
+  MemoryMapVersionInt = $01040021;
+  MemoryMapVersionStr = '1.4 (revision 33)';
 
 type
   // Типы фильтров
@@ -155,7 +155,7 @@ type
     function GetHiddenRegion(RootIndex, SubIndex: Integer): TRegionData;
     function GetRegionAtUnfilteredIndex(Index: Integer): TRegionData;
     function GetRegionIndex(Address: Pointer; out Index: Integer): Boolean; overload;
-    function RegionToFilterType(Value: TRegionData): TFilters;
+    function RegionToFilterType(Value: TRegionData; PriorityFilter: TFilters): TFilters;
     function TotalCount: Integer;
     property DetailedHeapData: Boolean read FDetailedHeapData write SetDetailedHeapData;
     property Items[Index: Integer]: TRegionData read GetItem; default;
@@ -239,7 +239,7 @@ begin
     Inc(FTotalData.Total.Commited, Size);
     Inc(FTotalData.Total.Blocks);
 
-    case RegionToFilterType(R) of
+    case RegionToFilterType(R, fiNone) of
       fiImage:
       begin
         Inc(FTotalData.Image.Size, R.MBI.RegionSize);
@@ -715,7 +715,7 @@ begin
 end;
 
 //
-//  Создаем ноый обьект для хранения данных о регионе
+//  Создаем новый обьект для хранения данных о регионе
 // =============================================================================
 function TMemoryMap.NewRegionData: TFriendlyRegionData;
 begin
@@ -725,35 +725,42 @@ end;
 //
 //  Функция рассчитывает как какому типу фильтра относится переданный регион
 // =============================================================================
-function TMemoryMap.RegionToFilterType(Value: TRegionData): TFilters;
+function TMemoryMap.RegionToFilterType(Value: TRegionData;
+  PriorityFilter: TFilters): TFilters;
 var
   AResult: TFilters;
 begin
   Result := fiNone;
   case Value.RegionType of
-    rtDefault:
-    begin
-      if Value.MBI.State = MEM_FREE then Exit(fiFree);
-      if Value.MBI.State = MEM_COMMIT then
-        case Value.MBI.Type_9 of
-          MEM_IMAGE: Result := fiImage;
-          MEM_MAPPED:
-          begin
-            Result := fiMapped;
-            if Value.Shared then
-              Result := fiShareable;
-          end;
-          MEM_PRIVATE: Result := fiPrivate;
-        end;
-    end;
-    rtHeap: Exit(fiHeap);
-    rtThread: Exit(fiThread);
-    rtSystem: Exit(fiSystem);
-    rtExecutableImage, rtExecutableImage64: Exit(fiImage);
+    rtHeap: Result := fiHeap;
+    rtThread: Result := fiThread;
+    rtSystem: Result := fiSystem;
+    rtExecutableImage, rtExecutableImage64: Result := fiImage;
   end;
+  if PriorityFilter = Result then Exit;
+
+  if Value.MBI.State = MEM_FREE then Result := fiFree;
+  if PriorityFilter = Result then Exit;
+
+  if Value.MBI.State = MEM_COMMIT then
+    case Value.MBI.Type_9 of
+      MEM_IMAGE: Result := fiImage;
+      MEM_MAPPED:
+      begin
+        Result := fiMapped;
+        if PriorityFilter = Result then Exit;
+
+        if Value.Shared then
+          Result := fiShareable;
+      end;
+      MEM_PRIVATE: Result := fiPrivate;
+    end;
+
+  if PriorityFilter = Result then Exit;
+
   if not Value.RegionVisible then
   begin
-    AResult := RegionToFilterType(Value.Parent);
+    AResult := RegionToFilterType(Value.Parent, PriorityFilter);
     if AResult <> fiNone then
       Result := AResult;
   end;
@@ -1479,7 +1486,7 @@ begin
       begin
         R := GetFriendlyRegion(I);
         R.SetFiltered(False);
-        if RegionToFilterType(R) = Filter then
+        if RegionToFilterType(R, Filter) = Filter then
           AddToFilter(I, R, True)
         else
           for A := 0 to R.Contains.Count - 1 do
@@ -1496,7 +1503,7 @@ begin
       begin
         R := GetFriendlyRegion(I);
         R.SetFiltered(False);
-        if RegionToFilterType(R) = Filter then
+        if RegionToFilterType(R, Filter) = Filter then
           AddToFilter(I, R, True)
         else
           for A := 0 to R.Contains.Count - 1 do
@@ -1512,7 +1519,7 @@ begin
     begin
       R := GetFriendlyRegion(I);
       R.SetFiltered(False);
-      if RegionToFilterType(R) = Filter then
+      if RegionToFilterType(R, Filter) = Filter then
         AddToFilter(I, R, True);
     end;
   end;

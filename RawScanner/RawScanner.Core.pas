@@ -8,7 +8,7 @@
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.17
+//  * Version   : 1.0.18
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -44,8 +44,8 @@ uses
   RawScanner.X64Gates;
 
 const
-  RawScannerVersionInt = $01000011;
-  RawScannerVersionStr = '1.0 (revision 17)';
+  RawScannerVersionInt = $01000012;
+  RawScannerVersionStr = '1.0 (revision 18)';
 
 type
   TPEB64 = record

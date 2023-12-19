@@ -7,7 +7,7 @@
 //  *           : информации в форматах COFF и DWARF.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.17
+//  * Version   : 1.0.18
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1087,7 +1087,7 @@ type
   // для поддержки редиректов данных между секциями
   TDwarfContext = class
   strict private const
-    KnownSectionCount = 7;
+    KnownSectionCount = 8;
     SectionName: array [0..KnownSectionCount - 1] of string = (
       '.debug_line',
       '.debug_info',
@@ -1095,7 +1095,8 @@ type
       '.debug_str',
       '.debug_line_str',
       '.stab',
-      '.stabstr'
+      '.stabstr',
+      '.debug_loc'
     );
   strict private
     FImage: TAbstractImageGate;
@@ -1113,6 +1114,7 @@ type
     property debug_line_str: TDwarfStream read FStreams[4];
     property stab: TDwarfStream read FStreams[5];
     property stabstr: TDwarfStream read FStreams[6];
+    property debug_loc: TDwarfStream read FStreams[7];
     property Image: TAbstractImageGate read FImage;
     {$ifdef debug_dump}
     property Debug: TStringList read FDebug;
@@ -1302,7 +1304,7 @@ type
     FAttributes: TList<TAttribute>;
     FUnitName, FProducer, FSourceDir: string;
     FIdentifierCase: Byte;
-    FLanguage: Byte;
+    FLanguage: DWORD;
     FAddrStart, FAddrEnd: UInt64;
     FData: TDwarfDataList;
     FStmtOffset: DWORD;
@@ -1321,7 +1323,7 @@ type
     function LoadUnit: Boolean;
     procedure RaiseInternal(const AMessage: string);
     function ReadAttribute(const Attribute: TAttribute;
-      pBuff: Pointer; ASize: UInt64): Int64;
+      pBuff: Pointer; ASize: UInt64; AttributeStream: TDwarfStream = nil): Int64;
     function RevertToParent(var ACurrent: TDie): Boolean;
     procedure SkipUnknownAttribute(AForm: UInt64);
   public
@@ -1335,7 +1337,7 @@ type
     property AddrStart: UInt64 read FAddrStart;
     property AddrEnd: UInt64 read FAddrEnd;
     property Header64: TDebugInfoProgramHeader64 read FHeader64;
-    property Language: Byte read FLanguage;
+    property Language: DWORD read FLanguage;
     property StmtOffset: DWORD read FStmtOffset;
   end;
 
@@ -1720,6 +1722,9 @@ begin
 end;
 
 function TCoffDebugInfo.Load(AStream: TStream): Boolean;
+const
+  // 4.4.4. Storage Class
+  IMAGE_SYM_CLASS_STATIC = 3;
 var
   I, SectionIndex: Integer;
   Buff: array [Byte] of AnsiChar;
@@ -1742,6 +1747,7 @@ begin
     SectionIndex := FCoffList.List[I].SectionNumber - 1;
     if SectionIndex < 0 then
       Continue;
+
     if FCoffList.List[I].Name.Zeroes = 0 then
     begin
       {$MESSAGE 'переделать на пчары'}
@@ -1761,6 +1767,12 @@ begin
 
     ACoffFunction.Executable := ASection.IsExecutable;
     ACoffFunction.DisplayName := string(PAnsiChar(@Buff[0]));
+
+    // The offset of the symbol within the section. If the Value field is zero,
+    // then the symbol represents a section name.
+    if FCoffList.List[I].StorageClass = IMAGE_SYM_CLASS_STATIC then
+      if Buff[0] = '.' then
+        Continue;
 
     SymbolData.AddrVA := ACoffFunction.FuncAddrVA;
     if ACoffFunction.Executable then
@@ -2191,6 +2203,15 @@ begin
     SmRegisters := InitStateMachineRegisters(Header64.default_is_stmt);
     AddrVAInited := False;
     AddToMatrix := False;
+
+    // могут быть пустые модули, просто задекларированые, но не содержащие кода
+    // поэтому добавлю проверку
+    if UnitStream.EOF then
+    begin
+      UnitStream.SeekToEnd;
+      Exit;
+    end;
+
     opcode := UnitStream.ReadByte;
     while not UnitStream.EOF do
     begin
@@ -3340,6 +3361,24 @@ begin
   if ASize = 0 then
     RaiseInternal('Unexpected location zero size');
 
+  // такое пока не умеем читать
+  if Assigned(FCtx.debug_loc) then
+  begin
+    // технически нужно прочитать 4 байта из FLocationStream
+    // это будет оффсет, откуда нужно читать структуры из стрима debug_loc
+    // которые выглядят примерно так
+    {
+    DWORD - оффсет от DW_TAG_compile_unit -> DW_AT_low_pc (начало переменной)
+    DWORD - оффсет от DW_TAG_compile_unit -> DW_AT_low_pc (конец переменной)
+    Word - размер самой Location
+    а далее вычитывается локейшен алгоритмом ниже,
+    после чего начинаем читать следующую структуру.
+    Конец цепочки наступит когда первые два оффсета равны нулю.
+    Куда это применять пока не понятно
+    }
+    Exit;
+  end;
+
   FLocationStream.ReNew(ASize);
   repeat
     Opcode := FLocationStream.ReadByte;
@@ -3497,7 +3536,16 @@ begin
       if AbbrevDescr.Children > 0 then
         DieCurrent := DieNew;
 
-      AbbrevIndex := FStream.ReadULEB128;
+      // проверка на пустой юнит представленый только именем модуля
+      if FStream.EOF and (FAbbrevDescrList.Count = 1) then
+      begin
+        // на всякий случай проверим что DW_TAG_compile_unit был загружен
+        if FUnitName = '' then
+          RaiseInternal('Unexpected EOF');
+        Break
+      end
+      else
+        AbbrevIndex := FStream.ReadULEB128;
 
       while (AbbrevIndex = 0) and RevertToParent(DieCurrent) and not FStream.EOF do
         AbbrevIndex := FStream.ReadULEB128;
@@ -3522,7 +3570,7 @@ begin
 end;
 
 function TDwarfInfoUnit.ReadAttribute(const Attribute: TAttribute;
-  pBuff: Pointer; ASize: UInt64): Int64;
+  pBuff: Pointer; ASize: UInt64; AttributeStream: TDwarfStream): Int64;
 
   procedure CheckBuffSize(NeedSize: UInt64);
   begin
@@ -3583,7 +3631,7 @@ begin
       DW_FORM_GNU_strp_alt,
       DW_FORM_sec_offset,
       DW_FORM_strp_sup:
-        LoadRelocated(NeedSize);
+        LoadRelocated(NeedSize, AttributeStream);
 
       DW_FORM_block2:
         LoadBlock(FStream.ReadWord);

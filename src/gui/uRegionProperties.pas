@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.31
+//  * Version   : 1.4.34
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -272,6 +272,7 @@ var
   AddrRva: Cardinal;
   KnownTypes: TSymbolDataTypes;
 begin
+  SetCurrentModuleName('');
   Add('AllocationBase: ' + UInt64ToStr(ULONG_PTR(MBI.AllocationBase)));
   Add('RegionSize: ' + SizeToStr(MBI.RegionSize));
   Add('Type: ' + ExtractRegionTypeString(MBI));
@@ -299,6 +300,7 @@ begin
         Add(' -> No Executable PE Image!!!')
       else
       begin
+        SetCurrentModuleName(ExtractFileName(Path));
         DescriptionAtAddr := '';
         if RawScannerCore.Modules.Items[Index].SectionAtAddr(ULONG_PTR(Address), Section) then
           DescriptionAtAddr := 'Section: ' + Section.DisplayName +
