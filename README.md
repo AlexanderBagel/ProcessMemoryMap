@@ -121,8 +121,11 @@
 Присутствует модуль анализа процесса на предмет установленых перехватчиков фунций (F8)
 ![8](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/14.png?raw=true "Hook scanner output")
 
+Присутствует модуль деманглинга стека вызовов потоков включая 32 и 64 бита + 32SEH (F4)
+![9](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/15.png?raw=true "Threads CallStack")
+
 Ну и вот так выглядит список изменений в выделенных блоках с последней проверки (F5)
 
-![9](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/8.png?raw=true "Compare result")
+![10](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/8.png?raw=true "Compare result")
 
 Ну и много много чего еще интересного.
