@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.1.15
+//  * Version   : 1.0.18
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -287,6 +287,7 @@ type
       Executable: Boolean);
     function GetModule(AddrVa: ULONG_PTR64; CheckOwnership: Boolean = False): Integer; overload;
     function GetModule(const AModulePath: string): Integer; overload;
+    function GetModuleByName(const AModuleName: string; Is64: Boolean): Integer;
     function GetProcData(const LibraryName, FuncName: string; Is64: Boolean;
       var ProcData: TExportChunk; CheckAddrVA: ULONG_PTR64): Boolean; overload;
     function GetProcData(const LibraryName: string; Ordinal: Word;
@@ -2197,6 +2198,21 @@ begin
   Result := -1;
   for I := 0 to FItems.Count - 1 do
     if AnsiSameText(AModulePath, FItems[I].ImagePath) then
+    begin
+      Result := I;
+      Break;
+    end;
+end;
+
+function TRawModules.GetModuleByName(const AModuleName: string;
+  Is64: Boolean): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to FItems.Count - 1 do
+    if AnsiSameText(AModuleName, ExtractFileName(FItems[I].ImagePath)) and
+      (FItems[I].Image64 = Is64) then
     begin
       Result := I;
       Break;

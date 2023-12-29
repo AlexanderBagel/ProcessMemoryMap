@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.34
+//  * Version   : 1.5.35
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -157,6 +157,8 @@ type
     CopyProcessPath1: TMenuItem;
     acOpenInExplorer: TAction;
     OpenInExplorer1: TMenuItem;
+    acCallStackDemangler: TAction;
+    CallStackDemangler1: TMenuItem;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -217,6 +219,7 @@ type
     procedure acOpenInExplorerExecute(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure acCallStackDemanglerExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -269,6 +272,7 @@ uses
   uPluginManager,
   uDebugInfoDlg,
   uStringsViewer,
+  uCallStack,
   ScaledCtrls,
   Shell.TaskBarListProgress;
 
@@ -287,6 +291,17 @@ begin
   finally
     dlgAbout.Free;
   end;
+end;
+
+procedure TdlgProcessMM.acCallStackDemanglerExecute(Sender: TObject);
+begin
+  if dlgCallStack <> nil then
+  begin
+    dlgCallStack.BringToFront;
+    Exit;
+  end;
+  dlgCallStack := TdlgCallStack.Create(Application);
+  dlgCallStack.Show;
 end;
 
 procedure TdlgProcessMM.acCollapseAllExecute(Sender: TObject);
@@ -678,7 +693,12 @@ begin
     if ParamStr(1).StartsWith('Process') then
     {$ENDIF}
       Inc(DebugParamIndex);
-    if TryStrToUInt(ParamStr(DebugParamIndex), CmdLinePID) then
+
+    CmdLinePID := 0;
+    if AnsiSameText(ParamStr(1), 'self') then
+      CmdLinePID := GetCurrentProcessId;
+
+    if (CmdLinePID <> 0) or TryStrToUInt(ParamStr(DebugParamIndex), CmdLinePID) then
     begin
       FirstSelectProcess := False;
       ProcHandle := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
@@ -693,6 +713,13 @@ begin
           dlgRegionProps := TdlgRegionProps.Create(Application);
           dlgRegionProps.Position := poScreenCenter;
           dlgRegionProps.ShowPropertyAtAddr(Pointer(AddrVA));
+          Exit;
+        end;
+        if AnsiSameText(ParamStr(DebugParamIndex), '-stack') then
+        begin
+          dlgCallStack := TdlgCallStack.Create(Application);
+          dlgCallStack.Position := poScreenCenter;
+          dlgCallStack.Show;
         end;
         Exit;
       end;

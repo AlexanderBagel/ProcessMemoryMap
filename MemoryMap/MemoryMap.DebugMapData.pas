@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для работы с отладочным MAP файлом.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.31
+//  * Version   : 1.4.34
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -70,6 +70,7 @@ type
       Limit: Integer; var UnitName: string): Integer;
     procedure GetExportFuncList(const ModuleName: string; Value: TStringList;
       Executable: Boolean);
+    function ModuleLoaded(const ModuleName: string): Boolean;
     property Items: TList<TDebugMapItem> read FItems;
     property Lines: TDictionary<ULONG_PTR, TLineData> read FLines;
     property LoadLines: Boolean read FLoadLines write FLoadLines;
@@ -190,10 +191,10 @@ begin
   begin
     if EarlierAddr then
       Result := Result +
-        ' - 0x' + IntToHex(FItems.List[I].Address - Address, 1)
+        '-0x' + IntToHex(FItems.List[I].Address - Address, 1)
     else
       Result := Result +
-        ' + 0x' + IntToHex(Address - FItems.List[I].Address, 1);
+        '+0x' + IntToHex(Address - FItems.List[I].Address, 1);
   end;
 end;
 
@@ -507,6 +508,19 @@ begin
     for I := FItems.Count - 1 downto StartPosition do
       FItems.Delete(I);
   end;
+end;
+
+function TDebugMap.ModuleLoaded(const ModuleName: string): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to FItems.Count - 1 do
+    if FItems[I].ModuleName = ModuleName then
+    begin
+      Result := True;
+      Break;
+    end;
 end;
 
 function TDebugMap.StrHash(const Value: string): Integer;

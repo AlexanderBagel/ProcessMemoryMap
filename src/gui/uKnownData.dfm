@@ -32,6 +32,7 @@ object dlgKnownData: TdlgKnownData
     Images = il16
     PopupMenu = pmCopy
     TabOrder = 0
+    TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages, toFullVertGridLines, toUseExplorerTheme]
     OnDblClick = tvDataDblClick
     OnGetText = tvDataGetText
     OnGetImageIndex = tvDataGetImageIndex

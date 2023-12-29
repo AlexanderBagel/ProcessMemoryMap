@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.1.15
+//  * Version   : 1.0.18
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -143,6 +143,8 @@ type
     function GetDataAtAddr(AddrVA: ULONG_PTR64; var Data: TSymbolData; NextIndex: Integer = 0): Boolean;
     function GetExportAtAddr(AddrVA: ULONG_PTR64; AType: TSymbolType;
       var Data: TSymbolData; NextIndex: Integer = 0): Boolean;
+    function GetDwarfLineAtAddr(AddrVA: ULONG_PTR64; Limit: Integer;
+      var Data: TSymbolData): Boolean;
     function GetKnownAddrList(AddrVA: ULONG_PTR64; Size: Cardinal): TList<TSymbolData>;
     function UniqueCount: Integer;
     property Active: Boolean read FActive;
@@ -250,6 +252,30 @@ begin
     Result := FItems.List[Index + NextIndex].DataType
   else
     Result := sdtNone;
+end;
+
+function TRawScannerSymbolStorage.GetDwarfLineAtAddr(AddrVA: ULONG_PTR64;
+  Limit: Integer; var Data: TSymbolData): Boolean;
+var
+  I, A, Index: Integer;
+begin
+  Result := False;
+  for I := 0 to Limit do
+  begin
+    Result := FItemIndex.TryGetValue(AddrVA + UInt64(I), Index);
+    if not Result then Continue;
+    Data := FItems.List[Index];
+    if Data.DataType = sdtDwarfLine then Break;
+    for A := Index + 1 to FItems.Count - 1 do
+    begin
+      if FItems.List[A].AddrVA <> AddrVA then Break;
+      if FItems.List[A].DataType = sdtDwarfLine then
+      begin
+        Data := FItems.List[A];
+        Break
+      end;
+    end;
+  end;
 end;
 
 function TRawScannerSymbolStorage.GetExportAtAddr(AddrVA: ULONG_PTR64;

@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.ImageHlp.pas
 //  * Purpose   : Класс фиксит ошибки ImageHlp в Delphi 10.4
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.34
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -85,6 +85,8 @@ type
   function SymEnumerateSymbols(hProcess: THandle; BaseOfDll: ULONG_PTR;
     EnumSymbolsCallback: TSymEnumSymbolsCallback; UserContext: Pointer): Bool; stdcall;
     external ImagehlpLib name 'SymEnumerateSymbols64';
+  function SymUnDName(Symbol: PImagehlpSymbol; UnDecName: PChar; UnDecNameLength: DWORD): Bool; stdcall;
+    external ImagehlpLib name 'SymUnDName64';
   {$ELSE}
   function SymGetSymFromAddr(hProcess: THandle; dwAddr: ULONG_PTR;
     pdwDisplacement: PDWORD; Symbol: PImagehlpSymbol): Bool; stdcall;
@@ -96,6 +98,8 @@ type
     external ImagehlpLib;
   function SymEnumerateSymbols(hProcess: THandle; BaseOfDll: ULONG_PTR;
     EnumSymbolsCallback: TSymEnumSymbolsCallback; UserContext: Pointer): Bool; stdcall;
+    external ImagehlpLib;
+  function SymUnDName(Symbol: PImagehlpSymbol; UnDecName: PChar; UnDecNameLength: DWORD): Bool; stdcall;
     external ImagehlpLib;
   {$ENDIF}
 
@@ -115,6 +119,9 @@ const
 
   {$EXTERNALSYM SymSetOptions}
   function SymSetOptions(SymOptions: DWORD): DWORD; stdcall; external ImagehlpLib;
+
+  {$EXTERNALSYM SymSetOptions}
+  function SymGetOptions: DWORD; stdcall; external ImagehlpLib;
 
   {$EXTERNALSYM SymInitialize}
   function SymInitialize(hProcess: THandle; UserSearchPath: LPSTR;

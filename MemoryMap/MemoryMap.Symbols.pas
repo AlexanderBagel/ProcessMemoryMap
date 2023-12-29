@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Symbols.pas
 //  * Purpose   : Класс для работы с символами.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.2
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
+//  * Version   : 1.4.34
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -34,6 +34,8 @@ type
     FModuleName: string;
     FBaseAddress: ULONG_PTR;
     FData: TDictionary<Pointer, string>;
+    function GetUndecorate: Boolean;
+    procedure SetUndecorate(const Value: Boolean);
   public
     constructor Create(hProcess: THandle);
     destructor Destroy; override;
@@ -47,6 +49,7 @@ type
     procedure GetExportFuncList(const ModuleName: string;
       BaseAddress: ULONG_PTR; Value: TStringList);
     property BaseAddress: ULONG_PTR read FBaseAddress;
+    property Undecorate: Boolean read GetUndecorate write SetUndecorate;
   end;
 
 implementation
@@ -59,7 +62,7 @@ const
 constructor TSymbols.Create(hProcess: THandle);
 begin
   FProcess := hProcess;
-  SymSetOptions(SYMOPT_UNDNAME or SYMOPT_DEFERRED_LOADS);
+  Undecorate := True;
   FInited := SymInitialize(hProcess, nil, True);
   FData := TDictionary<Pointer, string>.Create;
 end;
@@ -136,6 +139,7 @@ function TSymbols.GetDescriptionAtAddr(Address, BaseAddress: ULONG_PTR;
 const
   SizeOfStruct = SizeOf(TImagehlpSymbol);
   MaxNameLength = BuffSize - SizeOfStruct;
+  SYMF_EXPORT = $200;
 var
   Symbol: PImagehlpSymbol;
   Displacement: NativeUInt;
@@ -155,7 +159,7 @@ begin
         if Displacement = 0 then
           Result := string(PAnsiChar(@(Symbol^).Name[0]))
         else
-          Result := string(PAnsiChar(@(Symbol^).Name[0])) + ' + 0x' + IntToHex(Displacement, 4);
+          Result := string(PAnsiChar(@(Symbol^).Name[0])) + '+0x' + IntToHex(Displacement, 4);
       end
       else
       begin
@@ -165,7 +169,7 @@ begin
           if Displacement = 0 then
             Result := string(PAnsiChar(@(Symbol^).Name[0]))
           else
-            Result := string(PAnsiChar(@(Symbol^).Name[0])) + ' + 0x' + IntToHex(Displacement, 4);
+            Result := string(PAnsiChar(@(Symbol^).Name[0])) + '+0x' + IntToHex(Displacement, 4);
       end;
     finally
       SymUnloadModule(FProcess, BaseAddress);
@@ -173,8 +177,12 @@ begin
   finally
     FreeMem(Symbol);
   end;
+
+  if (Symbol^.Flags and SYMF_EXPORT = 0) and Result.StartsWith('Ordinal') then
+    Result := '#' + Copy(Result, 8, Length(Result));
+
   if Result = '' then
-    Result := ExtractFileName(ModuleName) + ' + 0x' + IntToHex(Address - BaseAddress, 1)
+    Result := ExtractFileName(ModuleName) + '+0x' + IntToHex(Address - BaseAddress, 1)
   else
     Result := ExtractFileName(ModuleName) + '!' + Result;
 end;
@@ -196,6 +204,11 @@ begin
   finally
     SymUnloadModule(FProcess, BaseAddress);
   end;
+end;
+
+function TSymbols.GetUndecorate: Boolean;
+begin
+  Result := SymGetOptions and SYMOPT_UNDNAME <> 0;
 end;
 
 procedure TSymbols.Init(BaseAddress: ULONG_PTR; const ModuleName: string);
@@ -221,6 +234,14 @@ end;
 procedure TSymbols.Release;
 begin
   SymUnloadModule(FProcess, FBaseAddress);
+end;
+
+procedure TSymbols.SetUndecorate(const Value: Boolean);
+begin
+  if Value then
+    SymSetOptions(SYMOPT_UNDNAME or SYMOPT_DEFERRED_LOADS)
+  else
+    SymSetOptions(SYMOPT_DEFERRED_LOADS);
 end;
 
 end.

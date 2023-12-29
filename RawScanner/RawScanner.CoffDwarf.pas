@@ -1219,6 +1219,7 @@ type
     end;
 
     TDie = class
+    public
       // Данные для построения дерева
       Parent,
       Child,
@@ -3930,7 +3931,7 @@ var
 begin
   // стабы присутствуют только у 32 битных программ со вторым дварфом
   if (Ctx.stab = nil) or (Ctx.stabstr = nil) then
-    Exit(True);
+    Exit(False);
 
   Loader := TStabLoader.Create(Self, Ctx);
   try

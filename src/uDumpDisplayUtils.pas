@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.34
+//  * Version   : 1.5.35
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -83,6 +83,8 @@ type
   function GetAddrDescription(AddrVa: ULONG_PTR; ASymbolType: TSymbolType;
     out KnownTypes: TSymbolDataTypes; IncludeModuleName: Boolean;
     DemangleCoffName: Boolean = False): string;
+  function GetSymbolDescription(const ASymbol: TSymbolData;
+    IncludeModuleName: Boolean = True): string;
 
   procedure SetCurrentModuleName(const AModuleName: string);
 
@@ -3857,7 +3859,7 @@ var
   function CheckAddrEqual: string;
   begin
     if (ASymbolType = stExport) and (AddrVa <> ExpData.AddrVA) then
-      Result := ' + 0x' + IntToHex(AddrVA - ExpData.AddrVA, 1)
+      Result := '+0x' + IntToHex(AddrVA - ExpData.AddrVA, 1)
     else
       Result := '';
   end;
@@ -4082,6 +4084,9 @@ const
     CheckSourceLine(inst);
   end;
 
+const
+  ZeroLine: array [0..3] of Uint64 = (0, 0, 0, 0);
+
 var
   Disassembler: TDisassembler;
   inst: TInstructionArray;
@@ -4240,10 +4245,15 @@ begin
         // детект линии через символы загруженные из DWARF
         CheckSourceLine(inst[I]);
 
+      if inst[I].InstType = itZero then
+        Line := AsmToHexStr(@ZeroLine[0], inst[I].OpcodesLen)
+      else
+        Line := AsmToHexStr(@inst[I].Opcodes[0], inst[I].OpcodesLen);
+
       AddString(Result,
         Format('%s: %s %s %s', [
           IntToHex(inst[I].AddrVa, 8),
-          AsmToHexStr(@inst[I].Opcodes[0], inst[I].OpcodesLen),
+          Line,
           inst[I].DecodedString,
           HintStr
         ]));

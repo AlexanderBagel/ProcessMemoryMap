@@ -76,7 +76,8 @@ uses
   uStringsViewer in 'src\gui\uStringsViewer.pas' {dlgStringsViewer},
   ScaledCtrls in 'Controls\ScaledCtrls.pas',
   uBaseForm in 'src\gui\uBaseForm.pas' {BaseAppForm},
-  RawScanner.CoffDwarf in 'RawScanner\RawScanner.CoffDwarf.pas';
+  RawScanner.CoffDwarf in 'RawScanner\RawScanner.CoffDwarf.pas',
+  uCallStack in 'src\gui\uCallStack.pas' {dlgCallStack};
 
 {$R *.res}
 

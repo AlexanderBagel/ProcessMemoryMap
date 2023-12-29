@@ -286,6 +286,9 @@ object dlgProcessMM: TdlgProcessMM
       object FindPatchedData1: TMenuItem
         Action = acFindPachedData
       end
+      object CallStackDemangler1: TMenuItem
+        Action = acCallStackDemangler
+      end
     end
     object mnuOptions: TMenuItem
       Caption = 'Options'
@@ -555,6 +558,13 @@ object dlgProcessMM: TdlgProcessMM
       Caption = 'Open In Explorer'
       OnExecute = acOpenInExplorerExecute
       OnUpdate = acOpenInExplorerUpdate
+    end
+    object acCallStackDemangler: TAction
+      Category = 'Utils'
+      Caption = 'Threads CallStack...'
+      ShortCut = 115
+      OnExecute = acCallStackDemanglerExecute
+      OnUpdate = acFindPachedDataUpdate
     end
   end
   object SaveDMPDialog: TSaveDialog

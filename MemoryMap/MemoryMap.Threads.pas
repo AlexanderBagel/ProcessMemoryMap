@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Threads.pas
 //  * Purpose   : Класс собирает данные о потоках процесса.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2023.
+//  * Version   : 1.4.34
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -162,12 +162,12 @@ type
     FThreadData: TList<TThreadData>;
     FThreadStackEntries: TList<TThreadStackEntry>;
     FSEH: TList<TSEHEntry>;
+    function CheckExecutablePage(hProcess: THandle; AAddrVA: UInt64): Boolean;
   protected
     procedure Add(hProcess: THandle;
       Flag: TThreadInfo; Address: Pointer; ID: Integer;
       Wow64: Boolean);
     function ConvertStackFrameToStackFrame64(Value: TStackFrame): TStackFrame64;
-    procedure Update(PID: Cardinal; hProcess: THandle);
     procedure GetWow64ThreadCallStack32(hProcess, hThread: THandle; ID: Integer);
     procedure GetThreadCallStack(hProcess, hThread: THandle; ID: Integer);
     procedure GetThreadSEHFrames(hProcess: THandle; InitialAddr: Pointer;
@@ -176,6 +176,8 @@ type
     constructor Create; overload;
     constructor Create(PID: Cardinal; hProcess: THandle); overload;
     destructor Destroy; override;
+    procedure Clear;
+    procedure Update(PID: Cardinal; hProcess: THandle);
     property SEHEntries: TList<TSEHEntry> read FSEH;
     property ThreadData: TList<TThreadData> read FThreadData;
     property ThreadStackEntries: TList<TThreadStackEntry> read FThreadStackEntries;
@@ -214,6 +216,25 @@ begin
   ThreadData.Address := Address;
   ThreadData.Wow64 := Wow64;
   FThreadData.Add(ThreadData);
+end;
+
+function TThreads.CheckExecutablePage(hProcess: THandle;
+  AAddrVA: UInt64): Boolean;
+var
+  MBI: TMemoryBasicInformation;
+  dwLength: NativeUInt;
+begin
+  if AAddrVA = 0 then Exit(False);
+  dwLength := SizeOf(TMemoryBasicInformation);
+  VirtualQueryEx(hProcess, Pointer(AAddrVA), MBI, dwLength);
+  Result := MBI.Protect and $F0 <> 0;
+end;
+
+procedure TThreads.Clear;
+begin
+  FSEH.Clear;
+  FThreadData.Clear;
+  FThreadStackEntries.Clear;
 end;
 
 function TThreads.ConvertStackFrameToStackFrame64(
@@ -333,7 +354,7 @@ begin
         Break;
       {$ENDIF}
 
-      if StackFrame.AddrPC.Offset <= 0 then Break;
+      if not CheckExecutablePage(hProcess, StackFrame.AddrPC.Offset) then Break;
 
       ThreadShackEntry.ThreadID := ID;
       {$IFDEF WIN32}
@@ -382,7 +403,7 @@ begin
     while StackWalk64(IMAGE_FILE_MACHINE_I386, hProcess, hThread, StackFrame,
       ThreadContext, nil, nil, nil, nil) do
     begin
-      if StackFrame.AddrPC.Offset <= 0 then Break;
+      if not CheckExecutablePage(hProcess, StackFrame.AddrPC.Offset) then Break;
       ThreadShackEntry.ThreadID := ID;
       ThreadShackEntry.Data := StackFrame;
       ThreadShackEntry.Wow64 := True;
@@ -450,6 +471,7 @@ var
   WOW64_NT_TIB: TWOW64_NT_TIB;
   {$ENDIF}
 begin
+  Clear;
   {$IFDEF WIN64}
   Wow64 := True;
   {$ELSE}
