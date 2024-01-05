@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.18
+//  * Version   : 1.0.19
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -547,15 +547,16 @@ end;
 function TRawPEImage.DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
 begin
   Result := -1;
-  // Rouse_ 26.03.2023
-  // Изменением порядка поиска директории избегаем наложения директорий друг на друга
-  // например Security вообще ведет себя не понятно, постоянно влазя не на свое место
-  // из-за того что её размер может спокойно залезть на идущую следом BaseReloc
-  for var I := FNtHeader.OptionalHeader.NumberOfRvaAndSizes - 1 downto 0 do
+  // Игнорируем IMAGE_DIRECTORY_ENTRY_SECURITY, она ведет себя крайне не понятно
+  for var I := 0 to FNtHeader.OptionalHeader.NumberOfRvaAndSizes - 1 do
+  begin
+    if I = IMAGE_DIRECTORY_ENTRY_SECURITY then
+      Continue;
     if RvaAddr >= FNtHeader.OptionalHeader.DataDirectory[I].VirtualAddress then
       if RvaAddr < FNtHeader.OptionalHeader.DataDirectory[I].VirtualAddress +
         FNtHeader.OptionalHeader.DataDirectory[I].Size then
         Exit(I);
+  end;
 end;
 
 function TRawPEImage.ExportIndex(Ordinal: Word): Integer;
