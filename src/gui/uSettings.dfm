@@ -136,7 +136,7 @@ object dlgSettings: TdlgSettings
         Top = 142
         Width = 62
         Height = 22
-        MaxValue = 0
+        MaxValue = 400
         MinValue = 1
         TabOrder = 6
         Value = 30
