@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Threads.pas
 //  * Purpose   : Класс собирает данные о потоках процесса.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2023.
-//  * Version   : 1.4.34
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.4.35
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -143,7 +143,7 @@ type
     ThreadID: Integer;
     Data: TStackFrame64;
     FuncName: ShortString;
-    Wow64: Boolean;
+    Wow64, StackOverflow: Boolean;
     procedure SetFuncName(const Value: string);
   end;
 
@@ -162,6 +162,7 @@ type
     FThreadData: TList<TThreadData>;
     FThreadStackEntries: TList<TThreadStackEntry>;
     FSEH: TList<TSEHEntry>;
+    FStackOverflowLimit: Integer;
     function CheckExecutablePage(hProcess: THandle; AAddrVA: UInt64): Boolean;
   protected
     procedure Add(hProcess: THandle;
@@ -181,6 +182,7 @@ type
     property SEHEntries: TList<TSEHEntry> read FSEH;
     property ThreadData: TList<TThreadData> read FThreadData;
     property ThreadStackEntries: TList<TThreadStackEntry> read FThreadStackEntries;
+    property StackOverflowLimit: Integer read FStackOverflowLimit write FStackOverflowLimit;
   end;
 
 implementation
@@ -286,6 +288,7 @@ begin
   FSEH := TList<TSEHEntry>.Create;
   FThreadData := TList<TThreadData>.Create;
   FThreadStackEntries := TList<TThreadStackEntry>.Create;
+  StackOverflowLimit := 15;
 end;
 
 destructor TThreads.Destroy;
@@ -313,6 +316,7 @@ var
   ThreadContext: PContext;
   MachineType: DWORD;
   ThreadShackEntry: TThreadStackEntry;
+  SOCounter: Integer;
 begin
   ZeroMemory(@ThreadShackEntry, SizeOf(TThreadStackEntry));
 
@@ -341,6 +345,7 @@ begin
     MachineType := IMAGE_FILE_MACHINE_AMD64;
     {$ENDIF}
 
+    SOCounter := 0;
     while True do
     begin
 
@@ -356,6 +361,13 @@ begin
 
       if not CheckExecutablePage(hProcess, StackFrame.AddrPC.Offset) then Break;
 
+      // detect Stack Overflow
+      if (StackFrame.AddrPC.Offset = ThreadShackEntry.Data.AddrPC.Offset) and
+        (StackFrame.AddrReturn.Offset = ThreadShackEntry.Data.AddrReturn.Offset) then
+        Inc(SOCounter)
+      else
+        SOCounter := 0;
+
       ThreadShackEntry.ThreadID := ID;
       {$IFDEF WIN32}
       ThreadShackEntry.Data := ConvertStackFrameToStackFrame64(StackFrame);
@@ -363,6 +375,14 @@ begin
       ThreadShackEntry.Data := StackFrame;
       {$ENDIF}
       ThreadShackEntry.Wow64 := False;
+
+      if SOCounter = StackOverflowLimit then
+      begin
+        ThreadShackEntry.StackOverflow := True;
+        ThreadStackEntries.Add(ThreadShackEntry);
+        Break;
+      end;
+
       ThreadStackEntries.Add(ThreadShackEntry);
     end;
 
@@ -379,6 +399,7 @@ var
   StackFrame: TStackFrame64;
   ThreadContext: PWow64Context;
   ThreadShackEntry: TThreadStackEntry;
+  SOCounter: Integer;
 begin
   ZeroMemory(@ThreadShackEntry, SizeOf(TThreadStackEntry));
 
@@ -400,13 +421,30 @@ begin
     StackFrame.AddrStack.Offset := ThreadContext.Esp;
     StackFrame.AddrFrame.Offset := ThreadContext.Ebp;
 
+    SOCounter := 0;
     while StackWalk64(IMAGE_FILE_MACHINE_I386, hProcess, hThread, StackFrame,
       ThreadContext, nil, nil, nil, nil) do
     begin
       if not CheckExecutablePage(hProcess, StackFrame.AddrPC.Offset) then Break;
+
+      // detect Stack Overflow
+      if (StackFrame.AddrPC.Offset = ThreadShackEntry.Data.AddrPC.Offset) and
+        (StackFrame.AddrReturn.Offset = ThreadShackEntry.Data.AddrReturn.Offset) then
+        Inc(SOCounter)
+      else
+        SOCounter := 0;
+
       ThreadShackEntry.ThreadID := ID;
       ThreadShackEntry.Data := StackFrame;
       ThreadShackEntry.Wow64 := True;
+
+      if SOCounter = StackOverflowLimit then
+      begin
+        ThreadShackEntry.StackOverflow := True;
+        ThreadStackEntries.Add(ThreadShackEntry);
+        Break;
+      end;
+
       ThreadStackEntries.Add(ThreadShackEntry);
     end;
 

@@ -5,8 +5,8 @@
 //  * Unit Name : uProgress.pas
 //  * Purpose   : Вспомогательный диалог для отображения прогреса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.31
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.37
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,6 +38,7 @@ type
   public
     ProgressBar, ProgressBarAdv: TFWProgressBar;
     procedure ShowWithCallback(Value: TProc);
+    procedure UpdateCaption(const Value: string; APosition: Integer);
   end;
 
 var
@@ -81,6 +82,13 @@ begin
   Show;
   Application.ProcessMessages;
   Value;
+end;
+
+procedure TdlgProgress.UpdateCaption(const Value: string; APosition: Integer);
+begin
+  lblProgress.Caption := Value;
+  ProgressBar.Position := APosition;
+  Application.ProcessMessages;
 end;
 
 end.

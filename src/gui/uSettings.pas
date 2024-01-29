@@ -5,8 +5,8 @@
 //  * Unit Name : uSelectProcess.pas
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.31
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.37
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -70,6 +70,8 @@ type
     seStringLength: TSpinEdit;
     Label10: TLabel;
     cbShowAligns: TCheckBox;
+    seSOLimit: TSpinEdit;
+    Label11: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -104,6 +106,7 @@ type
     FStringMinLengh: Integer;
     FShowChildFormsOnTaskBar: Boolean;
     FShowAligns: Boolean;
+    FStackOverflowLimit: Integer;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -130,6 +133,7 @@ type
     property UseScannerFilter: Boolean read FUseScannerFilter write FUseScannerFilter;
     property ScannerMode: TScannerMode read FScannerMode write FScannerMode;
     property LoadStrings: Boolean read FLoadStrings write FLoadStrings;
+    property StackOverflowLimit: Integer read FStackOverflowLimit write FStackOverflowLimit;
     property StringMinLengh: Integer read FStringMinLengh write FStringMinLengh;
     property ShowChildFormsOnTaskBar: Boolean read FShowChildFormsOnTaskBar write FShowChildFormsOnTaskBar;
     property ShowAligns: Boolean read FShowAligns write FShowAligns;
@@ -188,6 +192,7 @@ begin
   LoadLines := True;
   DemangleNames := True;
   LoadStrings := False;
+  StackOverflowLimit := 15;
   StringMinLengh := 6;
   ShowChildFormsOnTaskBar := True;
   ShowAligns := True;
@@ -229,6 +234,8 @@ begin
         ShowChildFormsOnTaskBar := R.ReadBool('ShowChildFormsOnTaskBar');
       if R.ValueExists('ShowAligns') then
         ShowAligns := R.ReadBool('ShowAligns');
+      if R.ValueExists('StackOverflowLimit') then
+        StackOverflowLimit := R.ReadInteger('StackOverflowLimit');
       for I := 0 to 7 do
         FColors[I] := R.ReadInteger(RegKeys[I]);
     except
@@ -263,6 +270,7 @@ begin
     R.WriteInteger('ScannerMode', Integer(ScannerMode));
     R.WriteBool('ShowChildFormsOnTaskBar', ShowChildFormsOnTaskBar);
     R.WriteBool('ShowAligns', ShowAligns);
+    R.WriteInteger('StackOverflowLimit', StackOverflowLimit);
     for I := 0 to 7 do
       R.WriteInteger(RegKeys[I], FColors[I]);
   finally
@@ -301,6 +309,7 @@ begin
   Settings.LoadStrings := cbLoadStrings.Checked;
   Settings.ShowChildFormsOnTaskBar := cbShowChildFormsOnTaskBar.Checked;
   Settings.ShowAligns := cbShowAligns.Checked;
+  Settings.StackOverflowLimit := seSOLimit.Value;
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.SaveSettings;
@@ -347,6 +356,7 @@ begin
   seStringLength.Value := Settings.StringMinLengh;
   cbShowChildFormsOnTaskBar.Checked := Settings.ShowChildFormsOnTaskBar;
   cbShowAligns.Checked := Settings.ShowAligns;
+  seSOLimit.Value := Settings.StackOverflowLimit;
   for I := 0 to 7 do
   begin
     Colors[I] := Settings.GetColor(I);

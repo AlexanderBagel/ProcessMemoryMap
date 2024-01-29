@@ -5,8 +5,8 @@
 //  * Unit Name : uCallStack.pas
 //  * Purpose   : Утилита демангла CallStack от ProcessExpplorer
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.5.35
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.37
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -138,6 +138,7 @@ type
     function GetLineText(AItem:TListItem): string;
     procedure FillThreads;
     procedure Reinit;
+    procedure ReinitWithProgress;
     procedure UpdateColumnMaxLen;
     procedure UpdateTreeHeaderHeight;
   protected
@@ -153,11 +154,13 @@ uses
   Clipbrd,
   Math,
   PsAPI,
-  CommCtrl;
+  CommCtrl,
+  uProgress;
 
 const
   Overlay32 = 0;
   Overlay64 = 1;
+  StackOverflow_Marker = 'Stack Owerflow!!!';
 
 {$R *.dfm}
 
@@ -234,7 +237,7 @@ end;
 
 procedure TdlgCallStack.acRefreshExecute(Sender: TObject);
 begin
-  Reinit;
+  ReinitWithProgress;
 end;
 
 procedure TdlgCallStack.acSwitch32Update(Sender: TObject);
@@ -474,6 +477,16 @@ begin
     for I := 0 to FCurrentStackData.Count - 1 do
     begin
       Item := lvStack.Items.Add;
+
+      if FCurrentStackData[I] = StackOverflow_Marker then
+      begin
+        Item.Caption := StackOverflow_Marker;
+        Item.SubItems.Add(EmptyStr);
+        Item.SubItems.Add(EmptyStr);
+        Item.Data := Pointer(1);
+        Continue;
+      end;
+
       Line := Trim(FCurrentStackData[I]);
       Line := StringReplace(Line, ' ', '', [rfReplaceAll]);
       ModuleName := Module(Line);
@@ -507,7 +520,17 @@ begin
       begin
         Item.SubItems.Add(EmptyStr);
         Item.SubItems.Add(FuncName + Line);
-        Item.Data := Pointer(1);
+        if BaseAddr <> 0 then
+          Item.Caption := '0x' + IntToHex(BaseAddr)
+        else
+        begin
+          if ModuleName.StartsWith('0x', True) then
+          begin
+            Item.Caption := ModuleName;
+            Item.SubItems[0] := '';
+          end;
+          Item.Data := Pointer(1);
+        end;
         Continue;
       end;
 
@@ -666,7 +689,7 @@ begin
   UpdateTreeHeaderHeight;
   il16.Overlay(3, Overlay32);
   il16.Overlay(4, Overlay64);
-  Reinit;
+  ReinitWithProgress;
 end;
 
 procedure TdlgCallStack.FormDestroy(Sender: TObject);
@@ -743,6 +766,7 @@ begin
   if Process = 0 then
     RaiseLastOSError;
   try
+    dlgProgress.UpdateCaption('Capture Call Stack...', 0);
     Symbols := TSymbols.Create(Process);
     try
       Symbols.Undecorate := False;
@@ -750,14 +774,24 @@ begin
       if MemoryMapCore.SuspendProcessBeforeScan then
         ProcessLock := SuspendProcess(MemoryMapCore.PID);
       try
+        FThreads.StackOverflowLimit := Settings.StackOverflowLimit;
         FThreads.Update(MemoryMapCore.PID, Process);
 
+        dlgProgress.ProgressBar.Max := FThreads.ThreadStackEntries.Count;
         dwLength := SizeOf(TMemoryBasicInformation);
         for I := 0 to FThreads.ThreadStackEntries.Count - 1 do
         begin
           ThreadStackEntry := FThreads.ThreadStackEntries[I];
           if not CheckAddr(ThreadStackEntry.Data.AddrFrame.Offset) then
-            Continue;
+          begin
+            if ThreadStackEntry.Data.AddrFrame.Offset <> 0 then
+              Continue;
+            if not CheckAddr(ThreadStackEntry.Data.AddrPC.Offset) then
+              Continue;
+          end;
+
+          dlgProgress.UpdateCaption('Capture Thread: ' + IntToStr(ThreadStackEntry.ThreadID), I + 1);
+
           VirtualQueryEx(Process, Pointer(ThreadStackEntry.Data.AddrPC.Offset), MBI, dwLength);
           if GetMappedFileName(Process, MBI.AllocationBase, @OwnerName[0], MAX_PATH) > 0 then
           begin
@@ -770,11 +804,15 @@ begin
           end;
         end;
 
+        dlgProgress.ProgressBar.Max := FThreads.SEHEntries.Count;
         for I := 0 to FThreads.SEHEntries.Count - 1 do
         begin
           SEHEntry := FThreads.SEHEntries[I];
           if not CheckAddr(SEHEntry.Handler) then
             Continue;
+
+          dlgProgress.UpdateCaption('Capture Thread SEH: ' + IntToStr(SEHEntry.ThreadID), I + 1);
+
           VirtualQueryEx(Process, SEHEntry.Handler, MBI, dwLength);
           if GetMappedFileName(Process, MBI.AllocationBase, @OwnerName[0], MAX_PATH) > 0 then
           begin
@@ -800,10 +838,31 @@ begin
   FillThreads;
 end;
 
+procedure TdlgCallStack.ReinitWithProgress;
+begin
+  dlgProgress := TdlgProgress.Create(nil);
+  try
+    dlgProgress.ShowWithCallback(Reinit);
+  finally
+    dlgProgress.Free;
+  end;
+end;
+
 procedure TdlgCallStack.tvThreadAddToSelection(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
 
-  procedure Add(const Value: ShortString);
+  procedure Add(const Value: TThreadStackEntry);
+  begin
+    if Value.StackOverflow then
+      FCurrentStackData.Add(StackOverflow_Marker)
+    else
+      if Value.FuncName <> '' then
+        FCurrentStackData.Add(string(Value.FuncName))
+      else
+        FCurrentStackData.Add('0x' + IntToHex(Value.Data.AddrPC.Offset));
+  end;
+
+  procedure AddString(const Value: string);
   begin
     if Value <> '' then
       FCurrentStackData.Add(string(Value));
@@ -825,13 +884,13 @@ begin
         for I := 0 to FThreads.ThreadStackEntries.Count - 1 do
           if FThreads.ThreadStackEntries[I].ThreadID = CurrentID then
             if FThreads.ThreadStackEntries[I].Wow64 = (Data.AType = nt32Stack) then
-              Add(FThreads.ThreadStackEntries[I].FuncName);
+              Add(FThreads.ThreadStackEntries[I]);
       end;
       nt32Seh, nt64Seh:
       begin
         for I := 0 to FThreads.SEHEntries.Count - 1 do
           if FThreads.SEHEntries[I].ThreadID = CurrentID then
-            Add(FThreads.SEHEntries[I].HandlerName);
+            AddString(string(FThreads.SEHEntries[I].HandlerName));
       end;
       ntCustom32, ntCustom64:
         FCurrentStackData.Assign(FCustomStacks[CurrentID]);

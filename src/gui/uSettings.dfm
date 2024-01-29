@@ -71,11 +71,18 @@ object dlgSettings: TdlgSettings
     Top = 8
     Width = 306
     Height = 319
-    ActivePage = TabSheet2
+    ActivePage = TabSheet1
     Style = tsButtons
     TabOrder = 4
     object TabSheet1: TTabSheet
       Caption = 'TabSheet1'
+      object Label11: TLabel
+        Left = 3
+        Top = 145
+        Width = 101
+        Height = 13
+        Caption = 'Stack Overflow Limit:'
+      end
       object cbSearchDiff: TCheckBox
         Left = 3
         Top = 96
@@ -123,6 +130,16 @@ object dlgSettings: TdlgSettings
         Height = 17
         Caption = 'Show Child Forms on TaskBar'
         TabOrder = 5
+      end
+      object seSOLimit: TSpinEdit
+        Left = 110
+        Top = 142
+        Width = 62
+        Height = 22
+        MaxValue = 0
+        MinValue = 1
+        TabOrder = 6
+        Value = 30
       end
     end
     object TabSheet2: TTabSheet
