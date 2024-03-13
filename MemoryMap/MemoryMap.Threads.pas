@@ -6,7 +6,7 @@
 //  * Purpose   : Класс собирает данные о потоках процесса.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.4.35
+//  * Version   : 1.4.36
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -562,7 +562,7 @@ begin
 
         {$IFDEF WIN64}
         // то-же самое только для Wow64 нити
-        if not IsWow64(hProcess) then Exit;
+        if not IsWow64(hProcess) then Continue;
 
         // в 64 битном TEB поле TIB.ExceptionList указывает на начало Wow64TEB
         if not ReadProcessMemory(hProcess,

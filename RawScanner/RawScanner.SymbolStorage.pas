@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.SymbolStorage.pas
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.18
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.0.19
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -144,7 +144,7 @@ type
     function GetExportAtAddr(AddrVA: ULONG_PTR64; AType: TSymbolType;
       var Data: TSymbolData; NextIndex: Integer = 0): Boolean;
     function GetDwarfLineAtAddr(AddrVA: ULONG_PTR64; Limit: Integer;
-      var Data: TSymbolData): Boolean;
+      SearchDown: Boolean; var Data: TSymbolData): Boolean;
     function GetKnownAddrList(AddrVA: ULONG_PTR64; Size: Cardinal): TList<TSymbolData>;
     function UniqueCount: Integer;
     property Active: Boolean read FActive;
@@ -255,26 +255,65 @@ begin
 end;
 
 function TRawScannerSymbolStorage.GetDwarfLineAtAddr(AddrVA: ULONG_PTR64;
-  Limit: Integer; var Data: TSymbolData): Boolean;
+  Limit: Integer; SearchDown: Boolean; var Data: TSymbolData): Boolean;
+
+  function ToDown(Index: Integer): Boolean;
+  var
+    I: Integer;
+  begin
+    Result := False;
+    for I := Index + 1 to FItems.Count - 1 do
+    begin
+      if FItems.List[I].AddrVA <> AddrVA then Exit;
+      if FItems.List[I].DataType = sdtDwarfLine then
+      begin
+        Data := FItems.List[I];
+        Exit(True);
+      end;
+    end;
+  end;
+
+  function ToUp(Index: Integer): Boolean;
+  var
+    I: Integer;
+  begin
+    Result := False;
+    for I := Index - 1 downto 0 do
+    begin
+      if FItems.List[I].AddrVA <> AddrVA then Exit;
+      if FItems.List[I].DataType = sdtDwarfLine then
+      begin
+        Data := FItems.List[I];
+        Exit(True);
+      end;
+    end;
+  end;
+
+  function NextAddr(Index: Integer): ULONG_PTR64;
+  begin
+    if SearchDown then
+      Result := AddrVA + UInt64(Index)
+    else
+      Result := AddrVA - UInt64(Index);
+  end;
+
 var
-  I, A, Index: Integer;
+  I, Index: Integer;
+  Found: Boolean;
 begin
   Result := False;
   for I := 0 to Limit do
   begin
-    Result := FItemIndex.TryGetValue(AddrVA + UInt64(I), Index);
+    Result := FItemIndex.TryGetValue(NextAddr(I), Index);
     if not Result then Continue;
     Data := FItems.List[Index];
     if Data.DataType = sdtDwarfLine then Break;
-    for A := Index + 1 to FItems.Count - 1 do
-    begin
-      if FItems.List[A].AddrVA <> AddrVA then Break;
-      if FItems.List[A].DataType = sdtDwarfLine then
-      begin
-        Data := FItems.List[A];
-        Break
-      end;
-    end;
+    if SearchDown then
+      Found := ToDown(Index)
+    else
+      Found := ToUp(Index);
+    if Found then
+      Break;
   end;
 end;
 

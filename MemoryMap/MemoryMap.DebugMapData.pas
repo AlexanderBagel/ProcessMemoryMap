@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.DebugMapData.pas
 //  * Purpose   : Класс для работы с отладочным MAP файлом.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.34
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.4.36
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -67,7 +67,7 @@ type
     function GetLineNumberAtAddr(BaseAddress: ULONG_PTR;
       var AUnitName: string): Integer;
     function GetLineNumberAtAddrForced(BaseAddress: ULONG_PTR;
-      Limit: Integer; var UnitName: string): Integer;
+      Limit: Integer; SearchDown: Boolean; var UnitName: string): Integer;
     procedure GetExportFuncList(const ModuleName: string; Value: TStringList;
       Executable: Boolean);
     function ModuleLoaded(const ModuleName: string): Boolean;
@@ -224,14 +224,23 @@ begin
 end;
 
 function TDebugMap.GetLineNumberAtAddrForced(BaseAddress: ULONG_PTR;
-  Limit: Integer; var UnitName: string): Integer;
+  Limit: Integer; SearchDown: Boolean; var UnitName: string): Integer;
+
+  function NextAddr(Index: Integer): ULONG_PTR;
+  begin
+    if SearchDown then
+      Result := BaseAddress + UInt64(Index)
+    else
+      Result := BaseAddress - UInt64(Index);
+  end;
+
 var
   I: Integer;
 begin
   Result := -1;
   for I := 0 to Limit do
   begin
-    Result := GetLineNumberAtAddr(BaseAddress + ULONG_PTR(I), UnitName);
+    Result := GetLineNumberAtAddr(NextAddr(I), UnitName);
     if Result > 0 then
       Break;
   end;
@@ -516,7 +525,7 @@ var
 begin
   Result := False;
   for I := 0 to FItems.Count - 1 do
-    if FItems[I].ModuleName = ModuleName then
+    if AnsiSameText(FItems[I].ModuleName, ModuleName) then
     begin
       Result := True;
       Break;

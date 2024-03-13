@@ -71,7 +71,7 @@ object dlgSettings: TdlgSettings
     Top = 8
     Width = 306
     Height = 319
-    ActivePage = TabSheet1
+    ActivePage = TabSheet2
     Style = tsButtons
     TabOrder = 4
     object TabSheet1: TTabSheet
@@ -147,10 +147,24 @@ object dlgSettings: TdlgSettings
       ImageIndex = 1
       object Label10: TLabel
         Left = 3
-        Top = 75
-        Width = 84
+        Top = 130
+        Width = 102
         Height = 13
-        Caption = 'String min length:'
+        Caption = 'String minimal length:'
+      end
+      object Label12: TLabel
+        Left = 3
+        Top = 29
+        Width = 101
+        Height = 13
+        Caption = 'Line search distance:'
+      end
+      object Label13: TLabel
+        Left = 3
+        Top = 57
+        Width = 102
+        Height = 13
+        Caption = 'Line search direction:'
       end
       object cbLoadLineSymbols: TCheckBox
         Left = 3
@@ -162,7 +176,7 @@ object dlgSettings: TdlgSettings
       end
       object cbDemangleNames: TCheckBox
         Left = 3
-        Top = 26
+        Top = 81
         Width = 254
         Height = 17
         Caption = 'Demangle COFF/DWARF names'
@@ -172,15 +186,15 @@ object dlgSettings: TdlgSettings
       end
       object cbLoadStrings: TCheckBox
         Left = 3
-        Top = 49
+        Top = 104
         Width = 190
         Height = 17
         Caption = 'Load Strings from PE Images'
         TabOrder = 2
       end
       object seStringLength: TSpinEdit
-        Left = 93
-        Top = 72
+        Left = 110
+        Top = 127
         Width = 60
         Height = 22
         MaxValue = 255
@@ -190,11 +204,34 @@ object dlgSettings: TdlgSettings
       end
       object cbShowAligns: TCheckBox
         Left = 3
-        Top = 100
+        Top = 155
         Width = 174
         Height = 17
         Caption = 'Show Aligns in Disassembler'
         TabOrder = 4
+      end
+      object seLineLimit: TSpinEdit
+        Left = 110
+        Top = 26
+        Width = 60
+        Height = 22
+        MaxValue = 1024
+        MinValue = 1
+        TabOrder = 5
+        Value = 42
+      end
+      object cbLineDirection: TComboBox
+        Left = 110
+        Top = 54
+        Width = 145
+        Height = 21
+        Style = csDropDownList
+        ItemIndex = 0
+        TabOrder = 6
+        Text = 'Down (return address)'
+        Items.Strings = (
+          'Down (return address)'
+          'Up (call address)')
       end
     end
     object TabSheet3: TTabSheet

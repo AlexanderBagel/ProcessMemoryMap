@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.37
+//  * Version   : 1.5.38
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -72,6 +72,10 @@ type
     cbShowAligns: TCheckBox;
     seSOLimit: TSpinEdit;
     Label11: TLabel;
+    Label12: TLabel;
+    seLineLimit: TSpinEdit;
+    cbLineDirection: TComboBox;
+    Label13: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -102,6 +106,8 @@ type
     FScannerMode: TScannerMode;
     FLoadLines: Boolean;
     FDemangleNames: Boolean;
+    FLineSearchLimit: Integer;
+    FLineSearchDown: Boolean;
     FLoadStrings: Boolean;
     FStringMinLengh: Integer;
     FShowChildFormsOnTaskBar: Boolean;
@@ -132,6 +138,8 @@ type
     property SuspendProcess: Boolean read FSuspendProcess write FSuspendProcess;
     property UseScannerFilter: Boolean read FUseScannerFilter write FUseScannerFilter;
     property ScannerMode: TScannerMode read FScannerMode write FScannerMode;
+    property LineSearchLimit: Integer read FLineSearchLimit write FLineSearchLimit;
+    property LineSearchDown: Boolean read FLineSearchDown write FLineSearchDown;
     property LoadStrings: Boolean read FLoadStrings write FLoadStrings;
     property StackOverflowLimit: Integer read FStackOverflowLimit write FStackOverflowLimit;
     property StringMinLengh: Integer read FStringMinLengh write FStringMinLengh;
@@ -190,6 +198,8 @@ begin
   UseScannerFilter := False;
   ScannerMode := smDefault;
   LoadLines := True;
+  LineSearchLimit := 42; // 3 * MaxOpcodeLen
+  LineSearchDown := True;
   DemangleNames := True;
   LoadStrings := False;
   StackOverflowLimit := 15;
@@ -236,6 +246,10 @@ begin
         ShowAligns := R.ReadBool('ShowAligns');
       if R.ValueExists('StackOverflowLimit') then
         StackOverflowLimit := R.ReadInteger('StackOverflowLimit');
+      if R.ValueExists('LineSearchDown') then
+        LineSearchDown := R.ReadBool('LineSearchDown');
+      if R.ValueExists('LineSearchLimit') then
+        LineSearchLimit := R.ReadInteger('LineSearchLimit');
       for I := 0 to 7 do
         FColors[I] := R.ReadInteger(RegKeys[I]);
     except
@@ -271,6 +285,8 @@ begin
     R.WriteBool('ShowChildFormsOnTaskBar', ShowChildFormsOnTaskBar);
     R.WriteBool('ShowAligns', ShowAligns);
     R.WriteInteger('StackOverflowLimit', StackOverflowLimit);
+    R.WriteBool('LineSearchDown', LineSearchDown);
+    R.WriteInteger('LineSearchLimit', LineSearchLimit);
     for I := 0 to 7 do
       R.WriteInteger(RegKeys[I], FColors[I]);
   finally
@@ -310,6 +326,8 @@ begin
   Settings.ShowChildFormsOnTaskBar := cbShowChildFormsOnTaskBar.Checked;
   Settings.ShowAligns := cbShowAligns.Checked;
   Settings.StackOverflowLimit := seSOLimit.Value;
+  Settings.LineSearchLimit := seLineLimit.Value;
+  Settings.LineSearchDown := cbLineDirection.ItemIndex = 0;
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.SaveSettings;
@@ -357,6 +375,8 @@ begin
   cbShowChildFormsOnTaskBar.Checked := Settings.ShowChildFormsOnTaskBar;
   cbShowAligns.Checked := Settings.ShowAligns;
   seSOLimit.Value := Settings.StackOverflowLimit;
+  seLineLimit.Value := Settings.LineSearchLimit;
+  cbLineDirection.ItemIndex := Byte(not Settings.LineSearchDown);
   for I := 0 to 7 do
   begin
     Colors[I] := Settings.GetColor(I);

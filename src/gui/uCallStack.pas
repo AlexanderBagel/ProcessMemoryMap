@@ -6,7 +6,7 @@
 //  * Purpose   : Утилита демангла CallStack от ProcessExpplorer
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.37
+//  * Version   : 1.5.38
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -419,8 +419,6 @@ procedure TdlgCallStack.DoConvert(Image64: Boolean);
 
   function DumpDebug(PEImage: TRawPEImage; AddrVA: UInt64;
     var FuncName: string; out AUnitName: string; out ALineNumber: Integer): Boolean;
-  const
-    LineSearchLimit = 42; // 3 * MaxOpcodeLen
   var
     FunctionUnitName: string;
     ExpData: TSymbolData;
@@ -432,7 +430,8 @@ procedure TdlgCallStack.DoConvert(Image64: Boolean);
     Result := False;
     if MemoryMapCore.DebugMapData.ModuleLoaded(PEImage.ImageName) then
     begin
-      ALineNumber := MemoryMapCore.DebugMapData.GetLineNumberAtAddrForced(AddrVA, LineSearchLimit, AUnitName);
+      ALineNumber := MemoryMapCore.DebugMapData.GetLineNumberAtAddrForced(AddrVA,
+        Settings.LineSearchLimit, Settings.LineSearchDown, AUnitName);
       FuncName := MemoryMapCore.DebugMapData.GetDescriptionAtAddrWithOffset(AddrVA, PEImage.ImageName, False);
       FuncName := RemoveUNameFromFName(AUnitName, FuncName);
       Result := True;
@@ -447,7 +446,8 @@ procedure TdlgCallStack.DoConvert(Image64: Boolean);
 
     if ditDwarfLines in PEImage.DebugData then
     begin
-      if SymbolStorage.GetDwarfLineAtAddr(AddrVA, LineSearchLimit, ExpData) then
+      if SymbolStorage.GetDwarfLineAtAddr(AddrVA, Settings.LineSearchLimit,
+        Settings.LineSearchDown, ExpData) then
       begin
         DwarfLinesUnit := PEImage.DwarfDebugInfo.UnitLines[ExpData.Binary.ListIndex];
         LineData := DwarfLinesUnit.Lines[ExpData.Binary.Param];
