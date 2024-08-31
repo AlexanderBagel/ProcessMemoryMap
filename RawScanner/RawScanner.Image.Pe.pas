@@ -2,12 +2,12 @@
 //
 //  ****************************************************************************
 //  * Project   : ProcessMM
-//  * Unit Name : RawScanner.ModulesData.pas
+//  * Unit Name : RawScanner.Image.Pe.pas
 //  * Purpose   : Классы получающие данные о состоянии PE файлов в процессе
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.19
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.1.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -16,7 +16,7 @@
 //  ****************************************************************************
 //
 
-unit RawScanner.ModulesData;
+unit RawScanner.Image.Pe;
 
 interface
 
@@ -30,6 +30,7 @@ uses
   Math,
   RawScanner.Types,
   RawScanner.ApiSet,
+  RawScanner.AbstractImage,
   RawScanner.SymbolStorage,
   RawScanner.Wow64,
   {$IFNDEF DISABLE_LOGGER}
@@ -135,6 +136,7 @@ type
   public
     constructor Create(AImage: TRawPEImage);
     destructor Destroy; override;
+    function IsObjectFile: Boolean; override;
     function GetIs64Image: Boolean; override;
     function NumberOfSymbols: Integer; override;
     function SectionAtIndex(AIndex: Integer; out ASection: TSectionParams): Boolean; override;
@@ -143,7 +145,7 @@ type
     function Rebase(Value: ULONG_PTR64): ULONG_PTR64; override;
   end;
 
-  TRawPEImage = class
+  TRawPEImage = class(TAbstractImage)
   public class var
     // настройки загрузки строк глобально
     DisableLoadStrings: Boolean;
@@ -151,34 +153,28 @@ type
   private const
     DEFAULT_FILE_ALIGNMENT = $200;
     DEFAULT_SECTION_ALIGNMENT = $1000;
-  private type
-    TSectionData = record
-      Index: Integer;
-      StartRVA, Size: DWORD;
-    end;
   strict private
     FBoundDir: TDirectoryData;
     FCoffDebugInfo: TCoffDebugInfo;
     FDebugData: TDebugInfoTypes;
-    FDwarfDebugInfo: TDwarfDebugInfo;
-    FIndex: Integer;
-    FImageBase: ULONG_PTR64;
-    FImageGate: TPeImageGate;
-    FImagePath: string;
-    FImage64: Boolean;
-    FImageName, FOriginalName: string;
-    FImport: TList<TImportChunk>;
-    FImportDir: TDirectoryData;
-    FImportAddressTable: TDirectoryData;
-    FILOnly: Boolean;
-    FDelayDir: TDirectoryData;
     FDebugLinkPath: string;
+    FDelayDir: TDirectoryData;
+    FDwarfDebugInfo: TDwarfDebugInfo;
     FEntryPoint: ULONG_PTR64;
     FEntryPoints: TList<TEntryPointChunk>;
     FExport: TList<TExportChunk>;
     FExportDir: TDirectoryData;
     FExportIndex: TDictionary<string, Integer>;
     FExportOrdinalIndex: TDictionary<Word, Integer>;
+    FIndex: Integer;
+    FImageBase: ULONG_PTR64;
+    FImageGate: TPeImageGate;
+    FImagePath: string;
+    FImageName, FOriginalName: string;
+    FImport: TList<TImportChunk>;
+    FImportDir: TDirectoryData;
+    FImportAddressTable: TDirectoryData;
+    FILOnly: Boolean;
     FLoadSectionsOnly: Boolean;
     FNtHeader: TImageNtHeaders64;
     FRebased: Boolean;
@@ -190,12 +186,9 @@ type
     FSections: array of TImageSectionHeaderEx;
     FStrings: TList<TStringData>;
     FSizeOfFileImage: Int64;
-    FVirtualSizeOfImage: Int64;
     FTlsDir: TDirectoryData;
-    function AlignDown(Value: DWORD; Align: DWORD): DWORD;
-    function AlignUp(Value: DWORD; Align: DWORD): DWORD;
+    FVirtualSizeOfImage: Int64;
     function GetGnuDebugLink(Raw: TStream): string;
-    function GetSectionData(RvaAddr: DWORD; var Data: TSectionData): Boolean;
     procedure InitDirectories;
     procedure InternalProcessApiSetRedirect(
       const LibName: string; var RedirectTo: string);
@@ -223,33 +216,34 @@ type
       ImageBase: ULONG_PTR64 = 0); overload;
     constructor Create(const ModuleData: TModuleData; AModuleIndex: Integer); overload;
     destructor Destroy; override;
+    function DebugData: TDebugInfoTypes; override;
+    function DebugLinkPath: string; override;
+    function DwarfDebugInfo: TDwarfDebugInfo; override;
     function DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
     function ExportIndex(const FuncName: string): Integer; overload;
     function ExportIndex(Ordinal: Word): Integer; overload;
-    function GetImageAtAddr(AddrVA: ULONG_PTR64): TRawPEImage;
     function FixAddrSize(AddrVA: ULONG_PTR64; var ASize: DWORD): Boolean;
+    function GetImageAtAddr(AddrVA: ULONG_PTR64): TRawPEImage;
+    function GetSectionData(RvaAddr: DWORD; var Data: TSectionData): Boolean; override;
+    function Image64: Boolean; override;
+    function ImageBase: ULONG_PTR64; override;
     procedure ProcessRelocations(AStream: TStream);
-    function RawToVa(RawAddr: DWORD): ULONG_PTR64;
+    function RawToVa(RawAddr: DWORD): ULONG_PTR64; override;
     function RvaToRaw(RvaAddr: DWORD): DWORD;
     function RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
     function SectionAtAddr(AddrVA: ULONG_PTR64; out Section: TImageSectionHeaderEx): Boolean;
     function SectionAtIndex(AIndex: Integer; out Section: TImageSectionHeaderEx): Boolean;
     function SectionAtName(const AName: string; out AIndex: Integer): Boolean;
-    function VaToRaw(VaAddr: ULONG_PTR64): DWORD;
-    function VaToRva(VaAddr: ULONG_PTR64): DWORD;
+    function VaToRaw(VaAddr: ULONG_PTR64): DWORD; override;
+    function VaToRva(VaAddr: ULONG_PTR64): DWORD; override;
     property BoundDirectory: TDirectoryData read FBoundDir;
     property CoffDebugInfo: TCoffDebugInfo read FCoffDebugInfo;
     property ComPlusILOnly: Boolean read  FILOnly;
-    property DebugData: TDebugInfoTypes read FDebugData;
-    property DebugLinkPath: string read FDebugLinkPath;
     property DelayImportDirectory: TDirectoryData read FDelayDir;
-    property DwarfDebugInfo: TDwarfDebugInfo read FDwarfDebugInfo;
     property EntryPoint: ULONG_PTR64 read FEntryPoint;
     property EntryPointList: TList<TEntryPointChunk> read FEntryPoints;
     property ExportList: TList<TExportChunk> read FExport;
     property ExportDirectory: TDirectoryData read FExportDir;
-    property Image64: Boolean read FImage64;
-    property ImageBase: ULONG_PTR64 read FImageBase;
     property ImageName: string read FImageName;
     property ImagePath: string read FImagePath;
     property ImportList: TList<TImportChunk> read FImport;
@@ -427,6 +421,11 @@ begin
   Result.IsExecutable := ASection.Characteristics and ExecutableCode <> 0;
 end;
 
+function TPeImageGate.IsObjectFile: Boolean;
+begin
+  Result := False;
+end;
+
 function TPeImageGate.NumberOfSymbols: Integer;
 begin
   Result := FImage.NtHeader.FileHeader.NumberOfSymbols;
@@ -478,17 +477,6 @@ end;
 
 { TRawPEImage }
 
-function TRawPEImage.AlignDown(Value: DWORD; Align: DWORD): DWORD;
-begin
-  Result := Value and not DWORD(Align - 1);
-end;
-
-function TRawPEImage.AlignUp(Value: DWORD; Align: DWORD): DWORD;
-begin
-  if Value = 0 then Exit(0);
-  Result := AlignDown(Value - 1, Align) + Align;
-end;
-
 constructor TRawPEImage.Create(const ModuleData: TModuleData;
   AModuleIndex: Integer);
 begin
@@ -527,6 +515,16 @@ begin
   LoadFromImage;
 end;
 
+function TRawPEImage.DebugData: TDebugInfoTypes;
+begin
+  Result := FDebugData;
+end;
+
+function TRawPEImage.DebugLinkPath: string;
+begin
+  Result := FDebugLinkPath;
+end;
+
 destructor TRawPEImage.Destroy;
 begin
   FDwarfDebugInfo.Free;
@@ -557,6 +555,11 @@ begin
         FNtHeader.OptionalHeader.DataDirectory[I].Size then
         Exit(I);
   end;
+end;
+
+function TRawPEImage.DwarfDebugInfo: TDwarfDebugInfo;
+begin
+  Result := FDwarfDebugInfo;
 end;
 
 function TRawPEImage.ExportIndex(Ordinal: Word): Integer;
@@ -631,6 +634,10 @@ var
 begin
   Result := False;
 
+  ZeroMemory(@Data, SizeOf(Data));
+  if RvaAddr < FNtHeader.OptionalHeader.SizeOfHeaders then
+    Exit;
+
   NumberOfSections := Length(FSections);
   for I := 0 to NumberOfSections - 1 do
   begin
@@ -661,11 +668,24 @@ begin
     if (RvaAddr >= Data.StartRVA) and (RvaAddr < Data.StartRVA + Data.Size) then
     begin
       Data.Index := I;
+      Data.Read := FSections[I].Characteristics and IMAGE_SCN_MEM_READ <> 0;
+      Data.Write := FSections[I].Characteristics and IMAGE_SCN_MEM_WRITE <> 0;
+      Data.Execute := FSections[I].Characteristics and IMAGE_SCN_MEM_EXECUTE <> 0;
       Result := True;
       Break;
     end;
 
   end;
+end;
+
+function TRawPEImage.Image64: Boolean;
+begin
+  Result := ImageType = itPE64;
+end;
+
+function TRawPEImage.ImageBase: ULONG_PTR64;
+begin
+  Result := FImageBase;
 end;
 
 procedure TRawPEImage.InitDirectories;
@@ -1565,46 +1585,50 @@ begin
   Result := False;
   Raw.ReadBuffer(FNtHeader, SizeOf(DWORD) + SizeOf(TImageFileHeader));
   if FNtHeader.Signature <> IMAGE_NT_SIGNATURE then Exit;
-  if FNtHeader.FileHeader.Machine = IMAGE_FILE_MACHINE_I386 then
-  begin
-    FImage64 := False;
-    Raw.ReadBuffer(ImageOptionalHeader32, SizeOf(TImageOptionalHeader32));
-    FNtHeader.OptionalHeader.Magic := ImageOptionalHeader32.Magic;
-    FNtHeader.OptionalHeader.MajorLinkerVersion := ImageOptionalHeader32.MajorLinkerVersion;
-    FNtHeader.OptionalHeader.MinorLinkerVersion := ImageOptionalHeader32.MinorLinkerVersion;
-    FNtHeader.OptionalHeader.SizeOfCode := ImageOptionalHeader32.SizeOfCode;
-    FNtHeader.OptionalHeader.SizeOfInitializedData := ImageOptionalHeader32.SizeOfInitializedData;
-    FNtHeader.OptionalHeader.SizeOfUninitializedData := ImageOptionalHeader32.SizeOfUninitializedData;
-    FNtHeader.OptionalHeader.AddressOfEntryPoint := ImageOptionalHeader32.AddressOfEntryPoint;
-    FNtHeader.OptionalHeader.BaseOfCode := ImageOptionalHeader32.BaseOfCode;
-    FNtHeader.OptionalHeader.ImageBase := ImageOptionalHeader32.ImageBase;
-    FNtHeader.OptionalHeader.SectionAlignment := ImageOptionalHeader32.SectionAlignment;
-    FNtHeader.OptionalHeader.FileAlignment := ImageOptionalHeader32.FileAlignment;
-    FNtHeader.OptionalHeader.MajorOperatingSystemVersion := ImageOptionalHeader32.MajorOperatingSystemVersion;
-    FNtHeader.OptionalHeader.MinorOperatingSystemVersion := ImageOptionalHeader32.MinorOperatingSystemVersion;
-    FNtHeader.OptionalHeader.MajorImageVersion := ImageOptionalHeader32.MajorImageVersion;
-    FNtHeader.OptionalHeader.MinorImageVersion := ImageOptionalHeader32.MinorImageVersion;
-    FNtHeader.OptionalHeader.MajorSubsystemVersion := ImageOptionalHeader32.MajorSubsystemVersion;
-    FNtHeader.OptionalHeader.MinorSubsystemVersion := ImageOptionalHeader32.MinorSubsystemVersion;
-    FNtHeader.OptionalHeader.Win32VersionValue := ImageOptionalHeader32.Win32VersionValue;
-    FNtHeader.OptionalHeader.SizeOfImage := ImageOptionalHeader32.SizeOfImage;
-    FNtHeader.OptionalHeader.SizeOfHeaders := ImageOptionalHeader32.SizeOfHeaders;
-    FNtHeader.OptionalHeader.CheckSum := ImageOptionalHeader32.CheckSum;
-    FNtHeader.OptionalHeader.Subsystem := ImageOptionalHeader32.Subsystem;
-    FNtHeader.OptionalHeader.DllCharacteristics := ImageOptionalHeader32.DllCharacteristics;
-    FNtHeader.OptionalHeader.SizeOfStackReserve := ImageOptionalHeader32.SizeOfStackReserve;
-    FNtHeader.OptionalHeader.SizeOfStackCommit := ImageOptionalHeader32.SizeOfStackCommit;
-    FNtHeader.OptionalHeader.SizeOfHeapReserve := ImageOptionalHeader32.SizeOfHeapReserve;
-    FNtHeader.OptionalHeader.SizeOfHeapCommit := ImageOptionalHeader32.SizeOfHeapCommit;
-    FNtHeader.OptionalHeader.LoaderFlags := ImageOptionalHeader32.LoaderFlags;
-    FNtHeader.OptionalHeader.NumberOfRvaAndSizes := ImageOptionalHeader32.NumberOfRvaAndSizes;
-    for var I := 0 to IMAGE_NUMBEROF_DIRECTORY_ENTRIES - 1 do
-      FNtHeader.OptionalHeader.DataDirectory[I] := ImageOptionalHeader32.DataDirectory[I];
-  end
+  case FNtHeader.FileHeader.Machine of
+    IMAGE_FILE_MACHINE_I386:
+    begin
+      SetImageType(itPE32);
+      Raw.ReadBuffer(ImageOptionalHeader32, SizeOf(TImageOptionalHeader32));
+      FNtHeader.OptionalHeader.Magic := ImageOptionalHeader32.Magic;
+      FNtHeader.OptionalHeader.MajorLinkerVersion := ImageOptionalHeader32.MajorLinkerVersion;
+      FNtHeader.OptionalHeader.MinorLinkerVersion := ImageOptionalHeader32.MinorLinkerVersion;
+      FNtHeader.OptionalHeader.SizeOfCode := ImageOptionalHeader32.SizeOfCode;
+      FNtHeader.OptionalHeader.SizeOfInitializedData := ImageOptionalHeader32.SizeOfInitializedData;
+      FNtHeader.OptionalHeader.SizeOfUninitializedData := ImageOptionalHeader32.SizeOfUninitializedData;
+      FNtHeader.OptionalHeader.AddressOfEntryPoint := ImageOptionalHeader32.AddressOfEntryPoint;
+      FNtHeader.OptionalHeader.BaseOfCode := ImageOptionalHeader32.BaseOfCode;
+      FNtHeader.OptionalHeader.ImageBase := ImageOptionalHeader32.ImageBase;
+      FNtHeader.OptionalHeader.SectionAlignment := ImageOptionalHeader32.SectionAlignment;
+      FNtHeader.OptionalHeader.FileAlignment := ImageOptionalHeader32.FileAlignment;
+      FNtHeader.OptionalHeader.MajorOperatingSystemVersion := ImageOptionalHeader32.MajorOperatingSystemVersion;
+      FNtHeader.OptionalHeader.MinorOperatingSystemVersion := ImageOptionalHeader32.MinorOperatingSystemVersion;
+      FNtHeader.OptionalHeader.MajorImageVersion := ImageOptionalHeader32.MajorImageVersion;
+      FNtHeader.OptionalHeader.MinorImageVersion := ImageOptionalHeader32.MinorImageVersion;
+      FNtHeader.OptionalHeader.MajorSubsystemVersion := ImageOptionalHeader32.MajorSubsystemVersion;
+      FNtHeader.OptionalHeader.MinorSubsystemVersion := ImageOptionalHeader32.MinorSubsystemVersion;
+      FNtHeader.OptionalHeader.Win32VersionValue := ImageOptionalHeader32.Win32VersionValue;
+      FNtHeader.OptionalHeader.SizeOfImage := ImageOptionalHeader32.SizeOfImage;
+      FNtHeader.OptionalHeader.SizeOfHeaders := ImageOptionalHeader32.SizeOfHeaders;
+      FNtHeader.OptionalHeader.CheckSum := ImageOptionalHeader32.CheckSum;
+      FNtHeader.OptionalHeader.Subsystem := ImageOptionalHeader32.Subsystem;
+      FNtHeader.OptionalHeader.DllCharacteristics := ImageOptionalHeader32.DllCharacteristics;
+      FNtHeader.OptionalHeader.SizeOfStackReserve := ImageOptionalHeader32.SizeOfStackReserve;
+      FNtHeader.OptionalHeader.SizeOfStackCommit := ImageOptionalHeader32.SizeOfStackCommit;
+      FNtHeader.OptionalHeader.SizeOfHeapReserve := ImageOptionalHeader32.SizeOfHeapReserve;
+      FNtHeader.OptionalHeader.SizeOfHeapCommit := ImageOptionalHeader32.SizeOfHeapCommit;
+      FNtHeader.OptionalHeader.LoaderFlags := ImageOptionalHeader32.LoaderFlags;
+      FNtHeader.OptionalHeader.NumberOfRvaAndSizes := ImageOptionalHeader32.NumberOfRvaAndSizes;
+      for var I := 0 to IMAGE_NUMBEROF_DIRECTORY_ENTRIES - 1 do
+        FNtHeader.OptionalHeader.DataDirectory[I] := ImageOptionalHeader32.DataDirectory[I];
+    end;
+    IMAGE_FILE_MACHINE_AMD64:
+    begin
+      SetImageType(itPE64);
+      Raw.ReadBuffer(FNtHeader.OptionalHeader, SizeOf(TImageOptionalHeader64));
+    end;
   else
-  begin
-    FImage64 := True;
-    Raw.ReadBuffer(FNtHeader.OptionalHeader, SizeOf(TImageOptionalHeader64));
+    Exit;
   end;
 
   // если база кода не указана, зачитываем её из заголовка

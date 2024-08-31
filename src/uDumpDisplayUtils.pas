@@ -6,8 +6,8 @@
 //  * Purpose   : Вспомогательный модуль для отображения содержимого
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.5.35
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,7 +36,7 @@ uses
   RawScanner.ApiSet,
   RawScanner.Types,
   RawScanner.LoaderData,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.SymbolStorage,
   RawScanner.Disassembler,
   RawScanner.CoffDwarf,

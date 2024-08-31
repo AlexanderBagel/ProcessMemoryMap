@@ -60,7 +60,7 @@ uses
   RawScanner.Filter in 'RawScanner\RawScanner.Filter.pas',
   RawScanner.LoaderData in 'RawScanner\RawScanner.LoaderData.pas',
   RawScanner.Logger in 'RawScanner\RawScanner.Logger.pas',
-  RawScanner.ModulesData in 'RawScanner\RawScanner.ModulesData.pas',
+  RawScanner.Image.Pe in 'RawScanner\RawScanner.Image.Pe.pas',
   RawScanner.Types in 'RawScanner\RawScanner.Types.pas',
   RawScanner.Utils in 'RawScanner\RawScanner.Utils.pas',
   RawScanner.Wow64 in 'RawScanner\RawScanner.Wow64.pas',
@@ -77,7 +77,12 @@ uses
   ScaledCtrls in 'Controls\ScaledCtrls.pas',
   uBaseForm in 'src\gui\uBaseForm.pas' {BaseAppForm},
   RawScanner.CoffDwarf in 'RawScanner\RawScanner.CoffDwarf.pas',
-  uCallStack in 'src\gui\uCallStack.pas' {dlgCallStack};
+  uCallStack in 'src\gui\uCallStack.pas' {dlgCallStack},
+  RawScanner.Elf in 'RawScanner\RawScanner.Elf.pas',
+  RawScanner.Image.Elf in 'RawScanner\RawScanner.Image.Elf.pas',
+  RawScanner.MapGenerator in 'RawScanner\RawScanner.MapGenerator.pas',
+  RawScanner.AbstractImage in 'RawScanner\RawScanner.AbstractImage.pas',
+  RawScanner.Image.Coff in 'RawScanner\RawScanner.Image.Coff.pas';
 
 {$R *.res}
 

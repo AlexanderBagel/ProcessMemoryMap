@@ -12,7 +12,6 @@ uses
   MemoryMap.Utils in '..\..\MemoryMap\MemoryMap.Utils.pas',
   RawScanner.CoffDwarf in '..\..\RawScanner\RawScanner.CoffDwarf.pas',
   RawScanner.Disassembler in '..\..\RawScanner\RawScanner.Disassembler.pas',
-  RawScanner.ModulesData in '..\..\RawScanner\RawScanner.ModulesData.pas',
   RawScanner.SymbolStorage in '..\..\RawScanner\RawScanner.SymbolStorage.pas',
   RawScanner.Types in '..\..\RawScanner\RawScanner.Types.pas',
   distorm in '..\..\distorm\distorm.pas',
@@ -21,7 +20,9 @@ uses
   RawScanner.Utils in '..\..\RawScanner\RawScanner.Utils.pas',
   RawScanner.Wow64 in '..\..\RawScanner\RawScanner.Wow64.pas',
   RawScanner.X64Gates in '..\..\RawScanner\RawScanner.X64Gates.pas',
-  RawScanner.ApiSet in '..\..\RawScanner\RawScanner.ApiSet.pas';
+  RawScanner.ApiSet in '..\..\RawScanner\RawScanner.ApiSet.pas',
+  RawScanner.Image.Pe in '..\..\RawScanner\RawScanner.Image.Pe.pas',
+  RawScanner.AbstractImage in '..\..\RawScanner\RawScanner.AbstractImage.pas';
 
 {$R *.res}
 

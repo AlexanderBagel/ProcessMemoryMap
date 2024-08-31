@@ -4,7 +4,7 @@
 //  * Unit Name : UnitInitOrderTracer
 //  * Purpose   : Реализация вывода списка используемых модулей в порядке инициализации
 //  * Author    : Александр (Rouse_) Багель
-//  * Version   : 1.0
+//  * Version   : 1.01
 //  ****************************************************************************
 //
 
@@ -43,7 +43,7 @@ implementation
 
 uses
   MemoryMap.DebugMapData,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.Disassembler,
   RawScanner.SymbolStorage,
   RawScanner.CoffDwarf;

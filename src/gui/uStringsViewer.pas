@@ -5,8 +5,8 @@
 //  * Unit Name : uStringsViewer.pas
 //  * Purpose   : Диалог для отображения списка строк в удаленном процессе
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.33
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -82,7 +82,7 @@ uses
   uSettings,
   uRegionProperties,
   RawScanner.Core,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.SymbolStorage;
 
 const

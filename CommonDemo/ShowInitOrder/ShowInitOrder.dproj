@@ -141,7 +141,6 @@
         <DCCReference Include="..\..\MemoryMap\MemoryMap.Utils.pas"/>
         <DCCReference Include="..\..\RawScanner\RawScanner.CoffDwarf.pas"/>
         <DCCReference Include="..\..\RawScanner\RawScanner.Disassembler.pas"/>
-        <DCCReference Include="..\..\RawScanner\RawScanner.ModulesData.pas"/>
         <DCCReference Include="..\..\RawScanner\RawScanner.SymbolStorage.pas"/>
         <DCCReference Include="..\..\RawScanner\RawScanner.Types.pas"/>
         <DCCReference Include="..\..\distorm\distorm.pas"/>
@@ -151,6 +150,8 @@
         <DCCReference Include="..\..\RawScanner\RawScanner.Wow64.pas"/>
         <DCCReference Include="..\..\RawScanner\RawScanner.X64Gates.pas"/>
         <DCCReference Include="..\..\RawScanner\RawScanner.ApiSet.pas"/>
+        <DCCReference Include="..\..\RawScanner\RawScanner.Image.Pe.pas"/>
+        <DCCReference Include="..\..\RawScanner\RawScanner.AbstractImage.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -178,6 +179,12 @@
             </Delphi.Personality>
             <Deployment Version="3">
                 <DeployFile LocalName="Win32\Debug\ShowInitOrder.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>ShowInitOrder.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="Win32\Release\ShowInitOrder.exe" Configuration="Release" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>ShowInitOrder.exe</RemoteName>
                         <Overwrite>true</Overwrite>

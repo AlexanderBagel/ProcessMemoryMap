@@ -289,6 +289,12 @@ object dlgProcessMM: TdlgProcessMM
       object CallStackDemangler1: TMenuItem
         Action = acCallStackDemangler
       end
+      object N11: TMenuItem
+        Caption = '-'
+      end
+      object DWARFReader1: TMenuItem
+        Action = acRunDWARFReader
+      end
     end
     object mnuOptions: TMenuItem
       Caption = 'Options'
@@ -565,6 +571,12 @@ object dlgProcessMM: TdlgProcessMM
       ShortCut = 115
       OnExecute = acCallStackDemanglerExecute
       OnUpdate = acFindPachedDataUpdate
+    end
+    object acRunDWARFReader: TAction
+      Category = 'Utils'
+      Caption = 'DWARF Reader...'
+      OnExecute = acRunDWARFReaderExecute
+      OnUpdate = acRunDWARFReaderUpdate
     end
   end
   object SaveDMPDialog: TSaveDialog

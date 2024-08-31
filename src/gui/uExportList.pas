@@ -5,8 +5,8 @@
 //  * Unit Name : uExportList.pas
 //  * Purpose   : Диалог для отображения списка экспорта функций
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.33
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,7 +36,7 @@ uses
   MemoryMap.Utils,
   MemoryMap.DebugMapData,
 
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
 
   uBaseForm;
 

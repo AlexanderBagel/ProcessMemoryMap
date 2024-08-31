@@ -80,7 +80,6 @@ inherited dlgCallStack: TdlgCallStack
     TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoHideButtons, toAutoDeleteMovedNodes]
     TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning, toVariableNodeHeight, toEditOnClick]
     TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages, toFullVertGridLines, toUseExplorerTheme]
-    TreeOptions.SelectionOptions = [toRightClickSelect, toSelectNextNodeOnRemoval]
     OnAddToSelection = tvThreadAddToSelection
     OnGetText = tvThreadGetText
     OnGetImageIndex = tvThreadGetImageIndex

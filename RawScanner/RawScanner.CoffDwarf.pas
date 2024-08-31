@@ -6,8 +6,8 @@
 //  * Purpose   : Декларация типов используемых для чтения отладочной
 //  *           : информации в форматах COFF и DWARF.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.18
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.1.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -689,7 +689,7 @@ const
   );
   
 type
-  TDebugInfoType = (ditCoff, ditDwarfDie, ditDwarfLines, ditStab, ditPdb);
+  TDebugInfoType = (ditCoff, ditDwarfDie, ditDwarfLines, ditStab, ditPdb, ditSymbols);
   TDebugInfoTypes = set of TDebugInfoType;
 
   // 4.4.1. Symbol Name Representation
@@ -997,6 +997,7 @@ type
   TSectionParams = record
     AddressVA: ULONG_PTR64;
     AddressRaw: DWORD;
+    DisplayName: string;
     SizeOfRawData: DWORD;
     IsExecutable: Boolean;
   end;
@@ -1006,6 +1007,7 @@ type
   private
     FModuleIndex: Integer;
   public
+    function IsObjectFile: Boolean; virtual; abstract;
     function GetIs64Image: Boolean; virtual; abstract;
     function NumberOfSymbols: Integer; virtual; abstract;
     function SectionAtIndex(AIndex: Integer; out ASection: TSectionParams): Boolean; virtual; abstract;
@@ -1017,6 +1019,7 @@ type
 
   TCoffFunction = record
     FuncAddrVA: ULONG_PTR64;
+    SectionIndex: Integer;
     DisplayName: string;
     Executable: Boolean;
   end;
@@ -1046,10 +1049,7 @@ type
     FDataStream: TStream;
     FStartData, FEndData,
     FSize, FPosition: Int64;
-    FPreviosPosition, FPreviosNativePosition: Int64;
-    {$ifdef debug_offset}
-    FDbg: Int64;
-    {$endif}
+    FPreviosPosition, FPreviosNativePosition, FAbsolutePosition: Int64;
     function GetMemory: Pointer;
     function GetNativeStartOffset: Int64;
     procedure UpdatePrevios;
@@ -1076,15 +1076,14 @@ type
     function ReadULEB128: UInt64;
     function ReadPAnsiChar: PAnsiChar;
     function ReadString: string;
+    property AbsolutePosition: Int64 read FAbsolutePosition;
     property PreviosPosition: Int64 read FPreviosPosition;
     property PreviosNativePosition: Int64 read FPreviosNativePosition;
-    {$ifdef debug_offset}
-    property Dbg: Int64 read FDbg;
-    {$endif}
   end;
 
   // класс хранящий ссылки на отладочные секции
   // для поддержки редиректов данных между секциями
+  // и настройки параметров загрузки
   TDwarfContext = class
   strict private const
     KnownSectionCount = 8;
@@ -1101,12 +1100,16 @@ type
   strict private
     FImage: TAbstractImageGate;
     FStreams: array [0..KnownSectionCount - 1] of TDwarfStream;
+    FAppendNoAddrVADie: Boolean;
+    FAppentUnitName: Boolean;
     {$ifdef debug_dump}
     FDebug: TStringList;
     {$endif}
   public
     constructor Create(AImage: TAbstractImageGate; AImageStream: TStream);
     destructor Destroy; override;
+    property AppendNoAddrVADie: Boolean read FAppendNoAddrVADie write FAppendNoAddrVADie;
+    property AppendUnitName: Boolean read FAppentUnitName write FAppentUnitName;
     property debug_line: TDwarfStream read FStreams[0];
     property debug_info: TDwarfStream read FStreams[1];
     property debug_abbrev: TDwarfStream read FStreams[2];
@@ -1125,6 +1128,7 @@ type
     AddrVA: ULONG_PTR64;
     FileId: Word;
     Line: DWORD;
+    IsStmt: Boolean;
   end;
 
   TLineList = TList<TLineData>;
@@ -1141,7 +1145,7 @@ type
     function ReadFileEntry(AStream: TDwarfStream): TFileEntry;
   protected
     procedure AddLine(ACtx: TDwarfContext;
-      AAddrVA: UInt64; AFileId: Word; ALine: DWORD);
+      AAddrVA: UInt64; AFileId: Word; ALine: DWORD; IsStmt: Boolean);
     property DirList: TStringList read FDirList;
     property Files: TList<TFileEntry> read FFiles;
   public
@@ -1201,11 +1205,86 @@ type
 
   TDwarfDataList = TObjectList<TDebugInformationEntry>;
 
+  TByteSet = set of Byte;
+  TAddrDict = TDictionary<UInt64, Integer>;
+
+  TDwarfInfoUnit = class;
+  TDie = class;
+
+  TDieList = class (TObjectList<TDie>);
+
+  TDie = class
+  public
+    // Данные для построения дерева
+    Parent,
+    Child,
+    LastChild,
+    Sibling: TDie;
+
+    // общие для всех свойства
+
+    // Уникальный индекс элемента (оффсет от начала модуля)
+    OffsetID: UInt64;
+    // Уникальный индекс элемента (оффсет от начала секции)
+    AbsoluteOffset: UInt64;
+    // Идентификатор типа элемента
+    Tag: DWORD;
+    // Имя
+    AName: PAnsiChar;
+    // ID элемента который содержит описание типа текущего элемента
+    ATypeID,
+    // индекс в масссиве с типом элемента (массив, базовый тип, ссылка и т.п.)
+    ATypeIndex,
+    // индекс в масссиве с именем элемента (не обязательно будет идти самым первым в дереве)
+    ATypeNameIndex: DWORD;
+    // Флаг что ATypeID зачиталось через DW_FORM_ref_addr и содержит абсолютный офсет от секции а не от модуля
+    ATypeIDIsAbsolute: Boolean;
+    // размер типа (рассчитывается от базового)
+    ATypeSize: UInt64;
+    // вспомогательный сет, содержащий из каких типов состоит текущий
+    ATypeSet: TByteSet;
+
+    // вспомогательные
+
+    AddrVA: ULONG_PTR64;    // VA адрес элемента в адресном пространстве
+    EndOfCode: ULONG_PTR64;
+
+    Artificial: Boolean;    // флаг неявного параметра
+    ByRef: Boolean;         // идущий по ссылке
+    BpOffset: Integer;      // смещение
+    BpRegister: Byte;       // от какого регистра
+    BpLocation: Boolean;    // флаг что используется Bp смещение для записи
+
+    ByteStride: DWORD;      // размер элемента для масссивов
+                            // если указан ATypeSize то можно рассчитать длину статического масссива
+    LowerBound: Int64;      // начальный индекс массива
+
+    {$ifdef debug_dump}
+    DebugLevel: Integer;
+    {$endif}
+
+    procedure CalcTypeParam(AOwner: TDwarfInfoUnit;
+      ADieList: TDieList; AAbsoluteAddrDict, AAddrDict: TAddrDict);
+    // имя включая какому классу и неймспейсу принадлежит
+    function GetCaption(AOwner: TDwarfInfoUnit;
+      ADieList: TDieList): string; virtual;
+    // приведение типа к строке включая обработку массивов
+    function GetType(AOwner: TDwarfInfoUnit;
+      ADieList: TDieList): string;
+  end;
+
+  TDieProgramm = class(TDie)
+    function GetCaption(AOwner: TDwarfInfoUnit;
+      ADieList: TDieList): string; override;
+  end;
+
+  TDieArray = class(TDie)
+    function GetCaption(AOwner: TDwarfInfoUnit;
+      ADieList: TDieList): string; override;
+  end;
+
   TDwarfInfoUnit = class
   private type
-    TAddrDict = TDictionary<UInt64, Integer>;
-    TByteSet = set of Byte;
-
     TAbbrevDescr = record
       Tag: UInt64;
       Children: Byte;
@@ -1216,75 +1295,6 @@ type
     TAttribute = record
       ID: UInt64;
       Form: UInt64;
-    end;
-
-    TDie = class
-    public
-      // Данные для построения дерева
-      Parent,
-      Child,
-      LastChild,
-      Sibling: TDie;
-
-      // общие для всех свойства
-
-      // Уникальный индекс элемента (оффсет от начала)
-      OffsetID: UInt64;
-      // Идентификатор типа элемента
-      Tag: DWORD;
-      // Имя
-      AName: PAnsiChar;
-      // ID элемента который содержит описание типа текущего элемента
-      ATypeID,
-      // индекс в масссиве с типом элемента (массив, базовый тип, ссылка и т.п.)
-      ATypeIndex,
-      // индекс в масссиве с именем элемента (не обязательно будет идти самым первым в дереве)
-      ATypeNameIndex: DWORD;
-      // размер типа (рассчитывается от базового)
-      ATypeSize: UInt64;
-      // вспомогательный сет, содержащий из каких типосв состоит текущий
-      ATypeSet: TByteSet;
-
-      // вспомогательные
-
-      AddrVA: ULONG_PTR64;    // VA адрес элемента в адресном пространстве
-      EndOfCode: ULONG_PTR64;
-
-      Artificial: Boolean;    // флаг неявного параметра
-      ByRef: Boolean;         // идущий по ссылке
-      BpOffset: Integer;      // смещение
-      BpRegister: Byte;       // от какого регистра
-      BpLocation: Boolean;    // флаг что используется Bp смещение для записи
-
-      ByteStride: DWORD;      // размер элемента для масссивов
-                              // если указан ATypeSize то можно рассчитать длину статического масссива
-      LowerBound: Int64;      // начальный индекс массива
-
-      {$ifdef debug_dump}
-      DebugLevel: Integer;
-      {$endif}
-      {$ifdef debug_offset}
-      DebugOffset: Int64;
-      {$endif}
-
-      procedure CalcTypeParam(AOwner: TDwarfInfoUnit;
-        ARawData: TObjectList<TDie>; AAddrDict: TAddrDict);
-      // имя включая какому классу и неймспейсу принадлежит
-      function GetCaption(AOwner: TDwarfInfoUnit;
-        ARawData: TObjectList<TDie>): string; virtual;
-      // приведение типа к строке включая обработку массивов
-      function GetType(AOwner: TDwarfInfoUnit;
-        ARawData: TObjectList<TDie>): string;
-    end;
-
-    TDieProgramm = class(TDie)
-      function GetCaption(AOwner: TDwarfInfoUnit;
-        ARawData: TObjectList<TDie>): string; override;
-    end;
-
-    TDieArray = class(TDie)
-      function GetCaption(AOwner: TDwarfInfoUnit;
-        ARawData: TObjectList<TDie>): string; override;
     end;
 
     TLocationData = record
@@ -1311,17 +1321,17 @@ type
     FStmtOffset: DWORD;
     FLocationBuff: TMemoryStream;
     FLocationStream: TDwarfStream;
+    FLoadedCount: Integer;
 
     procedure AddToList(ACurrent, ANew: TDie;
-      List: TObjectList<TDie>);
+      List: TDieList);
     function CreateDie(AAbbrevDescr: TAbbrevDescr): TDie;
-    procedure FillDwarfData(ARawData: TObjectList<TDie>);
     function FixedFormByteSize(AForm: UInt64): Byte;
     procedure LoadAbbrev(AAbbrevData: TDwarfStream);
     procedure LoadCompileUnit(const AAbbrevDescr: TAbbrevDescr);
     procedure LoadDIE(const AAbbrevDescr: TAbbrevDescr; ADie: TDie);
     function LoadLocation(const Attribute: TAttribute): TLocationData;
-    function LoadUnit: Boolean;
+    function LoadUnit(ADieList: TDieList): Boolean;
     procedure RaiseInternal(const AMessage: string);
     function ReadAttribute(const Attribute: TAttribute;
       pBuff: Pointer; ASize: UInt64; AttributeStream: TDwarfStream = nil): Int64;
@@ -1330,7 +1340,8 @@ type
   public
     constructor Create(AModuleIndex, AUnitIndex: Integer);
     destructor Destroy; override;
-    function Load(Ctx: TDwarfContext): Boolean;
+    procedure FillDwarfData(ADieList: TDieList; AAbsoluteDict: TAddrDict; AFromIndex: Integer);
+    function Load(Ctx: TDwarfContext; ADieList: TDieList): Boolean;
     function UnitName: string;
     property Data: TDwarfDataList read FData;
     property Producer: string read FProducer;
@@ -1339,18 +1350,28 @@ type
     property AddrEnd: UInt64 read FAddrEnd;
     property Header64: TDebugInfoProgramHeader64 read FHeader64;
     property Language: DWORD read FLanguage;
+    property LoadedCount: Integer read FLoadedCount;
+    property ModuleIndex: Integer read FModuleIndex;
     property StmtOffset: DWORD read FStmtOffset;
+    property UnitIndex: Integer read FUnitIndex;
   end;
 
+  TDwarfDebugInfo = class;
   TUnitLinesList = TObjectList<TDwarfLinesUnit>;
   TUnitInfosList = TObjectList<TDwarfInfoUnit>;
+  TDwarfBeforeLoadCallback = reference to procedure(ADwarfDebugInfo: TDwarfDebugInfo);
   TDwarfLoadCallback = reference to procedure(ALinesLoad: Boolean; ACurrent, AMax: Int64);
 
   TDwarfDebugInfo = class
   public class var
+    BeforeLoadCallback: TDwarfBeforeLoadCallback;
     LoadCallback: TDwarfLoadCallback;
   strict private
+    FAppendNoAddrVADie: Boolean;
+    FAppentUnitName: Boolean;
     FImage: TAbstractImageGate;
+    FMappedUnit: Integer;
+    FMappedUnitLines: TList<TDwarfLinesUnit>;
     FUnitLines: TUnitLinesList;
     FUnitInfos: TUnitInfosList;
     function LoadInfo(Ctx: TDwarfContext): Boolean;
@@ -1358,11 +1379,16 @@ type
     function LoadStub(Ctx: TDwarfContext): Boolean;
     function GetUnitAtStmt(StmtOffset: DWORD): Integer;
   protected
+    procedure DoBeforeLoadCallback;
     procedure DoCallback(ALinesLoad: Boolean; ACurrent, AMax: Int64);
   public
     constructor Create(AImage: TAbstractImageGate);
     destructor Destroy; override;
     function Load(AStream: TStream): TDebugInfoTypes;
+    function MappedUnitLines(AUnitInfoIndex: Integer): TList<TDwarfLinesUnit>;
+    property AppendNoAddrVADie: Boolean read FAppendNoAddrVADie write FAppendNoAddrVADie;
+    property AppendUnitName: Boolean read FAppentUnitName write FAppentUnitName;
+    property Image: TAbstractImageGate read FImage;
     property UnitInfos: TUnitInfosList read FUnitInfos;
     property UnitLines: TUnitLinesList read FUnitLines;
   end;
@@ -1727,7 +1753,7 @@ const
   // 4.4.4. Storage Class
   IMAGE_SYM_CLASS_STATIC = 3;
 var
-  I, SectionIndex: Integer;
+  I: Integer;
   Buff: array [Byte] of AnsiChar;
   ASection: TSectionParams;
   StrStartPosition, StrEndPosition: Int64;
@@ -1745,8 +1771,8 @@ begin
   begin
     // если у символа не указан номер секции, значит мы не можем рассчитать его адрес
     // но тогда нам и имя его не нужно
-    SectionIndex := FCoffList.List[I].SectionNumber - 1;
-    if SectionIndex < 0 then
+    ACoffFunction.SectionIndex := FCoffList.List[I].SectionNumber - 1;
+    if ACoffFunction.SectionIndex < 0 then
       Continue;
 
     if FCoffList.List[I].Name.Zeroes = 0 then
@@ -1760,7 +1786,7 @@ begin
       Move(FCoffList.List[I].Name, Buff[0], 8);
       Buff[9] := #0;
     end;
-    if FImage.SectionAtIndex(SectionIndex, ASection) then
+    if FImage.SectionAtIndex(ACoffFunction.SectionIndex, ASection) then
       ACoffFunction.FuncAddrVA := FCoffList.List[I].Value + ASection.AddressVA
     else
       // если секции нет, то и работать с таким символом не получится
@@ -1872,13 +1898,13 @@ end;
 function TDwarfStream.ReadLEB128: Int64;
 var
   Chunk, ChunkShift: Int64;
-  SavePos, SavewNativePos: Int64;
+  SavePos, SaveNativePos: Int64;
 begin
   Result := 0;
   ChunkShift := 0;
   Chunk := 0;
   SavePos := FPosition;
-  SavewNativePos := GetNativePosition;
+  SaveNativePos := GetNativePosition;
   ReadBuffer(Chunk, 1);
   while ChunkShift < 63 do
   begin
@@ -1893,12 +1919,10 @@ begin
   ChunkShift := 1 shl (ChunkShift - 1);
   Result := Result or not ((Result and ChunkShift) - 1);
   FPreviosPosition := SavePos;
-  FPreviosNativePosition := SavewNativePos;
-  {$ifdef debug_offset}
-  FDbg := SavePos;
+  FPreviosNativePosition := SaveNativePos;
+  FAbsolutePosition := SavePos;
   if FDataStream is TDwarfStream then
-    FDbg := FStartData + SavePos;
-  {$endif}
+    FAbsolutePosition := FStartData + SavePos;
 end;
 
 function TDwarfStream.ReadPAnsiChar: PAnsiChar;
@@ -1939,11 +1963,9 @@ begin
   end;
   FPreviosPosition := SavePos;
   FPreviosNativePosition := SavewNativePos;
-  {$ifdef debug_offset}
-  FDbg := SavePos;
+  FAbsolutePosition := SavePos;
   if FDataStream is TDwarfStream then
-    FDbg := FStartData + SavePos;
-  {$endif}
+    FAbsolutePosition := FStartData + SavePos;
 end;
 
 function TDwarfStream.ReadWord: Word;
@@ -1995,11 +2017,9 @@ end;
 
 procedure TDwarfStream.UpdatePrevios;
 begin
-  {$ifdef debug_offset}
-  FDbg := FPosition;
+  FAbsolutePosition := FPosition;
   if FDataStream is TDwarfStream then
-    FDbg := FStartData + FPosition;
-  {$endif}
+    FAbsolutePosition := FStartData + FPosition;
   FPreviosPosition := FPosition;
   FPreviosNativePosition := GetNativePosition;
 end;
@@ -2054,7 +2074,7 @@ end;
 { TDwarfLinesUnit }
 
 procedure TDwarfLinesUnit.AddLine(ACtx: TDwarfContext;
-  AAddrVA: UInt64; AFileId: Word; ALine: DWORD);
+  AAddrVA: UInt64; AFileId: Word; ALine: DWORD; IsStmt: Boolean);
 var
   LineData: TLineData;
   SymbolData: TSymbolData;
@@ -2070,6 +2090,7 @@ begin
   LineData.AddrVA := AAddrVA;
   LineData.FileId := AFileId;
   LineData.Line := ALine;
+  LineData.IsStmt := IsStmt;
   FLines.Add(LineData);
 end;
 
@@ -2103,6 +2124,8 @@ begin
       Result := IncludeTrailingPathDelimiter(FDirList[DirectoryIndex - 1]);
     Result := Result + FileName;
   end;
+  Result := StringReplace(Result, '/', PathDelim, [rfReplaceAll]);
+  Result := StringReplace(Result, '\', PathDelim, [rfReplaceAll]);
 end;
 
 function TDwarfLinesUnit.Load(ACtx: TDwarfContext): Boolean;
@@ -2551,7 +2574,8 @@ begin
         // он как правило означает конец функции, но для этого есть
         // .debug_info с более полной информацией
         if AddrVAInited and not SmRegisters.end_sequence then
-          AddLine(ACtx, SmRegisters.address, SmRegisters.file_id, SmRegisters.line);
+          AddLine(ACtx, SmRegisters.address, SmRegisters.file_id,
+            SmRegisters.line, SmRegisters.is_stmt);
 
         if SmRegisters.end_sequence then
         begin
@@ -2729,7 +2753,7 @@ begin
       Result := Result + '(...)';
       Break;
     end;
-  Result := Result + ';'
+  Result := Result + AType + ';'
 end;
 
 { TDebugInformationEntryData }
@@ -2744,20 +2768,28 @@ begin
   Result := AName;
 end;
 
-{ TDwarfInfoUnit.TDie }
+{ TDie }
 
-procedure TDwarfInfoUnit.TDie.CalcTypeParam(AOwner: TDwarfInfoUnit;
-  ARawData: TObjectList<TDie>; AAddrDict: TAddrDict);
+procedure TDie.CalcTypeParam(AOwner: TDwarfInfoUnit;
+  ADieList: TDieList; AAbsoluteAddrDict, AAddrDict: TAddrDict);
 var
   Index: Integer;
   Cursor: TDie;
 begin
   if ATypeID = 0 then Exit;
+
+  Index := 0;
   Cursor := Self;
   repeat
-    if not AAddrDict.TryGetValue(Cursor.ATypeID, Index) then
-      Break;
-    Cursor := ARawData.List[Index];
+    if Cursor.ATypeIDIsAbsolute then
+    begin
+      if not AAbsoluteAddrDict.TryGetValue(Cursor.ATypeID, Index) then
+        Break;
+    end
+    else
+      if not AAddrDict.TryGetValue(Cursor.ATypeID, Index) then
+        Break;
+    Cursor := ADieList.List[Index];
     Include(ATypeSet, Cursor.Tag);
     if ATypeIndex = 0 then
       ATypeIndex := Index;
@@ -2773,17 +2805,17 @@ begin
   until Cursor.ATypeID = 0;
   // все ссылочные типы равны размеру указателя
   if ByRef or (DW_TAG_pointer_type in ATypeSet) then
-    ATypeSize := AOwner.FHeader64.address_size;
+    ATypeSize := AOwner.Header64.address_size;
 end;
 
-function TDwarfInfoUnit.TDie.GetCaption(AOwner: TDwarfInfoUnit;
-  ARawData: TObjectList<TDie>): string;
+function TDie.GetCaption(AOwner: TDwarfInfoUnit;
+  ADieList: TDieList): string;
 begin
   Result := string(AName);
 end;
 
-function TDwarfInfoUnit.TDie.GetType(AOwner: TDwarfInfoUnit;
-  ARawData: TObjectList<TDie>): string;
+function TDie.GetType(AOwner: TDwarfInfoUnit;
+  ADieList: TDieList): string;
 begin
   if ATypeID = 0 then Exit('');
 
@@ -2794,13 +2826,13 @@ begin
     if ATypeNameIndex = 0 then
       Result := '<???>'
     else
-      Result := string(ARawData.List[ATypeNameIndex].AName);
-    if DW_TAG_array_type = ARawData.List[ATypeIndex].Tag then
+      Result := string(ADieList.List[ATypeNameIndex].AName);
+    if DW_TAG_array_type = ADieList.List[ATypeIndex].Tag then
     begin
       if AOwner.Language = DW_LANG_Pascal83 then
-        Result := ARawData.List[ATypeIndex].GetCaption(AOwner, ARawData) + Result
+        Result := ADieList.List[ATypeIndex].GetCaption(AOwner, ADieList) + Result
       else
-        Result := Result + ARawData.List[ATypeIndex].GetCaption(AOwner, ARawData);
+        Result := Result + ADieList.List[ATypeIndex].GetCaption(AOwner, ADieList);
     end;
   end;
 
@@ -2808,10 +2840,10 @@ begin
     Result := ': ' + Result;
 end;
 
-{ TDwarfInfoUnit.TDieProgramm }
+{ TDieProgramm }
 
-function TDwarfInfoUnit.TDieProgramm.GetCaption(AOwner: TDwarfInfoUnit;
-  ARawData: TObjectList<TDie>): string;
+function TDieProgramm.GetCaption(AOwner: TDwarfInfoUnit;
+  ADieList: TDieList): string;
 const
   ClassDelim: array [Boolean] of string = ('::', '.');
 var
@@ -2822,7 +2854,7 @@ begin
   while Assigned(ParentDie) do
   begin
     case ParentDie.Tag of
-      DW_TAG_class_type, DW_TAG_namespace:
+      DW_TAG_class_type, DW_TAG_structure_type, DW_TAG_namespace:
       begin
         if ParentDie.AName <> nil then
           Result := string(ParentDie.AName) +
@@ -2835,10 +2867,10 @@ begin
 end;
 
 
-{ TDwarfInfoUnit.TDieArray }
+{ TDieArray }
 
-function TDwarfInfoUnit.TDieArray.GetCaption(AOwner: TDwarfInfoUnit;
-  ARawData: TObjectList<TDie>): string;
+function TDieArray.GetCaption(AOwner: TDwarfInfoUnit;
+  ADieList: TDieList): string;
 
   function GetStartSubRange: Int64;
   var
@@ -2879,9 +2911,10 @@ end;
 { TDwarfInfoUnit }
 
 procedure TDwarfInfoUnit.AddToList(ACurrent, ANew: TDie;
-  List: TObjectList<TDie>);
+  List: TDieList);
 begin
   List.Add(ANew);
+  Inc(FLoadedCount);
   if ACurrent <> nil then
   begin
     {$ifdef debug_dump}
@@ -2930,10 +2963,11 @@ begin
     Result := TDie.Create;
   end;
   Result.OffsetID := FDieOffsetInUnit;
+  Result.AbsoluteOffset := FStream.AbsolutePosition;
   Result.Tag := AAbbrevDescr.Tag;
-  {$ifdef debug_offset}
-  Result.DebugOffset := FStream.Dbg;
-  {$endif}
+
+//  if Result.AbsoluteOffset = $5dd3a then
+//    Beep;
 end;
 
 destructor TDwarfInfoUnit.Destroy;
@@ -2946,7 +2980,8 @@ begin
   inherited;
 end;
 
-procedure TDwarfInfoUnit.FillDwarfData(ARawData: TObjectList<TDie>);
+procedure TDwarfInfoUnit.FillDwarfData(ADieList: TDieList;
+  AAbsoluteDict: TAddrDict; AFromIndex: Integer);
 var
   AddrDict: TAddrDict;
   I, Count: Integer;
@@ -2965,7 +3000,7 @@ var
     while ADie <> nil do
     begin
       Inc(Result);
-      ADie.CalcTypeParam(Self, ARawData, AddrDict);
+      ADie.CalcTypeParam(Self, ADieList, AAbsoluteDict, AddrDict);
       case ADie.Tag of
         DW_TAG_formal_parameter:
         begin
@@ -2973,8 +3008,8 @@ var
             Param.AParamType := ptArtificialParam
           else
             Param.AParamType := ptFormalParam;
-          Param.AName := ADie.GetCaption(Self, ARawData);
-          Param.AType := ADie.GetType(Self, ARawData);
+          Param.AName := ADie.GetCaption(Self, ADieList);
+          Param.AType := ADie.GetType(Self, ADieList);
           Param.BpLocation := ADie.BpLocation;
           Param.BpOffset := ADie.BpOffset;
           Param.BpRegister := ADie.BpRegister;
@@ -2984,7 +3019,7 @@ var
           // для открытых массивов следующим идет размер
           // он идет как скрытый параметр, но метки Artificial не имеет
           // поэтому делаем коррекцию
-          if DW_TAG_array_type = ARawData.List[ADie.ATypeIndex].Tag then
+          if DW_TAG_array_type = ADieList.List[ADie.ATypeIndex].Tag then
           begin
             if Assigned(ADie.Sibling) and (ADie.Sibling.Tag = DW_TAG_formal_parameter) then
               ADie.Sibling.Artificial := True;
@@ -2993,8 +3028,8 @@ var
         DW_TAG_variable:
         begin
           Param.AParamType := ptLocalVariable;
-          Param.AName := ADie.GetCaption(Self, ARawData);
-          Param.AType := ADie.GetType(Self, ARawData);
+          Param.AName := ADie.GetCaption(Self, ADieList);
+          Param.AType := ADie.GetType(Self, ADieList);
           Param.BpLocation := ADie.BpLocation;
           Param.BpOffset := ADie.BpOffset;
           Param.BpRegister := ADie.BpRegister;
@@ -3007,12 +3042,15 @@ var
     end;
   end;
 
+var
+  AUnitPfx: string;
+  AppendUnitName: Boolean;
 begin
   AddrDict := TAddrDict.Create;
   try
-    // словарь для быстрого поиска
-    for I := 0 to ARawData.Count - 1 do
-      AddrDict.Add(ARawData.List[I].OffsetID, I);
+    // локальный словарь текущего модуля для быстрого поиска
+    for I := AFromIndex to AFromIndex + FLoadedCount - 1 do
+      AddrDict.Add(ADieList.List[I].OffsetID, I);
 
     if FAddrStart <> 0 then
     begin
@@ -3022,57 +3060,83 @@ begin
       SymbolStorage.Add(SymbolData);
     end;
 
-    I := 0;
-    Count := ARawData.Count;
+    AUnitPfx := '';
+    AppendUnitName := FCtx.AppendUnitName;
+    if AppendUnitName then
+    begin
+      if AnsiSameText(ExtractFileExt(UnitName), '.pas') then
+      begin
+        AUnitPfx := StringReplace(UnitName, '/', PathDelim, [rfReplaceAll]);
+        AUnitPfx := StringReplace(AUnitPfx, '\', PathDelim, [rfReplaceAll]);
+        AUnitPfx := ExtractFileName(AUnitPfx);
+        AUnitPfx := ChangeFileExt(AUnitPfx, '') + '.';
+      end
+      else
+        AppendUnitName := False;
+    end;
+
+    I := AFromIndex;
+    Count := AFromIndex + FLoadedCount;
     while I < Count do
     begin
-      Die := ARawData.List[I];
-      Die.CalcTypeParam(Self, ARawData, AddrDict);
+      Die := ADieList.List[I];
+      Die.CalcTypeParam(Self, ADieList, AAbsoluteDict, AddrDict);
       case Die.Tag of
         DW_TAG_subprogram,
         DW_TAG_subroutine_type,
         DW_TAG_inlined_subroutine:
         begin
-          if Die.AddrVA <> 0 then
+          if (Die.AddrVA <> 0) or FCtx.AppendNoAddrVADie then
           begin
 
             OutSubProgramm := TDebugInformationEntrySubProgramm.Create(FCtx.Image.GetIs64Image);
             OutSubProgramm.AddrVA := FCtx.Image.Rebase(Die.AddrVA);
             OutSubProgramm.EndOfCode := FCtx.Image.Rebase(Die.EndOfCode);
             OutSubProgramm.Executable := True;
-            OutSubProgramm.AName := Die.GetCaption(Self, ARawData);
-            OutSubProgramm.AType := Die.GetType(Self, ARawData);
+            OutSubProgramm.AName := Die.GetCaption(Self, ADieList);
+            if AppendUnitName and (Length(OutSubProgramm.AName) > 0) and not CharInSet(OutSubProgramm.AName[1], ['$', '_']) then
+              OutSubProgramm.AName := AUnitPfx + OutSubProgramm.AName;
+            OutSubProgramm.AType := Die.GetType(Self, ADieList);
             Inc(I, FillParams(OutSubProgramm, Die));
 
             // начало функции
-            SymbolData := MakeItem(OutSubProgramm.AddrVA, sdtDwarfProc);
-            SymbolData.Binary.ModuleIndex := FModuleIndex;
-            SymbolData.Binary.ListIndex := FUnitIndex;
-            SymbolData.Binary.Param := FData.Count;
-            SymbolStorage.Add(SymbolData);
+            if Die.AddrVA <> 0 then
+            begin
+              SymbolData := MakeItem(OutSubProgramm.AddrVA, sdtDwarfProc);
+              SymbolData.Binary.ModuleIndex := FModuleIndex;
+              SymbolData.Binary.ListIndex := FUnitIndex;
+              SymbolData.Binary.Param := FData.Count;
+              SymbolStorage.Add(SymbolData);
+            end;
 
             FData.Add(OutSubProgramm);
 
             // конец функции
-            SymbolData.AddrVA := OutSubProgramm.EndOfCode;
-            SymbolData.DataType := sdtDwarfEndProc;
-            SymbolStorage.Add(SymbolData);
+            if Die.AddrVA <> 0 then
+            begin
+              SymbolData.AddrVA := OutSubProgramm.EndOfCode;
+              SymbolData.DataType := sdtDwarfEndProc;
+              SymbolStorage.Add(SymbolData);
+            end;
           end;
         end;
         DW_TAG_variable:
         begin
-          if Die.AddrVA <> 0 then
+          if (Die.AddrVA <> 0) or FCtx.AppendNoAddrVADie then
           begin
             OutVariable := TDebugInformationEntryData.Create;
             OutVariable.AddrVA := FCtx.Image.Rebase(Die.AddrVA);
-            OutVariable.AName := Die.GetCaption(Self, ARawData);
-            OutVariable.AType := Die.GetType(Self, ARawData);
+            OutVariable.AName := Die.GetCaption(Self, ADieList);
+            OutVariable.AType := Die.GetType(Self, ADieList);
 
-            SymbolData := MakeItem(OutVariable.AddrVA, sdtDwarfData);
-            SymbolData.Binary.ModuleIndex := FModuleIndex;
-            SymbolData.Binary.ListIndex := FUnitIndex;
-            SymbolData.Binary.Param := FData.Count;
-            SymbolStorage.Add(SymbolData);
+            if Die.AddrVA <> 0 then
+            begin
+              SymbolData := MakeItem(OutVariable.AddrVA, sdtDwarfData);
+              SymbolData.Binary.ModuleIndex := FModuleIndex;
+              SymbolData.Binary.ListIndex := FUnitIndex;
+              SymbolData.Binary.Param := FData.Count;
+              SymbolStorage.Add(SymbolData);
+            end;
 
             FData.Add(OutVariable);
           end;
@@ -3153,13 +3217,14 @@ begin
   end;
 end;
 
-function TDwarfInfoUnit.Load(Ctx: TDwarfContext): Boolean;
+function TDwarfInfoUnit.Load(Ctx: TDwarfContext; ADieList: TDieList): Boolean;
 var
   Magic: DWORD;
   Header32: TDebugInfoProgramHeader32;
   HeaderLength: UInt64;
 begin
   Result := True;
+  FLoadedCount := 0;
   FCtx := Ctx;
 
   if Ctx.debug_info.Size - Ctx.debug_info.Position < SizeOf(TDebugInfoProgramHeader64)  then
@@ -3220,7 +3285,7 @@ begin
       if FAbbrevDescrList.Count = 0 then
         Exit(False);
 
-      Result := LoadUnit;
+      Result := LoadUnit(ADieList);
     end;
 
     if not FStream.EOF then
@@ -3315,7 +3380,11 @@ begin
       DW_AT_name:
         ReadAttribute(Attribute, @ADie.AName, SizeOf(ADie.AName));
       DW_AT_type:
+      begin
         ReadAttribute(Attribute, @ADie.ATypeID, SizeOf(ADie.ATypeID));
+        if Attribute.Form = DW_FORM_ref_addr then
+          ADie.ATypeIDIsAbsolute := True;
+      end;
       DW_AT_byte_size:
         ReadAttribute(Attribute, @ADie.ATypeSize, SizeOf(ADie.ATypeSize));
       DW_AT_artificial:
@@ -3489,79 +3558,69 @@ begin
   until FLocationStream.EOF;
 end;
 
-function TDwarfInfoUnit.LoadUnit: Boolean;
+function TDwarfInfoUnit.LoadUnit(ADieList: TDieList): Boolean;
 var
-  Data: TObjectList<TDie>;
   AbbrevIndex: UInt64;
   AbbrevDescr: TAbbrevDescr;
   DieCurrent,
   DieNew: TDie;
 begin
   Result := False;
-  Data := TObjectList<TDie>.Create;
-  try
-    DieCurrent := nil;
-    AbbrevIndex := FStream.ReadULEB128;
-    while AbbrevIndex <> 0 do
-    begin
 
-      FDieOffsetInUnit := FStream.PreviosPosition;
-      FDieOffsetInImage := FStream.PreviosNativePosition;
+  DieCurrent := nil;
+  AbbrevIndex := FStream.ReadULEB128;
+  while AbbrevIndex <> 0 do
+  begin
 
-      if (AbbrevIndex = 0) or (AbbrevIndex > FAbbrevDescrList.Count) then
-        RaiseInternal('Unexpected Tag Index ' + IntToStr(AbbrevIndex));
+    FDieOffsetInUnit := FStream.PreviosPosition;
+    FDieOffsetInImage := FStream.PreviosNativePosition;
 
-      AbbrevDescr := FAbbrevDescrList.List[AbbrevIndex - 1];
-      DieNew := CreateDie(AbbrevDescr);
+    if (AbbrevIndex = 0) or (AbbrevIndex > FAbbrevDescrList.Count) then
+      RaiseInternal('Unexpected Tag Index ' + IntToStr(AbbrevIndex));
 
-      try
+    AbbrevDescr := FAbbrevDescrList.List[AbbrevIndex - 1];
+    DieNew := CreateDie(AbbrevDescr);
 
-        if AbbrevDescr.Tag = DW_TAG_compile_unit then
-        begin
-          // этот тэг должен идти самым первым и единственным
-          // на всей последовательности
-          if FUnitName <> '' then
-            RaiseInternal('Unexpected DW_TAG_compile_unit');
-          LoadCompileUnit(AbbrevDescr);
-        end
-        else
-          LoadDIE(AbbrevDescr, DieNew);
+    try
 
-      except
-        DieNew.Free;
-        FStream.SeekToEnd;
-        Exit;
-      end;
-
-      AddToList(DieCurrent, DieNew, Data);
-      if AbbrevDescr.Children > 0 then
-        DieCurrent := DieNew;
-
-      // проверка на пустой юнит представленый только именем модуля
-      if FStream.EOF and (FAbbrevDescrList.Count = 1) then
+      if AbbrevDescr.Tag = DW_TAG_compile_unit then
       begin
-        // на всякий случай проверим что DW_TAG_compile_unit был загружен
-        if FUnitName = '' then
-          RaiseInternal('Unexpected EOF');
-        Break
+        // этот тэг должен идти самым первым и единственным
+        // на всей последовательности
+        if FUnitName <> '' then
+          RaiseInternal('Unexpected DW_TAG_compile_unit');
+        LoadCompileUnit(AbbrevDescr);
       end
       else
-        AbbrevIndex := FStream.ReadULEB128;
+        LoadDIE(AbbrevDescr, DieNew);
 
-      while (AbbrevIndex = 0) and RevertToParent(DieCurrent) and not FStream.EOF do
-        AbbrevIndex := FStream.ReadULEB128;
-
+    except
+      DieNew.Free;
+      FStream.SeekToEnd;
+      Exit;
     end;
 
-    if Data.Count > 0 then
+    AddToList(DieCurrent, DieNew, ADieList);
+    if AbbrevDescr.Children > 0 then
+      DieCurrent := DieNew;
+
+    // проверка на пустой юнит представленый только именем модуля
+    if FStream.EOF and (FAbbrevDescrList.Count = 1) then
     begin
-      FillDwarfData(Data);
-      Result := True;
-    end;
+      // на всякий случай проверим что DW_TAG_compile_unit был загружен
+      if FUnitName = '' then
+        RaiseInternal('Unexpected EOF');
+      Break
+    end
+    else
+      AbbrevIndex := FStream.ReadULEB128;
 
-  finally
-    Data.Free;
+    while (AbbrevIndex = 0) and RevertToParent(DieCurrent) and not FStream.EOF do
+      AbbrevIndex := FStream.ReadULEB128;
+
   end;
+
+  Result := FLoadedCount > 0;
 end;
 
 procedure TDwarfInfoUnit.RaiseInternal(const AMessage: string);
@@ -3576,7 +3635,7 @@ function TDwarfInfoUnit.ReadAttribute(const Attribute: TAttribute;
   procedure CheckBuffSize(NeedSize: UInt64);
   begin
     if ASize < NeedSize then
-      RaiseInternal(Format('Buff size too small %s. Expected %d', [ASize, NeedSize]))
+      RaiseInternal(Format('Buff size too small %d. Expected %d', [ASize, NeedSize]))
     else
       Result := Int64(NeedSize);
   end;
@@ -3822,6 +3881,8 @@ end;
 constructor TDwarfDebugInfo.Create(AImage: TAbstractImageGate);
 begin
   FImage := AImage;
+  FMappedUnit := -1;
+  FMappedUnitLines := TList<TDwarfLinesUnit>.Create;
   FUnitLines := TUnitLinesList.Create;
   FUnitInfos := TUnitInfosList.Create;
 end;
@@ -3830,7 +3891,14 @@ destructor TDwarfDebugInfo.Destroy;
 begin
   FUnitLines.Free;
   FUnitInfos.Free;
+  FMappedUnitLines.Free;
   inherited;
+end;
+
+procedure TDwarfDebugInfo.DoBeforeLoadCallback;
+begin
+  if Assigned(BeforeLoadCallback) then
+    BeforeLoadCallback(Self);
 end;
 
 procedure TDwarfDebugInfo.DoCallback(ALinesLoad: Boolean; ACurrent,
@@ -3860,6 +3928,9 @@ begin
   Result := [];
   Ctx := TDwarfContext.Create(FImage, AStream);
   try
+    DoBeforeLoadCallback;
+    Ctx.AppendUnitName := AppendUnitName;
+    Ctx.AppendNoAddrVADie := AppendNoAddrVADie;
     if LoadInfo(Ctx) then
       Include(Result, ditDwarfDie);
     if LoadLines(Ctx) then
@@ -3875,26 +3946,54 @@ end;
 function TDwarfDebugInfo.LoadInfo(Ctx: TDwarfContext): Boolean;
 var
   AUnit: TDwarfInfoUnit;
+  DieList: TDieList;
+  AAbsoluteDict: TAddrDict;
+  I, LoadIndex: Integer;
 begin
   Result := (Ctx.debug_info <> nil) and (Ctx.debug_abbrev <> nil);
   if not Result then Exit;
   DoCallback(False, 0, Ctx.debug_info.Size);
-  while not Ctx.debug_info.EOF do
-  begin
-    AUnit := TDwarfInfoUnit.Create(FImage.ModuleIndex, FUnitInfos.Count);
-    try
-      if not AUnit.Load(Ctx) then
-        FreeAndNil(AUnit)
-      else
-        FUnitInfos.Add(AUnit);
-      DoCallback(False, Ctx.debug_info.Position, Ctx.debug_info.Size);
-    except
-      AUnit.Free;
-      Result := False;
-      Break;
+  DieList := TDieList.Create;
+  try
+    // загружаем все данные в общий список без их обработки
+    while not Ctx.debug_info.EOF do
+    begin
+      AUnit := TDwarfInfoUnit.Create(FImage.ModuleIndex, FUnitInfos.Count);
+      try
+        if not AUnit.Load(Ctx, DieList) then
+          FreeAndNil(AUnit)
+        else
+          FUnitInfos.Add(AUnit);
+        DoCallback(False, Ctx.debug_info.Position, Ctx.debug_info.Size);
+      except
+        AUnit.Free;
+        Result := False;
+        Break;
+      end;
     end;
+    DoCallback(False, Ctx.debug_info.Size, Ctx.debug_info.Size);
+
+    // теперь переносим найденые процедуры в модули
+    // с обработкой типов через словарь абсолютных смещений
+    // который можно построить только после полной загрузки данных
+
+    AAbsoluteDict := TAddrDict.Create;
+    try
+      for I := 0 to DieList.Count - 1 do
+        AAbsoluteDict.Add(DieList.List[I].AbsoluteOffset, I);
+      LoadIndex := 0;
+      for AUnit in FUnitInfos do
+      begin
+        AUnit.FillDwarfData(DieList, AAbsoluteDict, LoadIndex);
+        Inc(LoadIndex, AUnit.LoadedCount);
+      end;
+    finally
+      AAbsoluteDict.Free;
+    end;
+
+  finally
+    DieList.Free;
   end;
-  DoCallback(False, Ctx.debug_info.Size, Ctx.debug_info.Size);
 end;
 
 function TDwarfDebugInfo.LoadLines(Ctx: TDwarfContext): Boolean;
@@ -3938,6 +4037,23 @@ begin
     Result := Loader.Load;
   finally
     Loader.Free;
+  end;
+end;
+
+function TDwarfDebugInfo.MappedUnitLines(
+  AUnitInfoIndex: Integer): TList<TDwarfLinesUnit>;
+var
+  I: Integer;
+begin
+  Result := FMappedUnitLines;
+  if FMappedUnit <> AUnitInfoIndex then
+  begin
+    FMappedUnitLines.Clear;
+    FMappedUnit := AUnitInfoIndex;
+    if FMappedUnit < 0 then Exit;
+    for I := 0 to UnitLines.Count - 1 do
+      if UnitLines[I].MappedUnitIndex = FMappedUnit then
+        FMappedUnitLines.Add(UnitLines[I]);
   end;
 end;
 
@@ -4026,7 +4142,7 @@ var
       FDirAndFilesDict.Add(AUnitName, FileIndex);
     end;
 
-    ALineUnit.AddLine(FCtx, AddrVA, FileIndex, LineNumber);
+    ALineUnit.AddLine(FCtx, AddrVA, FileIndex, LineNumber, True);
   end;
 
 begin

@@ -5,8 +5,8 @@
 //  * Unit Name : uUtils.pas
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.31
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -30,7 +30,7 @@ uses
   System.Classes,
   MemoryMap.Core,
   RawScanner.Core,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.SymbolStorage;
 
 type

@@ -6,8 +6,8 @@
 //  * Purpose   : Класс сравнивает состояние памяти процесса с рассчитаным
 //  *           : на основе образов файлов с диска и отдает результаты наружу.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.1.20
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,7 +35,7 @@ uses
   RawScanner.Logger,
   {$ENDIF}
   RawScanner.Types,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.Utils,
   RawScanner.Wow64;
 

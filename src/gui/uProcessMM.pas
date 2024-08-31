@@ -5,8 +5,8 @@
 //  * Unit Name : uProcessMM.pas
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.5.35
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -44,7 +44,7 @@ uses
   RawScanner.ApiSet,
   RawScanner.Types,
   RawScanner.Wow64,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.Logger,
   RawScanner.CoffDwarf,
   RawScanner.SymbolStorage,
@@ -159,6 +159,9 @@ type
     OpenInExplorer1: TMenuItem;
     acCallStackDemangler: TAction;
     CallStackDemangler1: TMenuItem;
+    N11: TMenuItem;
+    DWARFReader1: TMenuItem;
+    acRunDWARFReader: TAction;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -220,6 +223,8 @@ type
     procedure FormActivate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure acCallStackDemanglerExecute(Sender: TObject);
+    procedure acRunDWARFReaderUpdate(Sender: TObject);
+    procedure acRunDWARFReaderExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -596,6 +601,16 @@ begin
     Close
   else
     RaiseLastOSError;
+end;
+
+procedure TdlgProcessMM.acRunDWARFReaderExecute(Sender: TObject);
+begin
+  PluginManager.RunDwarfReader;
+end;
+
+procedure TdlgProcessMM.acRunDWARFReaderUpdate(Sender: TObject);
+begin
+  (Sender as TAction).Enabled := PluginManager.DwarfReaderFound;
 end;
 
 procedure TdlgProcessMM.acSaveExecute(Sender: TObject);

@@ -5,8 +5,8 @@
 //  * Unit Name : uRegionProperties.pas
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.34
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -32,7 +32,7 @@ uses
   MemoryMap.Workset,
 
   RawScanner.Core,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.SymbolStorage,
   RawScanner.Types,
   RawScanner.CoffDwarf,

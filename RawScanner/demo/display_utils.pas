@@ -10,7 +10,7 @@ uses
   Generics.Collections,
   RawScanner.Types,
   RawScanner.Logger,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.Disassembler,
   RawScanner.Analyzer,
   RawScanner.Filter,

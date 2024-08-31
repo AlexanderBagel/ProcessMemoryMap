@@ -12,7 +12,6 @@ uses
   Math,
   System.TypInfo,
   Generics.Collections,
-  RawScanner.ModulesData in '..\RawScanner.ModulesData.pas',
   RawScanner.Analyzer in '..\RawScanner.Analyzer.pas',
   RawScanner.Wow64 in '..\RawScanner.Wow64.pas',
   RawScanner.LoaderData in '..\RawScanner.LoaderData.pas',
@@ -29,7 +28,9 @@ uses
   RawScanner.Core in '..\RawScanner.Core.pas',
   RawScanner.SymbolStorage in '..\RawScanner.SymbolStorage.pas',
   RawScanner.X64Gates in '..\RawScanner.X64Gates.pas',
-  RawScanner.CoffDwarf in '..\RawScanner.CoffDwarf.pas';
+  RawScanner.CoffDwarf in '..\RawScanner.CoffDwarf.pas',
+  RawScanner.AbstractImage in '..\RawScanner.AbstractImage.pas',
+  RawScanner.Image.Pe in '..\RawScanner.Image.Pe.pas';
 
 var
   AProcessID: DWORD;

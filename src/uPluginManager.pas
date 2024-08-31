@@ -5,8 +5,8 @@
 //  * Unit Name : uPluginManager.pas
 //  * Purpose   : Менеджер плагинов
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.3.25
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
+//  * Version   : 1.5.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -25,6 +25,7 @@ uses
   SysUtils,
   Generics.Collections,
   pmm_plugin,
+  uUtils,
   MemoryMap.Core,
   RawScanner.Core,
   RawScanner.Types,
@@ -53,6 +54,7 @@ type
     FList: TList<TPluginInstance>;
     FIndex: TDictionary<THandle, Integer>;
     FProgress: TProgressEvent;
+    FDwarfReaderPath: string;
     procedure DoProgress(const Step: string; APecent: Integer);
     procedure Init;
     procedure Release;
@@ -60,6 +62,8 @@ type
     constructor Create;
     destructor Destroy; override;
     class function GetInstance: TPluginManager;
+    function DwarfReaderFound: Boolean;
+    procedure RunDwarfReader;
     procedure OpenProcess(PID: Cardinal);
     procedure CloseProcess;
     function GetGetDescriptorData(PluginHandle, DescriptorHandle: THandle;
@@ -110,6 +114,11 @@ procedure TPluginManager.DoProgress(const Step: string; APecent: Integer);
 begin
   if Assigned(FProgress) then
     FProgress(Step, APecent);
+end;
+
+function TPluginManager.DwarfReaderFound: Boolean;
+begin
+  Result := FileExists(FDwarfReaderPath);
 end;
 
 function TPluginManager.GetGetDescriptorData(PluginHandle,
@@ -186,6 +195,7 @@ begin
   {$ELSE}
   PluginDir := ExtractFilePath(ParamStr(0)) + 'plugins\';
   {$ENDIF}
+  FDwarfReaderPath := PluginDir + {$IFDEF WIN32}'dwarfreader.x86.exe'{$ELSE}'dwarfreader.x64.exe'{$ENDIF};
   if FindFirst(PluginDir + '*.dll', faAnyFile, SR) = 0 then
   try
     repeat
@@ -319,6 +329,11 @@ begin
       FList[I].Gate.Close;
     FreeLibrary(FList[I].Handle);
   end;
+end;
+
+procedure TPluginManager.RunDwarfReader;
+begin
+  LaunchExecutable(FDwarfReaderPath, MemoryMapCore.ProcessPath);
 end;
 
 end.

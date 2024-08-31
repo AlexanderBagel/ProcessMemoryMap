@@ -6,7 +6,7 @@
 //  * Purpose   : Утилита демангла CallStack от ProcessExpplorer
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.38
+//  * Version   : 1.5.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -44,7 +44,7 @@ uses
   MemoryMap.Utils,
 
   RawScanner.Core,
-  RawScanner.ModulesData,
+  RawScanner.Image.Pe,
   RawScanner.CoffDwarf,
   RawScanner.SymbolStorage,
   RawScanner.Utils;
