@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.38
+//  * Version   : 1.5.40
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -76,6 +76,7 @@ type
     seLineLimit: TSpinEdit;
     cbLineDirection: TComboBox;
     Label13: TLabel;
+    cbCheckStackAddrPCExecutable: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -96,6 +97,7 @@ type
       'ThreadColor', 'SystemColor');
   strict private
     FColors: array [0..7] of TColorRef;
+    FCheckStackAddrPCExecutable: Boolean;
     FSearchDifferences: Boolean;
     FShowColors: Boolean;
     FShowDetailedHeap: Boolean;
@@ -145,6 +147,7 @@ type
     property StringMinLengh: Integer read FStringMinLengh write FStringMinLengh;
     property ShowChildFormsOnTaskBar: Boolean read FShowChildFormsOnTaskBar write FShowChildFormsOnTaskBar;
     property ShowAligns: Boolean read FShowAligns write FShowAligns;
+    property CheckStackAddrPCExecutable: Boolean read FCheckStackAddrPCExecutable write FCheckStackAddrPCExecutable;
   end;
 
   function Settings: TSettings;
@@ -206,6 +209,7 @@ begin
   StringMinLengh := 6;
   ShowChildFormsOnTaskBar := True;
   ShowAligns := True;
+  CheckStackAddrPCExecutable := True;
 end;
 
 procedure TSettings.LoadSettings;
@@ -252,6 +256,8 @@ begin
         LineSearchLimit := R.ReadInteger('LineSearchLimit');
       for I := 0 to 7 do
         FColors[I] := R.ReadInteger(RegKeys[I]);
+      if R.ValueExists('CheckStackAddrPCExecutable') then
+        CheckStackAddrPCExecutable := R.ReadBool('CheckStackAddrPCExecutable');
     except
       LoadDefault;
     end;
@@ -289,6 +295,7 @@ begin
     R.WriteInteger('LineSearchLimit', LineSearchLimit);
     for I := 0 to 7 do
       R.WriteInteger(RegKeys[I], FColors[I]);
+    R.WriteBool('CheckStackAddrPCExecutable', CheckStackAddrPCExecutable);
   finally
     R.Free;
   end;
@@ -330,6 +337,7 @@ begin
   Settings.LineSearchDown := cbLineDirection.ItemIndex = 0;
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
+  Settings.CheckStackAddrPCExecutable := cbCheckStackAddrPCExecutable.Checked;
   Settings.SaveSettings;
   ModalResult := mrOk;
 end;
@@ -384,6 +392,7 @@ begin
     P.Color := Colors[I];
     P.Caption := IntToHex(Colors[I], 8);
   end;
+  cbCheckStackAddrPCExecutable.Checked := Settings.CheckStackAddrPCExecutable;
 end;
 
 procedure TdlgSettings.tvNavigateClick(Sender: TObject);

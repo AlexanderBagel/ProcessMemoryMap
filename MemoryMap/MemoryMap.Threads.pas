@@ -6,7 +6,7 @@
 //  * Purpose   : Класс собирает данные о потоках процесса.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.4.36
+//  * Version   : 1.4.37
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -159,6 +159,7 @@ type
 
   TThreads = class
   private
+    FCheckStackAddrPCExecutable: Boolean;
     FThreadData: TList<TThreadData>;
     FThreadStackEntries: TList<TThreadStackEntry>;
     FSEH: TList<TSEHEntry>;
@@ -179,10 +180,11 @@ type
     destructor Destroy; override;
     procedure Clear;
     procedure Update(PID: Cardinal; hProcess: THandle);
+    property CheckStackAddrPCExecutable: Boolean read FCheckStackAddrPCExecutable write FCheckStackAddrPCExecutable;
     property SEHEntries: TList<TSEHEntry> read FSEH;
+    property StackOverflowLimit: Integer read FStackOverflowLimit write FStackOverflowLimit;
     property ThreadData: TList<TThreadData> read FThreadData;
     property ThreadStackEntries: TList<TThreadStackEntry> read FThreadStackEntries;
-    property StackOverflowLimit: Integer read FStackOverflowLimit write FStackOverflowLimit;
   end;
 
 implementation
@@ -226,6 +228,7 @@ var
   MBI: TMemoryBasicInformation;
   dwLength: NativeUInt;
 begin
+  if not CheckStackAddrPCExecutable then Exit(True);
   if AAddrVA = 0 then Exit(False);
   dwLength := SizeOf(TMemoryBasicInformation);
   VirtualQueryEx(hProcess, Pointer(AAddrVA), MBI, dwLength);
@@ -288,6 +291,7 @@ begin
   FSEH := TList<TSEHEntry>.Create;
   FThreadData := TList<TThreadData>.Create;
   FThreadStackEntries := TList<TThreadStackEntry>.Create;
+  FCheckStackAddrPCExecutable := True;
   StackOverflowLimit := 15;
 end;
 

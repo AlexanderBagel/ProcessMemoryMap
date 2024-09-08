@@ -6,7 +6,7 @@
 //  * Purpose   : Утилита демангла CallStack от ProcessExpplorer
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Version   : 1.5.40
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -774,6 +774,7 @@ begin
       if MemoryMapCore.SuspendProcessBeforeScan then
         ProcessLock := SuspendProcess(MemoryMapCore.PID);
       try
+        FThreads.CheckStackAddrPCExecutable := Settings.CheckStackAddrPCExecutable;
         FThreads.StackOverflowLimit := Settings.StackOverflowLimit;
         FThreads.Update(MemoryMapCore.PID, Process);
 
