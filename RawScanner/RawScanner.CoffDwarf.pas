@@ -7,7 +7,7 @@
 //  *           : информации в форматах COFF и DWARF.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.20
+//  * Version   : 1.1.21
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1360,7 +1360,9 @@ type
   TUnitLinesList = TObjectList<TDwarfLinesUnit>;
   TUnitInfosList = TObjectList<TDwarfInfoUnit>;
   TDwarfBeforeLoadCallback = reference to procedure(ADwarfDebugInfo: TDwarfDebugInfo);
-  TDwarfLoadCallback = reference to procedure(ALinesLoad: Boolean; ACurrent, AMax: Int64);
+
+  TLoadCallbackStep = (lcsLoadInfo, lcsProcessInfo, lcsLoadLines);
+  TDwarfLoadCallback = reference to procedure(AStep: TLoadCallbackStep; ACurrent, AMax: Int64);
 
   TDwarfDebugInfo = class
   public class var
@@ -1380,7 +1382,7 @@ type
     function GetUnitAtStmt(StmtOffset: DWORD): Integer;
   protected
     procedure DoBeforeLoadCallback;
-    procedure DoCallback(ALinesLoad: Boolean; ACurrent, AMax: Int64);
+    procedure DoCallback(AStep: TLoadCallbackStep; ACurrent, AMax: Int64);
   public
     constructor Create(AImage: TAbstractImageGate);
     destructor Destroy; override;
@@ -3901,11 +3903,11 @@ begin
     BeforeLoadCallback(Self);
 end;
 
-procedure TDwarfDebugInfo.DoCallback(ALinesLoad: Boolean; ACurrent,
+procedure TDwarfDebugInfo.DoCallback(AStep: TLoadCallbackStep; ACurrent,
   AMax: Int64);
 begin
   if Assigned(LoadCallback) then
-    LoadCallback(ALinesLoad, ACurrent, AMax);
+    LoadCallback(AStep, ACurrent, AMax);
 end;
 
 function TDwarfDebugInfo.GetUnitAtStmt(StmtOffset: DWORD): Integer;
@@ -3952,7 +3954,7 @@ var
 begin
   Result := (Ctx.debug_info <> nil) and (Ctx.debug_abbrev <> nil);
   if not Result then Exit;
-  DoCallback(False, 0, Ctx.debug_info.Size);
+  DoCallback(lcsLoadInfo, 0, Ctx.debug_info.Size);
   DieList := TDieList.Create;
   try
     // загружаем все данные в общий список без их обработки
@@ -3964,19 +3966,20 @@ begin
           FreeAndNil(AUnit)
         else
           FUnitInfos.Add(AUnit);
-        DoCallback(False, Ctx.debug_info.Position, Ctx.debug_info.Size);
+        DoCallback(lcsLoadInfo, Ctx.debug_info.Position, Ctx.debug_info.Size);
       except
         AUnit.Free;
         Result := False;
         Break;
       end;
     end;
-    DoCallback(False, Ctx.debug_info.Size, Ctx.debug_info.Size);
+    DoCallback(lcsLoadInfo, Ctx.debug_info.Size, Ctx.debug_info.Size);
 
     // теперь переносим найденые процедуры в модули
     // с обработкой типов через словарь абсолютных смещений
     // который можно построить только после полной загрузки данных
 
+    DoCallback(lcsProcessInfo, 0, DieList.Count);
     AAbsoluteDict := TAddrDict.Create;
     try
       for I := 0 to DieList.Count - 1 do
@@ -3986,10 +3989,12 @@ begin
       begin
         AUnit.FillDwarfData(DieList, AAbsoluteDict, LoadIndex);
         Inc(LoadIndex, AUnit.LoadedCount);
+        DoCallback(lcsProcessInfo, LoadIndex, DieList.Count);
       end;
     finally
       AAbsoluteDict.Free;
     end;
+    DoCallback(lcsProcessInfo, DieList.Count, DieList.Count);
 
   finally
     DieList.Free;
@@ -4002,7 +4007,7 @@ var
 begin
   Result := Ctx.debug_line <> nil;
   if not Result then Exit;
-  DoCallback(True, 0, Ctx.debug_line.Size);
+  DoCallback(lcsLoadLines, 0, Ctx.debug_line.Size);
   while not Ctx.debug_line.EOF do
   begin
     AUnit := TDwarfLinesUnit.Create(FImage.ModuleIndex, FUnitLines.Count,
@@ -4014,14 +4019,14 @@ begin
         Break;
       end;
       FUnitLines.Add(AUnit);
-      DoCallback(True, Ctx.debug_line.Position, Ctx.debug_line.Size);
+      DoCallback(lcsLoadLines, Ctx.debug_line.Position, Ctx.debug_line.Size);
     except
       AUnit.Free;
       Result := False;
       Break;
     end;
   end;
-  DoCallback(True, Ctx.debug_line.Size, Ctx.debug_line.Size);
+  DoCallback(lcsLoadLines, Ctx.debug_line.Size, Ctx.debug_line.Size);
 end;
 
 function TDwarfDebugInfo.LoadStub(Ctx: TDwarfContext): Boolean;
@@ -4148,7 +4153,7 @@ var
 begin
   Count := FCtx.stab.Size div SizeOf(TStab);
   if Count = 0 then Exit(False);
-  FDwarf.DoCallback(True, 0, Count);
+  FDwarf.DoCallback(lcsLoadLines, 0, Count);
   SetLength(AStubs, Count);
   FCtx.stab.ReadBuffer(AStubs[0], FCtx.stab.Size);
 

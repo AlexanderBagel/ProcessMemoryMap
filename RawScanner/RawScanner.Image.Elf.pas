@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.20
+//  * Version   : 1.1.21
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -379,7 +379,6 @@ begin
     LoadExport(Raw);
     LoadImport(Raw);
     LoadSymbols(Raw);
-    {$message ''}
 
     // COFF + DWARF могут сидеть во внешнем отладочном файле
     // ссылка на который будет находится в секции .gnu_debuglink

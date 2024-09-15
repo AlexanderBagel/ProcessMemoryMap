@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Version   : 1.5.41
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1166,12 +1166,14 @@ begin
         // И только после этого можно запускать на выполнение RawScannerCore
         DebugLog.Clear;
         // загрузка DWARF не быстрый процесс, поэтому нужно тоже выводить прогресс
-        TDwarfDebugInfo.LoadCallback := procedure(ALinesLoad: Boolean; ACurrent, AMax: Int64)
+        TDwarfDebugInfo.LoadCallback := procedure(AStep: TLoadCallbackStep; ACurrent, AMax: Int64)
         begin
-          if ALinesLoad then
-            dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF lines.'
+          case AStep of
+            lcsLoadInfo: dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF.';
+            lcsProcessInfo: dlgProgress.lblProgress.Caption := LastProgressCaption + ' process DWARF.';
           else
-            dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF.';
+            dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF lines.';
+          end;
           dlgProgress.ProgressBarAdv.Visible := ACurrent <> AMax;
           dlgProgress.ProgressBarAdv.Max := AMax;
           dlgProgress.ProgressBarAdv.Position := ACurrent;
