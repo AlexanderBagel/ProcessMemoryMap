@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.20
+//  * Version   : 1.1.22
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -842,8 +842,12 @@ begin
   // проверка - а был ли мальчик?
   if NtHeader.FileHeader.PointerToSymbolTable = 0 then
     Exit;
-  if FCoffDebugInfo.Load(Raw) then
-    Include(FDebugData, ditCoff);
+  try
+    if FCoffDebugInfo.Load(Raw) then
+      Include(FDebugData, ditCoff);
+  except
+    Exclude(FDebugData, ditCoff);
+  end;
 end;
 
 function TRawPEImage.LoadCor20Header(Raw: TStream): Boolean;
