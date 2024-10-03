@@ -250,6 +250,7 @@ begin
   FSymbols := TList<TImageSymbol>.Create;
   FImageGate := TElfImageGate.Create(Self);
   FDwarfDebugInfo := TDwarfDebugInfo.Create(FImageGate);
+  FDwarfDebugInfo.AppendUnitName := DefaultDwarfAppendUnitName;
   LoadFromImage;
 end;
 

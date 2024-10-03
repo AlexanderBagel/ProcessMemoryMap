@@ -255,6 +255,7 @@ begin
   FImageGate := TCoffImageGate.Create(Self);
   FCoffDebugInfo := TCoffDebugInfo.Create(FImageGate);
   FDwarfDebugInfo := TDwarfDebugInfo.Create(FImageGate);
+  FDwarfDebugInfo.AppendUnitName := DefaultDwarfAppendUnitName;
   FLoadSectionsOnly := ALoadSectionsOnly;
   LoadFromImage;
 end;

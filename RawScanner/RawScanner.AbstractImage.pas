@@ -37,6 +37,8 @@ type
     itOMF32, itOMF64);
 
   TAbstractImage = class
+  public class var
+    DefaultDwarfAppendUnitName: Boolean;
   private
     FImageType: TImageType;
   protected

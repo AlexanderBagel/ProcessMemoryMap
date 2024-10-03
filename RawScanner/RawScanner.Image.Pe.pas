@@ -506,6 +506,7 @@ begin
   FImageGate := TPeImageGate.Create(Self);
   FCoffDebugInfo := TCoffDebugInfo.Create(FImageGate);
   FDwarfDebugInfo := TDwarfDebugInfo.Create(FImageGate);
+  FDwarfDebugInfo.AppendUnitName := DefaultDwarfAppendUnitName;
   FLoadSectionsOnly := ALoadSectionsOnly;
   SymbolData.AddrVA := ImageBase;
   SymbolData.DataType := sdtInstance;

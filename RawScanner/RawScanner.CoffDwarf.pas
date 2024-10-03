@@ -3070,7 +3070,7 @@ begin
     AppendUnitName := FCtx.AppendUnitName;
     if AppendUnitName then
     begin
-      if AnsiSameText(ExtractFileExt(UnitName), '.pas') then
+      if IndexText(LowerCase(ExtractFileExt(UnitName)), ['.pas', '.lpr', '.dpr']) >= 0 then
       begin
         AUnitPfx := StringReplace(UnitName, '/', PathDelim, [rfReplaceAll]);
         AUnitPfx := StringReplace(AUnitPfx, '\', PathDelim, [rfReplaceAll]);
