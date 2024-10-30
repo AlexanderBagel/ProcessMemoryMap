@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.0.19
+//  * Version   : 1.0.23
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -315,6 +315,7 @@ begin
     if Found then
       Break;
   end;
+  Result := Data.DataType = sdtDwarfLine;
 end;
 
 function TRawScannerSymbolStorage.GetExportAtAddr(AddrVA: ULONG_PTR64;
