@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс образа файла с которым умеет работать RawScanner
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.20
+//  * Version   : 1.1.24
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -19,8 +19,13 @@ unit RawScanner.AbstractImage;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
+  {$IFDEF USE_PROFILING}
+  Diagnostics,
+  {$ENDIF}
   RawScanner.Types,
   RawScanner.CoffDwarf;
 
@@ -41,14 +46,21 @@ type
     DefaultDwarfAppendUnitName: Boolean;
   private
     FImageType: TImageType;
+    FElapsed: Int64;
+    {$IFDEF USE_PROFILING}
+    FStopwatch: TStopwatch;
+    {$ENDIF}
   protected
     function AlignDown(Value: DWORD; Align: DWORD): DWORD;
     function AlignUp(Value: DWORD; Align: DWORD): DWORD;
+    procedure ProfilingBegin;
+    procedure ProfilingEnd;
     procedure SetImageType(Value: TImageType);
   public
     function DebugData: TDebugInfoTypes; virtual; abstract;
     function DebugLinkPath: string; virtual; abstract;
     function DwarfDebugInfo: TDwarfDebugInfo; virtual; abstract;
+    property Elapsed: Int64 read FElapsed;
     function GetSectionData(RvaAddr: DWORD; var Data: TSectionData): Boolean; virtual; abstract;
     function Image64: Boolean; virtual; abstract;
     function ImageBase: ULONG_PTR64; virtual; abstract;
@@ -71,6 +83,20 @@ function TAbstractImage.AlignUp(Value, Align: DWORD): DWORD;
 begin
   if Value = 0 then Exit(0);
   Result := AlignDown(Value - 1, Align) + Align;
+end;
+
+procedure TAbstractImage.ProfilingBegin;
+begin
+  {$IFDEF USE_PROFILING}
+  FStopwatch := TStopwatch.StartNew;
+  {$ENDIF}
+end;
+
+procedure TAbstractImage.ProfilingEnd;
+begin
+  {$IFDEF USE_PROFILING}
+  FElapsed := FStopwatch.ElapsedMilliseconds;
+  {$ENDIF}
 end;
 
 procedure TAbstractImage.SetImageType(Value: TImageType);

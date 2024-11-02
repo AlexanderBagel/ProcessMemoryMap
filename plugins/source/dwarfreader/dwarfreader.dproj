@@ -101,7 +101,7 @@
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Manifest_File>(None)</Manifest_File>
-        <Debugger_RunParams>&quot;W:\lazarus\trunk\lazarus\lazarus.exe&quot; -r -n &gt; d:\tmp\test.log</Debugger_RunParams>
+        <Debugger_RunParams>&quot;D:\buffer\GSmeta&quot; -r -n -u -p</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <Debugger_RunParams>&quot;W:\lazarus\trunk\lazarus\lazarus.exe&quot; -m=d:\tmp\lazarus.map</Debugger_RunParams>

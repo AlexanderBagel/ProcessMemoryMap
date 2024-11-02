@@ -7,7 +7,7 @@
 //  *           : информации в форматах COFF и DWARF.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.22
+//  * Version   : 1.1.24
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -34,12 +34,17 @@ interface
 {-$define debug_dump}
 {$define debug_offset}
 
+  {$I rawscanner.inc}
+
 uses
   Windows,
   Classes,
   SysUtils,
   Math,
   AnsiStrings,
+  {$IFDEF USE_PROFILING}
+  Diagnostics,
+  {$ENDIF}
   Generics.Collections,
   RawScanner.Types,
   RawScanner.SymbolStorage;
@@ -1142,6 +1147,7 @@ type
     FFiles: TList<TFileEntry>;
     FLines: TLineList;
     FMappedUnitIndex: Integer;
+    FElapsed: Int64;
     function ReadFileEntry(AStream: TDwarfStream): TFileEntry;
   protected
     procedure AddLine(ACtx: TDwarfContext;
@@ -1155,6 +1161,7 @@ type
     function GetFilePath(FileId: Word): string;
     property Lines: TLineList read FLines;
     property MappedUnitIndex: Integer read FMappedUnitIndex;
+    property Elapsed: Int64 read FElapsed write FElapsed;
   end;
 
   TDebugInformationEntry = class
@@ -1322,6 +1329,7 @@ type
     FLocationBuff: TMemoryStream;
     FLocationStream: TDwarfStream;
     FLoadedCount: Integer;
+    FElapsed: Int64;
 
     procedure AddToList(ACurrent, ANew: TDie;
       List: TDieList);
@@ -1348,6 +1356,7 @@ type
     property SourceDir: string read FSourceDir;
     property AddrStart: UInt64 read FAddrStart;
     property AddrEnd: UInt64 read FAddrEnd;
+    property Elapsed: Int64 read FElapsed write FElapsed;
     property Header64: TDebugInfoProgramHeader64 read FHeader64;
     property Language: DWORD read FLanguage;
     property LoadedCount: Integer read FLoadedCount;
@@ -3070,7 +3079,7 @@ begin
     AppendUnitName := FCtx.AppendUnitName;
     if AppendUnitName then
     begin
-      if IndexText(LowerCase(ExtractFileExt(UnitName)), ['.pas', '.lpr', '.dpr']) >= 0 then
+      if IndexText(AnsiString(LowerCase(ExtractFileExt(UnitName))), ['.pas', '.lpr', '.dpr']) >= 0 then
       begin
         AUnitPfx := StringReplace(UnitName, '/', PathDelim, [rfReplaceAll]);
         AUnitPfx := StringReplace(AUnitPfx, '\', PathDelim, [rfReplaceAll]);
@@ -3955,6 +3964,9 @@ var
   DieList: TDieList;
   AAbsoluteDict: TAddrDict;
   I, LoadIndex: Integer;
+  {$IFDEF USE_PROFILING}
+  sw: TStopwatch;
+  {$ENDIF}
 begin
   Result := (Ctx.debug_info <> nil) and (Ctx.debug_abbrev <> nil);
   if not Result then Exit;
@@ -3966,10 +3978,16 @@ begin
     begin
       AUnit := TDwarfInfoUnit.Create(FImage.ModuleIndex, FUnitInfos.Count);
       try
+        {$IFDEF USE_PROFILING}
+        sw := TStopwatch.StartNew;
+        {$ENDIF}
         if not AUnit.Load(Ctx, DieList) then
           FreeAndNil(AUnit)
         else
           FUnitInfos.Add(AUnit);
+        {$IFDEF USE_PROFILING}
+        AUnit.Elapsed := sw.ElapsedMilliseconds;
+        {$ENDIF}
         DoCallback(lcsLoadInfo, Ctx.debug_info.Position, Ctx.debug_info.Size);
       except
         AUnit.Free;
@@ -3991,7 +4009,13 @@ begin
       LoadIndex := 0;
       for AUnit in FUnitInfos do
       begin
+        {$IFDEF USE_PROFILING}
+        sw := TStopwatch.StartNew;
+        {$ENDIF}
         AUnit.FillDwarfData(DieList, AAbsoluteDict, LoadIndex);
+        {$IFDEF USE_PROFILING}
+        AUnit.Elapsed := AUnit.Elapsed + sw.ElapsedMilliseconds;
+        {$ENDIF}
         Inc(LoadIndex, AUnit.LoadedCount);
         DoCallback(lcsProcessInfo, LoadIndex, DieList.Count);
       end;
@@ -4008,6 +4032,9 @@ end;
 function TDwarfDebugInfo.LoadLines(Ctx: TDwarfContext): Boolean;
 var
   AUnit: TDwarfLinesUnit;
+  {$IFDEF USE_PROFILING}
+  sw: TStopwatch;
+  {$ENDIF}
 begin
   Result := Ctx.debug_line <> nil;
   if not Result then Exit;
@@ -4017,11 +4044,17 @@ begin
     AUnit := TDwarfLinesUnit.Create(FImage.ModuleIndex, FUnitLines.Count,
       GetUnitAtStmt(Ctx.debug_line.Position));
     try
+      {$IFDEF USE_PROFILING}
+      sw := TStopwatch.StartNew;
+      {$ENDIF}
       if not AUnit.Load(Ctx) then
       begin
         FreeAndNil(AUnit);
         Break;
       end;
+      {$IFDEF USE_PROFILING}
+      AUnit.Elapsed := sw.ElapsedMilliseconds;
+      {$ENDIF}
       FUnitLines.Add(AUnit);
       DoCallback(lcsLoadLines, Ctx.debug_line.Position, Ctx.debug_line.Size);
     except

@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.20
+//  * Version   : 1.1.24
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -249,6 +249,7 @@ end;
 constructor TRawCoffImage.Create(const ImagePath: string;
   ALoadSectionsOnly: Boolean; ImageBase: ULONG_PTR64);
 begin
+  ProfilingBegin;
   FImagePath := ImagePath;
   FImageBase := ImageBase;
   FImageName := ExtractFileName(ImagePath);
@@ -258,6 +259,7 @@ begin
   FDwarfDebugInfo.AppendUnitName := DefaultDwarfAppendUnitName;
   FLoadSectionsOnly := ALoadSectionsOnly;
   LoadFromImage;
+  ProfilingEnd;
 end;
 
 constructor TRawCoffImage.Create(const ModuleData: TModuleData;

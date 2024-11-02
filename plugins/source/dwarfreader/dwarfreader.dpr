@@ -44,7 +44,10 @@ var
   ShowRawOffset: Boolean;
   ShowVariables: Boolean;
   IncludeUnitName: Boolean;
+  ShowProfiler: Boolean;
   MapPath: string;
+
+  ProfileUnitElapsed, ProfileLinesElapsed, ProfileImageElapsed: Int64;
 
 const
   RawHeader = '  Raw   |';
@@ -104,6 +107,7 @@ begin
   Writeln('    /d - demangle Symbol/COFF names');
   Writeln('    /r - show raw offset');
   Writeln('    /u - include unit name in DWARF output');
+  Writeln('    /p - show profiler info');
   Writeln('    /m="path" - generate MAP file');
   Writeln;
   Writeln('  Example:');
@@ -237,6 +241,7 @@ end;
 function DumpDwarf(AImage: TAbstractImage): Integer;
 var
   AUnit: TDwarfInfoUnit;
+  ALineUnit: TDwarfLinesUnit;
   AUnitAdded: Boolean;
   AEntry: TDebugInformationEntry;
   Section: TSectionData;
@@ -247,9 +252,19 @@ begin
   Writeln('Dump DWARF.');
   Line;
   Result := 0;
+
+  if ShowProfiler then
+  begin
+    ProfileLinesElapsed := 0;
+    for ALineUnit in AImage.DwarfDebugInfo.UnitLines do
+      Inc(ProfileLinesElapsed, ALineUnit.Elapsed);
+  end;
+
+  ProfileUnitElapsed := 0;
   for AUnit in AImage.DwarfDebugInfo.UnitInfos do
   begin
     AUnitAdded := False;
+    Inc(ProfileUnitElapsed, AUnit.Elapsed);
     for AEntry in AUnit.Data do
     begin
       Flags := '...|';
@@ -269,7 +284,10 @@ begin
       if not AUnitAdded then
       begin
         Writeln;
-        Writeln('unit: ', AUnit.UnitName);
+        if ShowProfiler then
+          Writeln('unit: "', AUnit.UnitName, '", loaded: ', AUnit.Elapsed, ' msec')
+        else
+          Writeln('unit: ', AUnit.UnitName);
         Line;
         if ShowRawOffset then
           Write(RawHeader);
@@ -598,6 +616,7 @@ begin
     ShowRawOffset := FindCmdLineSwitch('r', SwitchChars, True);
     ShowVariables := FindCmdLineSwitch('n', SwitchChars, True);
     IncludeUnitName := FindCmdLineSwitch('u', SwitchChars, True);
+    ShowProfiler := FindCmdLineSwitch('p', SwitchChars, True);
     FindAndExtractCmdParamValue('m=', MapPath, SwitchChars);
 
     TRawPEImage.DisableLoadStrings := True;
@@ -608,11 +627,13 @@ begin
     end;
 
     Write('Open: ', ParamStr(1), '... ');
+    ProfileImageElapsed := 0;
     case CheckFileType(ParamStr(1)) of
       0: // PE
       begin
         Pe := TRawPEImage.Create(ParamStr(1), False);
         try
+          ProfileImageElapsed := Pe.Elapsed;
           WriteSuccess('done.');
           DumpPEImage(Pe);
         finally
@@ -623,6 +644,7 @@ begin
       begin
         Elf := TRawElfImage.Create(ParamStr(1), False);
         try
+          ProfileImageElapsed := Elf.Elapsed;
           WriteSuccess('done.');
           DumpELFImage(Elf);
         finally
@@ -633,6 +655,7 @@ begin
       begin
         Coff := TRawCoffImage.Create(ParamStr(1), False);
         try
+          ProfileImageElapsed := Coff.Elapsed;
           WriteSuccess('done.');
           DumpCOFFImage(Coff);
         finally
@@ -643,6 +666,16 @@ begin
       WriteFailed('error. Unknown file type.');
       WaitKey;
       Finished(3);
+    end;
+
+    if ShowProfiler then
+    begin
+      Writeln;
+      Writeln('Profiler:');
+      Writeln('Total unit elapsed: ', ProfileUnitElapsed, ' msec');
+      Writeln('Total lines elapsed: ', ProfileLinesElapsed, ' msec');
+      Writeln('Total elapsed: ', ProfileLinesElapsed + ProfileUnitElapsed, ' msec');
+      Writeln('Total image open elapsed: ', ProfileImageElapsed, ' msec');
     end;
 
   except

@@ -301,7 +301,6 @@ var
   I, Index: Integer;
   Found: Boolean;
 begin
-  Result := False;
   for I := 0 to Limit do
   begin
     Result := FItemIndex.TryGetValue(NextAddr(I), Index);

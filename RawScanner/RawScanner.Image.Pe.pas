@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.22
+//  * Version   : 1.1.24
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -491,6 +491,7 @@ constructor TRawPEImage.Create(const ImagePath: string;
 var
   SymbolData: TSymbolData;
 begin
+  ProfilingBegin;
   FImagePath := ImagePath;
   FImageBase := ImageBase;
   FImageName := ExtractFileName(ImagePath);
@@ -514,6 +515,7 @@ begin
   SymbolData.Binary.ListIndex := 0;
   SymbolStorage.Add(SymbolData);
   LoadFromImage;
+  ProfilingEnd;
 end;
 
 function TRawPEImage.DebugData: TDebugInfoTypes;
