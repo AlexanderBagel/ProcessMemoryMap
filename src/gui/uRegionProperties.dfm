@@ -39,6 +39,8 @@ object dlgRegionProps: TdlgRegionProps
     ScrollBars = ssBoth
     TabOrder = 0
     Zoom = 100
+    OnMouseDown = edPropertiesMouseDown
+    OnMouseUp = edPropertiesMouseUp
   end
   object mnuPopup: TPopupMenu
     OnPopup = mnuPopupPopup
@@ -111,5 +113,11 @@ object dlgRegionProps: TdlgRegionProps
         OnClick = mnuDasmModeAutoClick
       end
     end
+  end
+  object tmrAutoRefresh: TTimer
+    Enabled = False
+    OnTimer = tmrAutoRefreshTimer
+    Left = 472
+    Top = 280
   end
 end

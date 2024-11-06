@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения данных по переданному адресу
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Version   : 1.5.44
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,7 +22,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, Vcl.ComCtrls, Winapi.PsAPI, Vcl.Menus,
+  Vcl.StdCtrls, Vcl.ComCtrls, Winapi.PsAPI, Vcl.Menus, Vcl.ExtCtrls,
 
   MemoryMap.Utils,
   MemoryMap.Core,
@@ -59,6 +59,7 @@ type
     mnuDasmModeAuto: TMenuItem;
     SelectAll1: TMenuItem;
     mnuTopMostWnd: TMenuItem;
+    tmrAutoRefresh: TTimer;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuCopyClick(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
@@ -73,6 +74,11 @@ type
     procedure FormDeactivate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure tmrAutoRefreshTimer(Sender: TObject);
+    procedure edPropertiesMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure edPropertiesMouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
   private
     ACloseAction: TCloseAction;
     Process: THandle;
@@ -84,9 +90,10 @@ type
     procedure Add(const Value: string); overload;
     procedure Add(AFunc: TDumpFunc; Process: THandle; Address: Pointer); overload;
     procedure DropActivePtr;
+    procedure RefreshData;
     procedure StartQuery(Value: Pointer);
     procedure ShowInfoFromMBI(Process: THandle;
-      MBI: TMemoryBasicInformation; Address: Pointer);
+      MBI: TMemoryBasicInformation; Address: Pointer; var ACaption: string);
   public
     function GetSelectedAddr: ULONG_PTR;
     procedure ShowPropertyAtAddr(Value: Pointer);
@@ -136,6 +143,18 @@ begin
     ActiveRegionProps := nil;
 end;
 
+procedure TdlgRegionProps.edPropertiesMouseDown(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  tmrAutoRefresh.Enabled := False;
+end;
+
+procedure TdlgRegionProps.edPropertiesMouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  tmrAutoRefresh.Enabled := Settings.AutoRefresh;
+end;
+
 procedure TdlgRegionProps.Add(const Value: string);
 begin
   edProperties.Lines.Add(Value);
@@ -159,6 +178,8 @@ begin
   inherited;
   Inc(ShowCounter);
   Inc(TotalCounter);
+  tmrAutoRefresh.Interval := Settings.AutoRefreshDelay;
+  tmrAutoRefresh.Enabled := Settings.AutoRefresh;
 end;
 
 procedure TdlgRegionProps.FormDeactivate(Sender: TObject);
@@ -219,18 +240,8 @@ begin
 end;
 
 procedure TdlgRegionProps.mnuRefreshClick(Sender: TObject);
-var
-  ThumbPos: Integer;
 begin
-  edProperties.Lines.BeginUpdate;
-  try
-    ThumbPos := SendMessage(edProperties.Handle, EM_GETFIRSTVISIBLELINE, 0, 0);
-    edProperties.Lines.Clear;
-    StartQuery(CurerntAddr);
-    SendMessage(edProperties.Handle, EM_LINESCROLL, 0, ThumbPos);
-  finally
-    edProperties.Lines.EndUpdate;
-  end;
+  RefreshData;
 end;
 
 procedure TdlgRegionProps.mnuShowAsDisassemblyClick(Sender: TObject);
@@ -254,13 +265,32 @@ begin
     FormStyle := fsNormal;
 end;
 
+procedure TdlgRegionProps.RefreshData;
+var
+  ThumbPos, SelS, SelE: Integer;
+begin
+  edProperties.Lines.BeginUpdate;
+  try
+    ThumbPos := SendMessage(edProperties.Handle, EM_GETFIRSTVISIBLELINE, 0, 0);
+    SelS := edProperties.SelStart;
+    SelE := edProperties.SelLength;
+    edProperties.Lines.Clear;
+    StartQuery(CurerntAddr);
+    SendMessage(edProperties.Handle, EM_LINESCROLL, 0, ThumbPos);
+    if SelE <> 0 then
+      SendMessage(edProperties.Handle, EM_SETSEL, SelS, SelS + SelE);
+  finally
+    edProperties.Lines.EndUpdate;
+  end;
+end;
+
 procedure TdlgRegionProps.SelectAll1Click(Sender: TObject);
 begin
   edProperties.SelectAll;
 end;
 
 procedure TdlgRegionProps.ShowInfoFromMBI(Process: THandle;
-  MBI: TMemoryBasicInformation; Address: Pointer);
+  MBI: TMemoryBasicInformation; Address: Pointer; var ACaption: string);
 var
   OwnerName: array [0..MAX_PATH - 1] of Char;
   Path, DescriptionAtAddr: string;
@@ -291,7 +321,7 @@ begin
     @OwnerName[0], MAX_PATH) > 0 then
   begin
     Path := NormalizePath(string(OwnerName));
-    Caption := Caption + ' "' + ExtractFileName(Path) + '"';
+    ACaption := ACaption + ' "' + ExtractFileName(Path) + '"';
     Add('Mapped file: ' + Path);
     if CheckPEImage(Process, MBI.AllocationBase) then
     begin
@@ -390,12 +420,13 @@ var
   ARegion: TRegionData;
   Item: TContainItem;
   Dasm64Mode: Boolean;
+  ACaption: string;
 begin
   CurerntAddr := Value;
   ProcessLock := nil;
   Process := OpenProcessWithReconnect;
   try
-    Caption := Format(DefCaption, [ShowCounter, ULONG_PTR(Value)]);
+    ACaption := Format(DefCaption, [ShowCounter, ULONG_PTR(Value)]);
     edProperties.Lines.Add('Info at address: ' + UInt64ToStr(ULONG_PTR(Value)));
     if Settings.SuspendProcess then
       ProcessLock := SuspendProcess(MemoryMapCore.PID);
@@ -424,12 +455,12 @@ begin
       end;
       mnuShowAsDisassembly.Checked := ShowAsDisassembly;
 
-      ShowInfoFromMBI(Process, MBI, Value);
+      ShowInfoFromMBI(Process, MBI, Value, ACaption);
 
       if ShowAsDisassembly then
       begin
         Add(Disassembly(Process, Value, DAsmMode, Dasm64Mode));
-        Caption := Caption + ' Mode: ' + DAsmModeStr[Dasm64Mode];
+        ACaption := ACaption + ' Mode: ' + DAsmModeStr[Dasm64Mode];
         Exit;
       end;
 
@@ -438,7 +469,7 @@ begin
       if Value = KUSER_SHARED_DATA_ADDR then
       begin
         Add(DumpKUserSharedData, Process, Value);
-        Caption := Caption + ' KUSER_SHARED_DATA';
+        ACaption := ACaption + ' KUSER_SHARED_DATA';
         Exit;
       end;
 
@@ -446,7 +477,7 @@ begin
       if Value = MemoryMapCore.PebWow64BaseAddress then
       begin
         Add(DumpPEB32, Process, Value);
-        Caption := Caption + ' PebWow64';
+        ACaption := ACaption + ' PebWow64';
         Exit;
       end;
       {$ENDIF}
@@ -455,10 +486,10 @@ begin
       begin
         {$IFDEF WIN32}
         Add(DumpPEB32 ,Process, Value);
-        Caption := Caption + ' Peb32';
+        ACaption := ACaption + ' Peb32';
         {$ELSE}
         Add(DumpPEB64, Process, Value);
-        Caption := Caption + ' Peb64';
+        ACaption := ACaption + ' Peb64';
         {$ENDIF}
         Exit;
       end;
@@ -498,7 +529,7 @@ begin
       if Value = Pointer(MemoryMapCore.PEBWow64.ProcessParameters) then
       begin
         Add(DumpProcessParameters32, Process, Value);
-        Caption := Caption + ' ProcessParameters32';
+        ACaption := ACaption + ' ProcessParameters32';
         Exit;
       end;
       {$ENDIF}
@@ -507,22 +538,33 @@ begin
       begin
         {$IFDEF WIN32}
         Add(DumpProcessParameters32, Process, Value);
-        Caption := Caption + ' ProcessParameters32';
+        ACaption := ACaption + ' ProcessParameters32';
         {$ELSE}
         Add(DumpProcessParameters64, Process, Value);
-        Caption := Caption + ' ProcessParameters64';
+        ACaption := ACaption + ' ProcessParameters64';
         {$ENDIF}
         Exit;
       end;
 
       Add(DumpMemory, Process, Value);
     finally
+      Caption := ACaption;
       edProperties.SelStart := 0;
       if Settings.SuspendProcess then
         ResumeProcess(ProcessLock);
     end;
   finally
     CloseHandle(Process);
+  end;
+end;
+
+procedure TdlgRegionProps.tmrAutoRefreshTimer(Sender: TObject);
+begin
+  tmrAutoRefresh.Enabled := False;
+  try
+    RefreshData;
+  finally
+    tmrAutoRefresh.Enabled := True;
   end;
 end;
 

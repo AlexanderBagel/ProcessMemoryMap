@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.40
+//  * Version   : 1.5.44
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -77,6 +77,9 @@ type
     cbLineDirection: TComboBox;
     Label13: TLabel;
     cbCheckStackAddrPCExecutable: TCheckBox;
+    cbAutoRefresh: TCheckBox;
+    Label14: TLabel;
+    seAutoRefreshDelay: TSpinEdit;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -96,6 +99,8 @@ type
       'PrivateColor', 'SharedColor', 'MappedColor', 'HeapColor',
       'ThreadColor', 'SystemColor');
   strict private
+    FAutoRefresh: Boolean;
+    FAutoRefreshDelay: Integer;
     FColors: array [0..7] of TColorRef;
     FCheckStackAddrPCExecutable: Boolean;
     FSearchDifferences: Boolean;
@@ -123,6 +128,8 @@ type
     procedure SaveSettings;
     procedure LoadDefault;
     property AutoReconnect: Boolean read FReconnect write FReconnect;
+    property AutoRefresh: Boolean read FAutoRefresh write FAutoRefresh;
+    property AutoRefreshDelay: Integer read FAutoRefreshDelay write FAutoRefreshDelay;
     property ImageColor: TColorRef index 0 read GetColor write SetColor;
     property ImagePartColor: TColorRef index 1 read GetColor write SetColor;
     property PrivateColor: TColorRef index 2 read GetColor write SetColor;
@@ -210,6 +217,8 @@ begin
   ShowChildFormsOnTaskBar := True;
   ShowAligns := True;
   CheckStackAddrPCExecutable := True;
+  AutoRefresh := False;
+  AutoRefreshDelay := 5000;
 end;
 
 procedure TSettings.LoadSettings;
@@ -258,6 +267,10 @@ begin
         FColors[I] := R.ReadInteger(RegKeys[I]);
       if R.ValueExists('CheckStackAddrPCExecutable') then
         CheckStackAddrPCExecutable := R.ReadBool('CheckStackAddrPCExecutable');
+      if R.ValueExists('AutoRefresh') then
+        AutoRefresh := R.ReadBool('AutoRefresh');
+      if R.ValueExists('AutoRefreshDelay') then
+        AutoRefreshDelay := R.ReadInteger('AutoRefreshDelay');
     except
       LoadDefault;
     end;
@@ -296,6 +309,8 @@ begin
     for I := 0 to 7 do
       R.WriteInteger(RegKeys[I], FColors[I]);
     R.WriteBool('CheckStackAddrPCExecutable', CheckStackAddrPCExecutable);
+    R.WriteBool('AutoRefresh', AutoRefresh);
+    R.WriteInteger('AutoRefreshDelay', AutoRefreshDelay);
   finally
     R.Free;
   end;
@@ -338,6 +353,8 @@ begin
   for I := 0 to 7 do
     Settings.SetColor(I, Colors[I]);
   Settings.CheckStackAddrPCExecutable := cbCheckStackAddrPCExecutable.Checked;
+  Settings.AutoRefresh := cbAutoRefresh.Checked;
+  Settings.AutoRefreshDelay := seAutoRefreshDelay.Value;
   Settings.SaveSettings;
   ModalResult := mrOk;
 end;
@@ -393,6 +410,8 @@ begin
     P.Caption := IntToHex(Colors[I], 8);
   end;
   cbCheckStackAddrPCExecutable.Checked := Settings.CheckStackAddrPCExecutable;
+  cbAutoRefresh.Checked := Settings.AutoRefresh;
+  seAutoRefreshDelay.Value := Settings.AutoRefreshDelay;
 end;
 
 procedure TdlgSettings.tvNavigateClick(Sender: TObject);

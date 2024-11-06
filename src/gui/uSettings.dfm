@@ -83,6 +83,13 @@ object dlgSettings: TdlgSettings
         Height = 13
         Caption = 'Stack Overflow Limit:'
       end
+      object Label14: TLabel
+        Left = 3
+        Top = 216
+        Width = 94
+        Height = 13
+        Caption = 'Auto refresh delay:'
+      end
       object cbSearchDiff: TCheckBox
         Left = 3
         Top = 96
@@ -148,6 +155,24 @@ object dlgSettings: TdlgSettings
         Height = 17
         Caption = 'Check Stack AddrPC is Executable'
         TabOrder = 7
+      end
+      object cbAutoRefresh: TCheckBox
+        Left = 3
+        Top = 190
+        Width = 246
+        Height = 17
+        Caption = 'Auto Refresh Region Data'
+        TabOrder = 8
+      end
+      object seAutoRefreshDelay: TSpinEdit
+        Left = 110
+        Top = 213
+        Width = 62
+        Height = 22
+        MaxValue = 60000
+        MinValue = 200
+        TabOrder = 9
+        Value = 5000
       end
     end
     object TabSheet2: TTabSheet
