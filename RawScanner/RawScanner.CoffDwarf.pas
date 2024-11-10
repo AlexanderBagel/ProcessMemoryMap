@@ -1370,7 +1370,7 @@ type
   TUnitInfosList = TObjectList<TDwarfInfoUnit>;
   TDwarfBeforeLoadCallback = reference to procedure(ADwarfDebugInfo: TDwarfDebugInfo);
 
-  TLoadCallbackStep = (lcsLoadInfo, lcsProcessInfo, lcsLoadLines);
+  TLoadCallbackStep = (lcsLoadInfo, lcsPrepareAddr, lcsProcessInfo, lcsLoadLines);
   TDwarfLoadCallback = reference to procedure(AStep: TLoadCallbackStep; ACurrent, AMax: Int64);
 
   TDwarfDebugInfo = class
@@ -3963,7 +3963,7 @@ var
   AUnit: TDwarfInfoUnit;
   DieList: TDieList;
   AAbsoluteDict: TAddrDict;
-  I, LoadIndex: Integer;
+  I, LoadIndex, Part: Integer;
   {$IFDEF USE_PROFILING}
   sw: TStopwatch;
   {$ENDIF}
@@ -3986,7 +3986,8 @@ begin
         else
           FUnitInfos.Add(AUnit);
         {$IFDEF USE_PROFILING}
-        AUnit.Elapsed := sw.ElapsedMilliseconds;
+        if AUnit <> nil then
+          AUnit.Elapsed := sw.ElapsedMilliseconds;
         {$ENDIF}
         DoCallback(lcsLoadInfo, Ctx.debug_info.Position, Ctx.debug_info.Size);
       except
@@ -4004,8 +4005,15 @@ begin
     DoCallback(lcsProcessInfo, 0, DieList.Count);
     AAbsoluteDict := TAddrDict.Create;
     try
+      DoCallback(lcsPrepareAddr, 0, DieList.Count);
+      Part := DieList.Count div 100;
       for I := 0 to DieList.Count - 1 do
+      begin
         AAbsoluteDict.Add(DieList.List[I].AbsoluteOffset, I);
+        if I mod Part = 0 then
+          DoCallback(lcsPrepareAddr, I, DieList.Count);
+      end;
+      DoCallback(lcsPrepareAddr, DieList.Count, DieList.Count);
       LoadIndex := 0;
       for AUnit in FUnitInfos do
       begin

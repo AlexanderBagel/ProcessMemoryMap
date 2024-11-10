@@ -90,6 +90,13 @@ object dlgSettings: TdlgSettings
         Height = 13
         Caption = 'Auto refresh delay:'
       end
+      object Label15: TLabel
+        Left = 3
+        Top = 244
+        Width = 88
+        Height = 13
+        Caption = 'Search result limit:'
+      end
       object cbSearchDiff: TCheckBox
         Left = 3
         Top = 96
@@ -173,6 +180,16 @@ object dlgSettings: TdlgSettings
         MinValue = 200
         TabOrder = 9
         Value = 5000
+      end
+      object seSearchLimit: TSpinEdit
+        Left = 110
+        Top = 241
+        Width = 62
+        Height = 22
+        MaxValue = 500
+        MinValue = 1
+        TabOrder = 10
+        Value = 50
       end
     end
     object TabSheet2: TTabSheet

@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.41
+//  * Version   : 1.5.45
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -162,6 +162,9 @@ type
     N11: TMenuItem;
     DWARFReader1: TMenuItem;
     acRunDWARFReader: TAction;
+    acSearchResult: TAction;
+    ShowSearchResults1: TMenuItem;
+    gbPages: TGroupBox;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -225,6 +228,8 @@ type
     procedure acCallStackDemanglerExecute(Sender: TObject);
     procedure acRunDWARFReaderUpdate(Sender: TObject);
     procedure acRunDWARFReaderExecute(Sender: TObject);
+    procedure acSearchResultUpdate(Sender: TObject);
+    procedure acSearchResultExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -250,6 +255,7 @@ type
     procedure OnInitProgress(const Step: string; APecent: Integer);
     procedure OnLog(ALevel: TLogLevel; AType: TLogType;
       const FuncName, Description: string);
+    procedure DelayedLoad(var Msg: TMessage); message WM_USER;
   public
     function Reconnect: Boolean;
   end;
@@ -278,6 +284,7 @@ uses
   uDebugInfoDlg,
   uStringsViewer,
   uCallStack,
+  uSearchResult,
   ScaledCtrls,
   Shell.TaskBarListProgress;
 
@@ -667,6 +674,16 @@ begin
   dlgFindData.Show;
 end;
 
+procedure TdlgProcessMM.acSearchResultExecute(Sender: TObject);
+begin
+  dlgSearchResult.Show;
+end;
+
+procedure TdlgProcessMM.acSearchResultUpdate(Sender: TObject);
+begin
+  TAction(Sender).Enabled := dlgSearchResult <> nil;
+end;
+
 procedure TdlgProcessMM.acSelectProcessExecute(Sender: TObject);
 
   procedure OpenProcessAndInitGUI(PID: DWORD; const ProcessName: string);
@@ -865,6 +882,11 @@ begin
   SetLength(NodeDataArray, NodeDataArrayLength);
 end;
 
+procedure TdlgProcessMM.DelayedLoad(var Msg: TMessage);
+begin
+  ProcessFirstRun;
+end;
+
 //
 //   Процедура инициализирует дерево
 // =============================================================================
@@ -1018,7 +1040,7 @@ end;
 procedure TdlgProcessMM.FormActivate(Sender: TObject);
 begin
   {$IFDEF DEBUG}
-  ProcessFirstRun;
+  PostMessage(Handle, WM_USER, 0, 0);
   {$ENDIF}
 end;
 
@@ -1170,6 +1192,7 @@ begin
         begin
           case AStep of
             lcsLoadInfo: dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF.';
+            lcsPrepareAddr: dlgProgress.lblProgress.Caption := LastProgressCaption + ' prepare DWARF.';
             lcsProcessInfo: dlgProgress.lblProgress.Caption := LastProgressCaption + ' process DWARF.';
           else
             dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF lines.';

@@ -88,7 +88,7 @@ begin
   if (Value and PAGE_NOACCESS) = PAGE_NOACCESS then Result := 'No access';
   if (Value and PAGE_READONLY) = PAGE_READONLY then Result := 'R';
   if (Value and PAGE_READWRITE) = PAGE_READWRITE then Result := 'RW';
-  if (Value and PAGE_WRITECOPY) = PAGE_WRITECOPY then Result := 'Write copy';
+  if (Value and PAGE_WRITECOPY) = PAGE_WRITECOPY then Result := 'R, Write copy';
 end;
 
 function ExtractAccessString(const Value: DWORD): string;

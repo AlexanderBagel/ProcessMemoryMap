@@ -82,7 +82,8 @@ uses
   RawScanner.Image.Elf in 'RawScanner\RawScanner.Image.Elf.pas',
   RawScanner.MapGenerator in 'RawScanner\RawScanner.MapGenerator.pas',
   RawScanner.AbstractImage in 'RawScanner\RawScanner.AbstractImage.pas',
-  RawScanner.Image.Coff in 'RawScanner\RawScanner.Image.Coff.pas';
+  RawScanner.Image.Coff in 'RawScanner\RawScanner.Image.Coff.pas',
+  uSearchResult in 'src\gui\uSearchResult.pas' {dlgSearchResult};
 
 {$R *.res}
 

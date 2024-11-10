@@ -58,8 +58,9 @@ type
     function ToString: string;
     case Boolean of
       True: ( // доп данные для отложеного импорта
-        DelayedModuleInstanceVA,      // VA адрес где будет записан инстанс загруженого модуля на который идет отложеный импорт
-        DelayedIATData: ULONG_PTR64;  // RVA адрес или указатель на отложеную функцию
+        DelayedModuleInstanceVA,          // VA адрес где будет записан инстанс загруженого модуля на который идет отложеный импорт
+        DelayedIATData,                   // RVA адрес или указатель на отложеную функцию
+        DelayedDescriptorVA: ULONG_PTR64; // VA адрес дескриптора, нужен для вывода информации если не прошла проверка DelayedModuleInstanceVA
       );
   end;
 
@@ -984,7 +985,10 @@ begin
     // VA адрес по которому будет расположен HInstance модуля,
     // из которого идет импорт функции после его инициализации
     if DelayDescr.rvaHmod <> 0 then
-      ImportChunk.DelayedModuleInstanceVA := RvaToVa(GetRva(DelayDescr.rvaHmod))
+    begin
+      ImportChunk.DelayedModuleInstanceVA := RvaToVa(GetRva(DelayDescr.rvaHmod));
+      ImportChunk.DelayedDescriptorVA := DescVA;
+    end
     else
       ImportChunk.DelayedModuleInstanceVA := 0;
 

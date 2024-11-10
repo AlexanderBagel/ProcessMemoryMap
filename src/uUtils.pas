@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Version   : 1.5.45
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -273,7 +273,8 @@ var
         PAGE_EXECUTE_READ or
         PAGE_EXECUTE_READWRITE or
         PAGE_READONLY or
-        PAGE_READWRITE) <> 0;
+        PAGE_READWRITE or
+        PAGE_WRITECOPY) <> 0;
     if Result then
       Result := (MBI.Protect and PAGE_GUARD) = 0;
   end;

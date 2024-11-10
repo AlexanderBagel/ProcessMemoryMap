@@ -111,75 +111,88 @@ object dlgProcessMM: TdlgProcessMM
         end>
     end
   end
-  object stMemoryMap: TVirtualStringTree
+  object gbPages: TGroupBox
     Left = 8
     Top = 264
     Width = 989
     Height = 315
     Anchors = [akLeft, akTop, akRight, akBottom]
-    Header.AutoSizeIndex = 0
-    Header.Height = 17
-    Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
-    PopupMenu = PopupMenu
+    Caption = 'Pages:'
     TabOrder = 1
-    TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection, toUseExplorerTheme, toHideTreeLinesIfThemed]
-    TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect]
-    OnBeforeItemErase = stMemoryMapBeforeItemErase
-    OnGetText = stMemoryMapGetText
-    OnNodeDblClick = stMemoryMapNodeDblClick
-    Touch.InteractiveGestures = [igPan, igPressAndTap]
-    Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
-    Columns = <
-      item
-        Position = 0
-        Text = 'Address'
-        Width = 170
-      end
-      item
-        Position = 1
-        Text = 'Type'
-        Width = 300
-      end
-      item
-        Alignment = taRightJustify
-        CaptionAlignment = taRightJustify
-        Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
-        Position = 2
-        Text = 'Size'
-        Width = 75
-      end
-      item
-        Position = 3
-        Text = 'Section'
-        Width = 64
-      end
-      item
-        Position = 4
-        Text = 'Contains'
-        Width = 120
-      end
-      item
-        Position = 5
-        Text = 'Access'
-        Width = 100
-      end
-      item
-        Position = 6
-        Text = 'Initial Access'
-        Width = 100
-      end
-      item
-        Alignment = taRightJustify
-        CaptionAlignment = taRightJustify
-        Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
-        Position = 7
-        Text = 'Blocks'
-      end
-      item
-        Position = 8
-        Text = 'Details'
-        Width = 560
-      end>
+    object stMemoryMap: TVirtualStringTree
+      Left = 2
+      Top = 15
+      Width = 985
+      Height = 298
+      Align = alClient
+      Header.AutoSizeIndex = 0
+      Header.Height = 17
+      Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+      PopupMenu = PopupMenu
+      TabOrder = 0
+      TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection, toUseExplorerTheme, toHideTreeLinesIfThemed]
+      TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect]
+      OnBeforeItemErase = stMemoryMapBeforeItemErase
+      OnGetText = stMemoryMapGetText
+      OnNodeDblClick = stMemoryMapNodeDblClick
+      Touch.InteractiveGestures = [igPan, igPressAndTap]
+      Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
+      ExplicitLeft = -804
+      ExplicitTop = -210
+      ExplicitWidth = 989
+      ExplicitHeight = 315
+      Columns = <
+        item
+          Position = 0
+          Text = 'Address'
+          Width = 170
+        end
+        item
+          Position = 1
+          Text = 'Type'
+          Width = 300
+        end
+        item
+          Alignment = taRightJustify
+          CaptionAlignment = taRightJustify
+          Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
+          Position = 2
+          Text = 'Size'
+          Width = 75
+        end
+        item
+          Position = 3
+          Text = 'Section'
+          Width = 64
+        end
+        item
+          Position = 4
+          Text = 'Contains'
+          Width = 120
+        end
+        item
+          Position = 5
+          Text = 'Access'
+          Width = 100
+        end
+        item
+          Position = 6
+          Text = 'Initial Access'
+          Width = 100
+        end
+        item
+          Alignment = taRightJustify
+          CaptionAlignment = taRightJustify
+          Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
+          Position = 7
+          Text = 'Blocks'
+        end
+        item
+          Position = 8
+          Text = 'Details'
+          Width = 560
+        end>
+    end
   end
   object MainMenu: TMainMenu
     Images = MainMenuImageList
@@ -261,6 +274,9 @@ object dlgProcessMM: TdlgProcessMM
       end
       object ShowStrings1: TMenuItem
         Action = acStrings
+      end
+      object ShowSearchResults1: TMenuItem
+        Action = acSearchResult
       end
     end
     object mnuUtils: TMenuItem
@@ -577,6 +593,13 @@ object dlgProcessMM: TdlgProcessMM
       Caption = 'DWARF Reader...'
       OnExecute = acRunDWARFReaderExecute
       OnUpdate = acRunDWARFReaderUpdate
+    end
+    object acSearchResult: TAction
+      Category = 'View'
+      Caption = 'Show Search Results...'
+      ShortCut = 8262
+      OnExecute = acSearchResultExecute
+      OnUpdate = acSearchResultUpdate
     end
   end
   object SaveDMPDialog: TSaveDialog

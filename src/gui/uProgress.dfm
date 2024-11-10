@@ -4,7 +4,7 @@ object dlgProgress: TdlgProgress
   BorderStyle = bsNone
   Caption = 'dlgProgress'
   ClientHeight = 67
-  ClientWidth = 465
+  ClientWidth = 500
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -20,10 +20,11 @@ object dlgProgress: TdlgProgress
   object Panel1: TPanel
     Left = 0
     Top = 0
-    Width = 465
+    Width = 500
     Height = 67
     Align = alClient
     TabOrder = 0
+    ExplicitWidth = 465
     object lblProgress: TLabel
       Left = 16
       Top = 16

@@ -7,7 +7,7 @@
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Version   : 1.5.45
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -671,6 +671,37 @@ begin
     Size, Dummy, rcReadAllwais);
   Result := '[' + IntToHex(ULONG_PTR(Address), 1) + '] "' +
     string(PAnsiChar(@ByteBuff[0])) + '"';
+end;
+
+function ExtractModuleHInstance(Process: THandle; const Buff: TMemoryDump;
+  Cursor, RvaRecalc: NativeUInt): string;
+var
+  Address: Pointer;
+  Size, Dummy: NativeUInt;
+  HInstanceValue: ULONG_PTR64;
+  I, Count: Integer;
+  Data: TSymbolData;
+  Module: TRawPEImage;
+  AModuleName: string;
+begin
+  Result := EmptyStr;
+  if Cursor > MaxSize - 4 then Exit;
+  Address := Pointer(RvaRecalc + PDWORD(@Buff[Cursor])^);
+  Size := SizeOf(HInstanceValue);
+  ReadProcessData(Process, Address, @HInstanceValue,
+    Size, Dummy, rcReadAllwais);
+  AModuleName := '';
+  Count := SymbolStorage.GetDataCountAtAddr(HInstanceValue);
+  for I := 0 to Count - 1 do
+  begin
+    if SymbolStorage.GetDataTypeAtAddr(HInstanceValue, I) = sdtInstance then
+    begin
+      SymbolStorage.GetDataAtAddr(HInstanceValue, Data, I);
+      Module := RawScannerCore.Modules.Items[Data.Binary.ModuleIndex];
+      AModuleName := Module.ImageName;
+    end;
+  end;
+  Result := '[' + IntToHex(ULONG_PTR(HInstanceValue), 1) + '] "' + AModuleName + '"';
 end;
 
 function CrossProcessFlagsToStr(Value: ULONG): string;
@@ -3035,7 +3066,8 @@ begin
       AddString(OutString, 'Attributes', @Buff[Cursor], dtDword, Cursor);
       AddString(OutString, 'Name', @Buff[Cursor], dtDword, Cursor,
         ExtractPAnsiChar(Process, Buff, Cursor, AllocationBase));
-      AddString(OutString, 'ModuleInstance', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'ModuleInstance', @Buff[Cursor], dtDword, Cursor, AllocationBase,
+        ExtractModuleHInstance(Process, Buff, Cursor, AllocationBase));
       AddString(OutString, 'IAT', @Buff[Cursor], dtDword, Cursor, AllocationBase);
       AddString(OutString, 'INT', @Buff[Cursor], dtDword, Cursor, AllocationBase);
       AddString(OutString, 'BoundIAT', @Buff[Cursor], dtDword, Cursor, AllocationBase);

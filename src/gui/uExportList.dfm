@@ -28,7 +28,7 @@ object dlgExportList: TdlgExportList
     Height = 337
     Align = alClient
     Header.AutoSizeIndex = 3
-    Header.Height = 24
+    Header.Height = 17
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     PopupMenu = pmCopy
     TabOrder = 0

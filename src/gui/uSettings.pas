@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог настроек
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.44
+//  * Version   : 1.5.45
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -80,6 +80,8 @@ type
     cbAutoRefresh: TCheckBox;
     Label14: TLabel;
     seAutoRefreshDelay: TSpinEdit;
+    Label15: TLabel;
+    seSearchLimit: TSpinEdit;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
@@ -120,6 +122,7 @@ type
     FShowChildFormsOnTaskBar: Boolean;
     FShowAligns: Boolean;
     FStackOverflowLimit: Integer;
+    FSearchLimit: Integer;
   public
     constructor Create;
     function GetColor(const Index: Integer): TColorRef;
@@ -155,6 +158,7 @@ type
     property ShowChildFormsOnTaskBar: Boolean read FShowChildFormsOnTaskBar write FShowChildFormsOnTaskBar;
     property ShowAligns: Boolean read FShowAligns write FShowAligns;
     property CheckStackAddrPCExecutable: Boolean read FCheckStackAddrPCExecutable write FCheckStackAddrPCExecutable;
+    property SearchLimit: Integer read FSearchLimit write FSearchLimit;
   end;
 
   function Settings: TSettings;
@@ -219,6 +223,7 @@ begin
   CheckStackAddrPCExecutable := True;
   AutoRefresh := False;
   AutoRefreshDelay := 5000;
+  SearchLimit := 50;
 end;
 
 procedure TSettings.LoadSettings;
@@ -271,6 +276,8 @@ begin
         AutoRefresh := R.ReadBool('AutoRefresh');
       if R.ValueExists('AutoRefreshDelay') then
         AutoRefreshDelay := R.ReadInteger('AutoRefreshDelay');
+      if R.ValueExists('SearchLimit') then
+        SearchLimit := R.ReadInteger('SearchLimit');
     except
       LoadDefault;
     end;
@@ -311,6 +318,7 @@ begin
     R.WriteBool('CheckStackAddrPCExecutable', CheckStackAddrPCExecutable);
     R.WriteBool('AutoRefresh', AutoRefresh);
     R.WriteInteger('AutoRefreshDelay', AutoRefreshDelay);
+    R.WriteInteger('SearchLimit', SearchLimit);
   finally
     R.Free;
   end;
@@ -355,6 +363,7 @@ begin
   Settings.CheckStackAddrPCExecutable := cbCheckStackAddrPCExecutable.Checked;
   Settings.AutoRefresh := cbAutoRefresh.Checked;
   Settings.AutoRefreshDelay := seAutoRefreshDelay.Value;
+  Settings.SearchLimit := seSearchLimit.Value;
   Settings.SaveSettings;
   ModalResult := mrOk;
 end;
@@ -412,6 +421,7 @@ begin
   cbCheckStackAddrPCExecutable.Checked := Settings.CheckStackAddrPCExecutable;
   cbAutoRefresh.Checked := Settings.AutoRefresh;
   seAutoRefreshDelay.Value := Settings.AutoRefreshDelay;
+  seSearchLimit.Value := Settings.SearchLimit;
 end;
 
 procedure TdlgSettings.tvNavigateClick(Sender: TObject);
