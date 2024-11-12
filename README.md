@@ -130,8 +130,11 @@
 Присутствует модуль деманглинга стека вызовов потоков включая 32 и 64 бита + 32SEH (F4)
 ![9](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/15.png?raw=true "Threads CallStack")
 
+Результаты поиска выводятся в отдельный диалог
+![10](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/16.png?raw=true "Search Results")
+
 Ну и вот так выглядит список изменений в выделенных блоках с последней проверки (F5)
 
-![10](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/8.png?raw=true "Compare result")
+![11](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/8.png?raw=true "Compare result")
 
 Ну и много много чего еще интересного.
