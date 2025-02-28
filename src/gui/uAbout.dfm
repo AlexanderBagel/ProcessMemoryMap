@@ -4690,7 +4690,7 @@ object dlgAbout: TdlgAbout
     Top = 27
     Width = 247
     Height = 13
-    Caption = 'Copyright: '#169' 2013-2024 Alexander (Rouse_) Bagel'
+    Caption = 'Copyright: '#169' 2013-2025 Alexander (Rouse_) Bagel'
   end
   object Label3: TLabel
     Left = 56

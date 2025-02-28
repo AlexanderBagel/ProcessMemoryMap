@@ -6,8 +6,8 @@
 //  * Purpose   : Декларация типов используемых для чтения отладочной
 //  *           : информации в форматах COFF и DWARF.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.24
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
+//  * Version   : 1.1.25
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -4006,7 +4006,10 @@ begin
     AAbsoluteDict := TAddrDict.Create;
     try
       DoCallback(lcsPrepareAddr, 0, DieList.Count);
-      Part := DieList.Count div 100;
+      if DieList.Count > 100 then
+        Part := DieList.Count div 100
+      else
+        Part := DieList.Count;
       for I := 0 to DieList.Count - 1 do
       begin
         AAbsoluteDict.Add(DieList.List[I].AbsoluteOffset, I);

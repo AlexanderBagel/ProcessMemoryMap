@@ -6,8 +6,8 @@
 //  * Purpose   : Классы получающие данные о состоянии ELF файлов в процессе
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.24
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
+//  * Version   : 1.1.25
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -39,6 +39,11 @@ type
   TImageSymbol = record
     DisplayName: string;
     Executable: Boolean;
+    Hdr: Elf64_Sym;
+  end;
+
+  TImportChunk = record
+    DisplayName: string;
     Hdr: Elf64_Sym;
   end;
 
@@ -75,6 +80,7 @@ type
     FImageBase, FLoadedImageBase, FEntryPoint: ULONG_PTR64;
     FImageGate: TElfImageGate;
     FImagePath, FImageName: string;
+    FImport: TList<TImportChunk>;
     FIndex: Integer;
     FLoadSectionsOnly: Boolean;
     FProgramHeaders: array of Elf64_Phdr;
@@ -88,8 +94,8 @@ type
     function LoadHeader(Raw: TStream): Boolean;
     function LoadProgramHeaders(Raw: TStream): Boolean;
     function LoadSections(Raw: TMemoryStream): Boolean;
-    function LoadExport(Raw: TStream): Boolean;
-    function LoadImport(Raw: TStream): Boolean;
+    function LoadExport(Raw: TMemoryStream): Boolean;
+    function LoadImport(Raw: TMemoryStream): Boolean;
     function LoadSymbols(Raw: TMemoryStream): Boolean;
   public
     constructor Create(const ImagePath: string; ALoadSectionsOnly: Boolean;
@@ -118,6 +124,7 @@ type
     property ImageBaseInHeaders: ULONG_PTR64 read FLoadedImageBase;
     property ImageName: string read FImageName;
     property ImagePath: string read FImagePath;
+    property ImportList: TList<TImportChunk> read FImport;
     property ModuleIndex: Integer read FIndex;
     property SectionsPresent: Boolean read FSectionsPresent;
     property Symbols: TList<TImageSymbol> read FSymbols;
@@ -247,6 +254,7 @@ begin
   FImagePath := ImagePath;
   FImageBase := ImageBase;
   FImageName := ExtractFileName(ImagePath);
+  FImport := TList<TImportChunk>.Create;
   FLoadSectionsOnly := ALoadSectionsOnly;
   FSymbols := TList<TImageSymbol>.Create;
   FImageGate := TElfImageGate.Create(Self);
@@ -277,6 +285,7 @@ destructor TRawElfImage.Destroy;
 begin
   FDwarfDebugInfo.Free;
   FImageGate.Free;
+  FImport.Free;
   FSymbols.Free;
   inherited;
 end;
@@ -350,7 +359,7 @@ begin
   FDebugData := FDebugData + FDwarfDebugInfo.Load(Raw);
 end;
 
-function TRawElfImage.LoadExport(Raw: TStream): Boolean;
+function TRawElfImage.LoadExport(Raw: TMemoryStream): Boolean;
 begin
   Result := False;
 end;
@@ -452,9 +461,78 @@ begin
   Result := True;
 end;
 
-function TRawElfImage.LoadImport(Raw: TStream): Boolean;
+function TRawElfImage.LoadImport(Raw: TMemoryStream): Boolean;
+var
+  SymSection, SymStrSection, ExecutableSection: TElfSectionHeader;
+  ImportChunk: TImportChunk;
+  I, ACount: Integer;
+  Hdr32: Elf32_Sym;
+  Strings: PByte;
+  Elf64Dyn: Elf64_Dyn;
+  S: string;
 begin
-  Result := False;
+  Result := SectionByType(SHT_DYNAMIC, SymSection) and
+    SectionAtIndex(SymSection.Hdr.sh_link, SymStrSection);
+  if not Result then Exit;
+  if Image64 then
+    Result := SymSection.Hdr.sh_entsize = SizeOf(Elf64_Dyn)
+  else
+    Result := SymSection.Hdr.sh_entsize = SizeOf(Elf32_Dyn);
+  if not Result then Exit;
+  ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
+  Raw.Position := SymSection.Hdr.sh_offset;
+  Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
+  FillChar(Elf64Dyn, SizeOf(Elf64Dyn), 0);
+  for I := 0 to ACount - 1 do
+  begin
+    if Image64 then
+      Raw.ReadBuffer(Elf64Dyn, SizeOf(Elf64Dyn))
+    else
+    begin
+
+    end;
+    if Elf64Dyn.d_tag = DT_NEEDED then
+    begin
+      S := string(PAnsiChar(Strings + Elf64Dyn.d_ptr));
+      if S <> '' then
+        S := '';
+    end;
+  end;
+
+  Result := SectionByType(SHT_DYNSYM, SymSection) and
+    SectionAtIndex(SymSection.Hdr.sh_link, SymStrSection);
+  if not Result then Exit;
+  if Image64 then
+    Result := SymSection.Hdr.sh_entsize = SizeOf(Elf64_Sym)
+  else
+    Result := SymSection.Hdr.sh_entsize = SizeOf(Elf32_Sym);
+  if not Result then Exit;
+  ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
+  FImport.Count := ACount;
+  if ACount = 0 then Exit;
+  Raw.Position := SymSection.Hdr.sh_offset;
+  Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
+  FillChar(ImportChunk, SizeOf(Symbols), 0);
+  for I := 0 to ACount - 1 do
+  begin
+    if Image64 then
+      Raw.ReadBuffer(ImportChunk.Hdr, SizeOf(Elf64_Sym))
+    else
+    begin
+      Raw.ReadBuffer(Hdr32, SizeOf(Hdr32));
+      ImportChunk.Hdr.st_name := Hdr32.st_name;
+      ImportChunk.Hdr.st_info := Hdr32.st_info;
+      ImportChunk.Hdr.st_other := Hdr32.st_info;
+      ImportChunk.Hdr.st_shndx := Hdr32.st_shndx;
+      ImportChunk.Hdr.st_value := Hdr32.st_value;
+      ImportChunk.Hdr.st_size := Hdr32.st_size;
+    end;
+    if (ImportChunk.Hdr.st_name > 0) and (ImportChunk.Hdr.st_name < SymStrSection.Hdr.sh_size) then
+      ImportChunk.DisplayName := string(PAnsiChar(Strings + ImportChunk.Hdr.st_name))
+    else
+      ImportChunk.DisplayName := '';
+    FImport[I] := ImportChunk;
+  end;
 end;
 
 function TRawElfImage.LoadProgramHeaders(Raw: TStream): Boolean;
@@ -585,7 +663,7 @@ var
 begin
   Result := SectionByType(SHT_SYMTAB, SymSection) and
     SectionAtIndex(SymSection.Hdr.sh_link, SymStrSection);
-  if not Result  then Exit;
+  if not Result then Exit;
   if Image64 then
     Result := SymSection.Hdr.sh_entsize = SizeOf(Elf64_Sym)
   else
