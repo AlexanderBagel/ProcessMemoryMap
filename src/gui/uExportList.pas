@@ -5,8 +5,8 @@
 //  * Unit Name : uExportList.pas
 //  * Purpose   : Диалог для отображения списка экспорта функций
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,16 +38,10 @@ uses
 
   RawScanner.Image.Pe,
 
-  uBaseForm;
+  uBaseForm,
+  uSettings;
 
 type
-  TExportStatus = (esNormal, esForvarded, esRebased,
-    esNoExecutable, esInvalid,
-    esDebug, esDebugData, // MAP
-    esCoff, esCoffData,   // COFF
-    esDwarf, esDwarfData  // DWARF
-    );
-
   TExportData = record
     dwAddress: NativeUInt;
     Status: TExportStatus;
@@ -68,6 +62,20 @@ type
     mnuSeparator1: TMenuItem;
     mnuSeparator2: TMenuItem;
     mnuNextMatch: TMenuItem;
+    N1: TMenuItem;
+    Filter1: TMenuItem;
+    mnuShowEXPORT: TMenuItem;
+    mnuShowFORWARDED: TMenuItem;
+    mnuShowREBASED: TMenuItem;
+    mnuShowDATA: TMenuItem;
+    mnuShowINVALID: TMenuItem;
+    mnuShowDEBUGMAPFUNC: TMenuItem;
+    mnuShowDEBUGMAPDATA: TMenuItem;
+    mnuShowCOFFFUNC: TMenuItem;
+    mnuShowCOFFDATA: TMenuItem;
+    mnuShowDWARFFUNC: TMenuItem;
+    mnuShowDWARFDATA: TMenuItem;
+    mnuOpenInExplorer: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure lvExportsGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
@@ -86,11 +94,15 @@ type
     procedure lvExportsBeforeItemErase(Sender: TBaseVirtualTree;
       TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
       var ItemColor: TColor; var EraseAction: TItemEraseAction);
+    procedure mnuOpenInExplorerClick(Sender: TObject);
+    procedure pmCopyPopup(Sender: TObject);
+    procedure mnuShowDWARFDATAClick(Sender: TObject);
   private
     SearchString: string;
     SearchPosition: Integer;
-    List: TList<TExportData>;
+    NoFilterdList, List: TList<TExportData>;
     function Search(const Value: string): Boolean;
+    procedure ShowList;
   public
     procedure ShowExport;
   end;
@@ -103,7 +115,6 @@ implementation
 uses
   uUtils,
   uProgress,
-  uSettings,
   uRegionProperties,
   RawScanner.Core,
   RawScanner.SymbolStorage;
@@ -122,12 +133,14 @@ end;
 procedure TdlgExportList.FormCreate(Sender: TObject);
 begin
   List := TList<TExportData>.Create;
+  NoFilterdList := TList<TExportData>.Create;
   lvExports.DoubleBuffered := True;
 end;
 
 procedure TdlgExportList.FormDestroy(Sender: TObject);
 begin
   List.Free;
+  NoFilterdList.Free;
 end;
 
 procedure TdlgExportList.FormKeyPress(Sender: TObject; var Key: Char);
@@ -189,7 +202,6 @@ var
   Process: THandle;
   Module: TModule;
   ExportData: TExportData;
-  HitInfo: TVTHeaderHitInfo;
   ProcessLock: TProcessLockHandleList;
 
   function CheckRebased(AddrVA: NativeUInt): TExportStatus;
@@ -259,9 +271,7 @@ begin
             for I := 0 to MemoryMapCore.Modules.Count - 1 do
             begin
               Module := MemoryMapCore.Modules[I];
-              dlgProgress.lblProgress.Caption := Module.Path;
-              dlgProgress.ProgressBar.Position := I;
-              Application.ProcessMessages;
+              dlgProgress.UpdateCaption(Module.Path, I);
               ExportData.Module := ExtractFileName(Module.Path);
 
               // вывод известных функций из COFF посредством механизма RawScanner
@@ -275,7 +285,7 @@ begin
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
-                List.Add(ExportData);
+                NoFilterdList.Add(ExportData);
               end;
 
               // вывод известных данных из COFF посредством механизма RawScanner
@@ -289,7 +299,7 @@ begin
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
-                List.Add(ExportData);
+                NoFilterdList.Add(ExportData);
               end;
 
               // вывод известных функций из DWARF посредством механизма RawScanner
@@ -303,7 +313,7 @@ begin
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
-                List.Add(ExportData);
+                NoFilterdList.Add(ExportData);
               end;
 
               // вывод известных данных из DWARF посредством механизма RawScanner
@@ -317,7 +327,7 @@ begin
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
-                List.Add(ExportData);
+                NoFilterdList.Add(ExportData);
               end;
 
               // вывод известных функций из отладочного MAP файла
@@ -331,7 +341,7 @@ begin
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
-                List.Add(ExportData);
+                NoFilterdList.Add(ExportData);
               end;
 
               // вывод известных данных из отладочного MAP файла
@@ -345,7 +355,7 @@ begin
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(S[A]);
-                List.Add(ExportData);
+                NoFilterdList.Add(ExportData);
               end;
 
               // вывод данных по экспортируемым функциям посредством сиволов
@@ -359,14 +369,13 @@ begin
                 ExportData.AType := SymbolExportType[ExportData.Status];
                 ExportData.FunctionName := S[A];
                 ExportData.SearchFunctionName := AnsiUpperCase(ExportData.FunctionName);
-                List.Add(ExportData);
+                NoFilterdList.Add(ExportData);
               end;
+
             end;
-            lvExports.RootNodeCount := dlgExportList.List.Count;
-            lvExports.Header.SortDirection := sdAscending;
-            lvExports.Header.SortColumn := 0;
-            HitInfo.Column := 1;
-            lvExportsHeaderClick(nil, HitInfo);
+
+            ShowList;
+
           finally
             Symbols.Free;
           end;
@@ -511,6 +520,57 @@ begin
   end;
 end;
 
+procedure TdlgExportList.mnuOpenInExplorerClick(Sender: TObject);
+var
+  E: TVTVirtualNodeEnumerator;
+  Index: Integer;
+begin
+  E := lvExports.SelectedNodes.GetEnumerator;
+  if not E.MoveNext then Exit;
+  Index := RawScannerCore.Modules.GetModule(List[E.Current^.Index].dwAddress, True);
+  OpenExplorerAndSelectFile(RawScannerCore.Modules.Items[Index].ImagePath);
+end;
+
+procedure TdlgExportList.mnuShowDWARFDATAClick(Sender: TObject);
+begin
+  if TMenuItem(Sender).Checked then
+    Settings.ExportsShowFilter := Settings.ExportsShowFilter + [TExportStatus(TMenuItem(Sender).Tag)]
+  else
+    Settings.ExportsShowFilter := Settings.ExportsShowFilter - [TExportStatus(TMenuItem(Sender).Tag)];
+  ShowList;
+end;
+
+procedure TdlgExportList.pmCopyPopup(Sender: TObject);
+
+  procedure CheckMenuItem(AItem: TExportStatus; AChecked: Boolean);
+  begin
+    case AItem of
+      esNormal: mnuShowEXPORT.Checked := AChecked;
+      esForvarded: mnuShowFORWARDED.Checked := AChecked;
+      esRebased: mnuShowREBASED.Checked := AChecked;
+      esNoExecutable: mnuShowDATA.Checked := AChecked;
+      esInvalid: mnuShowINVALID.Checked := AChecked;
+      esDebug: mnuShowDEBUGMAPFUNC.Checked := AChecked;
+      esDebugData: mnuShowDEBUGMAPDATA.Checked := AChecked;
+      esCoff: mnuShowCOFFFUNC.Checked := AChecked;
+      esCoffData: mnuShowCOFFDATA.Checked := AChecked;
+      esDwarf: mnuShowDWARFFUNC.Checked := AChecked;
+      esDwarfData: mnuShowDWARFDATA.Checked := AChecked;
+    end;
+  end;
+
+var
+  E: TVTVirtualNodeEnumerator;
+  Index: TExportStatus;
+begin
+  for Index := Low(TExportStatus) to High(TExportStatus) do
+    CheckMenuItem(Index, Index in Settings.ExportsShowFilter);
+  mnuOpenInExplorer.Enabled := False;
+  E := lvExports.SelectedNodes.GetEnumerator;
+  if not E.MoveNext then Exit;
+  mnuOpenInExplorer.Enabled := List[E.Current^.Index].Status <> esRebased;
+end;
+
 function TdlgExportList.Search(const Value: string): Boolean;
 var
   I: Integer;
@@ -561,6 +621,22 @@ end;
 procedure TdlgExportList.ShowExport;
 begin
   Show;
+end;
+
+procedure TdlgExportList.ShowList;
+var
+  HitInfo: TVTHeaderHitInfo;
+  ExportData: TExportData;
+begin
+  List.Clear;
+  for ExportData in NoFilterdList do
+    if ExportData.Status in Settings.ExportsShowFilter then
+      List.Add(ExportData);
+  lvExports.RootNodeCount := List.Count;
+  lvExports.Header.SortDirection := sdAscending;
+  lvExports.Header.SortColumn := 0;
+  HitInfo.Column := 1;
+  lvExportsHeaderClick(nil, HitInfo);
 end;
 
 end.

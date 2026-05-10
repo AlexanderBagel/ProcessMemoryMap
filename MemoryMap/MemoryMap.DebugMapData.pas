@@ -39,7 +39,7 @@ type
   private type
     TSectionData = record
       Index: Integer;
-      StartAddr: DWORD;
+      StartAddr: UInt64;
       Length: DWORD;
       Executable: Boolean;
     end;

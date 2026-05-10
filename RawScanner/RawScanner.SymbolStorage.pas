@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.SymbolStorage.pas
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.0.23
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,7 +22,9 @@ interface
   {$I rawscanner.inc}
 
 uses
+  {$IFNDEF FPC}
   Windows,
+  {$ENDIF}
   SysUtils,
   Classes,
   Generics.Collections,
@@ -166,7 +168,7 @@ end;
 function MakeItem(AddrVA: ULONG_PTR64;
   DataType: TSymbolDataType): TSymbolData;
 begin
-  ZeroMemory(@Result, SizeOf(Result));
+  Result := Default(TSymbolData);
   Result.AddrVA := AddrVA;
   Result.DataType := DataType;
 end;

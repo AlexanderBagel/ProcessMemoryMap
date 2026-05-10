@@ -1,35 +1,46 @@
 object dlgComparator: TdlgComparator
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   Caption = 'Process Memory Map - Compare Result'
-  ClientHeight = 528
-  ClientWidth = 786
+  ClientHeight = 792
+  ClientWidth = 1188
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poMainFormCenter
-  PixelsPerInch = 96
-  TextHeight = 13
+  PixelsPerInch = 144
+  TextHeight = 21
   object Panel1: TPanel
     Left = 0
-    Top = 487
-    Width = 786
-    Height = 41
+    Top = 731
+    Width = 1188
+    Height = 61
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
     DesignSize = (
-      786
-      41)
+      1188
+      61)
     object Button1: TButton
-      Left = 704
-      Top = 6
-      Width = 75
-      Height = 25
+      Left = 1056
+      Top = 9
+      Width = 113
+      Height = 38
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       Anchors = [akTop, akRight]
       Cancel = True
       Caption = 'Cancel'
@@ -37,10 +48,14 @@ object dlgComparator: TdlgComparator
       TabOrder = 0
     end
     object btnSave: TButton
-      Left = 623
-      Top = 6
-      Width = 75
-      Height = 25
+      Left = 935
+      Top = 9
+      Width = 112
+      Height = 38
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       Anchors = [akTop, akRight]
       Caption = 'Save'
       Default = True
@@ -51,12 +66,16 @@ object dlgComparator: TdlgComparator
   object edChanges: TRichEdit
     Left = 0
     Top = 0
-    Width = 786
-    Height = 487
+    Width = 1188
+    Height = 731
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alClient
     Font.Charset = RUSSIAN_CHARSET
     Font.Color = clWindowText
-    Font.Height = -11
+    Font.Height = -17
     Font.Name = 'Tahoma'
     Font.Style = []
     Lines.Strings = (
@@ -66,7 +85,6 @@ object dlgComparator: TdlgComparator
     ReadOnly = True
     ScrollBars = ssBoth
     TabOrder = 1
-    Zoom = 100
   end
   object SaveDialog: TSaveDialog
     DefaultExt = 'rtf'

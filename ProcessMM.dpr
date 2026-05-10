@@ -4,8 +4,8 @@
 //  * Project   : ProcessMM
 //  * Unit Name : ProcessMM.dpr
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0.14
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -24,7 +24,7 @@ uses
   uProcessMM in 'src\gui\uProcessMM.pas' {dlgProcessMM},
   uSelectProcess in 'src\gui\uSelectProcess.pas' {dlgSelectProcess},
   uExportList in 'src\gui\uExportList.pas' {dlgExportList},
-  uSettings in 'src\gui\uSettings.pas' {dlgSettings},
+  uSettings.Form in 'src\gui\uSettings.Form.pas' {dlgSettings},
   uUtils in 'src\uUtils.pas',
   uDisplayUtils in 'src\uDisplayUtils.pas',
   uRegionProperties in 'src\gui\uRegionProperties.pas' {dlgRegionProps},
@@ -83,7 +83,13 @@ uses
   RawScanner.MapGenerator in 'RawScanner\RawScanner.MapGenerator.pas',
   RawScanner.AbstractImage in 'RawScanner\RawScanner.AbstractImage.pas',
   RawScanner.Image.Coff in 'RawScanner\RawScanner.Image.Coff.pas',
-  uSearchResult in 'src\gui\uSearchResult.pas' {dlgSearchResult};
+  uSearchResult in 'src\gui\uSearchResult.pas' {dlgSearchResult},
+  uResources in 'src\gui\uResources.pas' {dlgResources},
+  RawScanner.Resources in 'RawScanner\RawScanner.Resources.pas',
+  uSettings in 'src\uSettings.pas',
+  uDumpResources in 'src\uDumpResources.pas',
+  RawScanner.Resources.Helpers in 'RawScanner\RawScanner.Resources.Helpers.pas',
+  uDisplayStyleInfo in 'src\uDisplayStyleInfo.pas';
 
 {$R *.res}
 

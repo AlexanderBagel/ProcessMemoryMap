@@ -1,38 +1,51 @@
 object dlgStringsViewer: TdlgStringsViewer
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   ActiveControl = lvStrings
   Caption = 'Process Memory Map - Strings'
-  ClientHeight = 411
-  ClientWidth = 852
+  ClientHeight = 617
+  ClientWidth = 1287
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
-  OldCreateOrder = False
   Position = poMainFormCenter
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
   OnShow = FormShow
-  PixelsPerInch = 96
-  TextHeight = 13
+  PixelsPerInch = 144
+  TextHeight = 21
   object lvStrings: TVirtualStringTree
     Left = 0
     Top = 0
-    Width = 852
-    Height = 411
+    Width = 1287
+    Height = 617
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     AccessibleName = 'Data'
     Align = alClient
+    DefaultNodeHeight = 27
     Header.AutoSizeIndex = -1
-    Header.Height = 24
+    Header.Height = 28
+    Header.MaxHeight = 15000
+    Header.MinHeight = 15
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+    Indent = 27
+    Margin = 6
     PopupMenu = pmCopy
     TabOrder = 0
+    TextMargin = 6
     TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toEditOnClick]
     TreeOptions.PaintOptions = [toHideFocusRect, toShowButtons, toShowDropmark, toShowRoot, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection, toUseExplorerTheme]
     TreeOptions.SelectionOptions = [toFullRowSelect]
@@ -43,24 +56,36 @@ object dlgStringsViewer: TdlgStringsViewer
     Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
     Columns = <
       item
+        MaxWidth = 15000
+        MinWidth = 15
         Position = 0
+        Spacing = 5
         Text = 'Address'
-        Width = 125
+        Width = 188
       end
       item
+        MaxWidth = 15000
+        MinWidth = 15
         Position = 1
+        Spacing = 5
         Text = 'Module'
-        Width = 200
+        Width = 300
       end
       item
+        MaxWidth = 15000
+        MinWidth = 15
         Position = 2
+        Spacing = 5
         Text = 'Type'
-        Width = 75
+        Width = 113
       end
       item
+        MaxWidth = 15000
+        MinWidth = 15
         Position = 3
+        Spacing = 5
         Text = 'Data'
-        Width = 452
+        Width = 682
       end>
   end
   object pmCopy: TPopupMenu
@@ -71,6 +96,10 @@ object dlgStringsViewer: TdlgStringsViewer
       Default = True
       ShortCut = 13
       OnClick = mnuGotoAddressClick
+    end
+    object mnuOpenInExplorer: TMenuItem
+      Caption = 'Open In Explorer'
+      OnClick = mnuOpenInExplorerClick
     end
     object mnuSeparator1: TMenuItem
       Caption = '-'

@@ -6,8 +6,8 @@
 //  * Purpose   : Классы получающие данные о состоянии обьектных Coff файлов
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.24
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -65,7 +65,12 @@ type
     function SectionAtIndex(AIndex: Integer; out ASection: TSectionParams): Boolean; override;
     function SectionAtName(const AName: string; out ASection: TSectionParams): Boolean; override;
     function PointerToSymbolTable: ULONG_PTR64; override;
+    function RawToVa(RawAddr: DWORD): ULONG_PTR64; override;
     function Rebase(Value: ULONG_PTR64): ULONG_PTR64; override;
+    function RvaToRaw(RvaAddr: DWORD): DWORD; override;
+    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64; override;
+    function VaToRaw(VaAddr: ULONG_PTR64): DWORD; override;
+    function VaToRva(VaAddr: ULONG_PTR64): DWORD; override;
   end;
 
   TCoffHeader = record
@@ -87,12 +92,13 @@ type
     FHeader: TCoffHeader;
     FImageBase, FEntryPoint: ULONG_PTR64;
     FImageGate: TCoffImageGate;
+    FImageLoadType: TImageLoadType;
     FImagePath, FImageName: string;
     FIndex: Integer;
-    FLoadSectionsOnly: Boolean;
     FSections: array of TCoffSectionHeader;
     FSectionsPresent: Boolean;
     FSizeOfFileImage: Int64;
+    FValidImage: Boolean;
     function GetGnuDebugLink(Raw: TStream): string;
     procedure LoadFromImage;
     procedure LoadCoff(Raw: TStream);
@@ -104,7 +110,7 @@ type
     function FileAlignment: DWORD;
     function SectionAlignment: DWORD;
   public
-    constructor Create(const ImagePath: string; ALoadSectionsOnly: Boolean;
+    constructor Create(const ImagePath: string; AImageLoadType: TImageLoadType;
       ImageBase: ULONG_PTR64 = 0); overload;
     constructor Create(const ModuleData: TModuleData; AModuleIndex: Integer); overload;
     destructor Destroy; override;
@@ -118,8 +124,11 @@ type
     function ImageBase: ULONG_PTR64; override;
 
     function RawToVa(RawAddr: DWORD): ULONG_PTR64; override;
+    function RvaToRaw(RvaAddr: DWORD): DWORD; override;
+    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64; override;
     function VaToRaw(AddrVA: ULONG_PTR64): DWORD; override;
     function VaToRva(AddrVA: ULONG_PTR64): DWORD; override;
+    function ValidImage: Boolean; override;
 
     function SectionAtIndex(AIndex: Integer; out Section: TCoffSectionHeader): Boolean;
     function SectionAtName(const AName: string; out AIndex: Integer): Boolean;
@@ -208,6 +217,11 @@ begin
   Result := FImage.Header.FileHeader.PointerToSymbolTable;
 end;
 
+function TCoffImageGate.RawToVa(RawAddr: DWORD): ULONG_PTR64;
+begin
+  Result := RawToVa(RawAddr);
+end;
+
 function TCoffImageGate.Rebase(Value: ULONG_PTR64): ULONG_PTR64;
 begin
   Result := Value;
@@ -218,6 +232,16 @@ begin
   ClearReplaced;
   FImage := ANewImage;
   FImageReplaced := True;
+end;
+
+function TCoffImageGate.RvaToRaw(RvaAddr: DWORD): DWORD;
+begin
+  Result := FImage.RvaToRaw(RvaAddr);
+end;
+
+function TCoffImageGate.RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
+begin
+  Result := FImage.RvaToVa(RvaAddr);
 end;
 
 function TCoffImageGate.SectionAtIndex(AIndex: Integer;
@@ -244,10 +268,20 @@ begin
   end;
 end;
 
+function TCoffImageGate.VaToRaw(VaAddr: ULONG_PTR64): DWORD;
+begin
+  Result := FImage.VaToRaw(VaAddr);
+end;
+
+function TCoffImageGate.VaToRva(VaAddr: ULONG_PTR64): DWORD;
+begin
+  Result := FImage.VaToRva(VaAddr);
+end;
+
 { TRawCoffImage }
 
 constructor TRawCoffImage.Create(const ImagePath: string;
-  ALoadSectionsOnly: Boolean; ImageBase: ULONG_PTR64);
+  AImageLoadType: TImageLoadType; ImageBase: ULONG_PTR64);
 begin
   ProfilingBegin;
   FImagePath := ImagePath;
@@ -257,7 +291,7 @@ begin
   FCoffDebugInfo := TCoffDebugInfo.Create(FImageGate);
   FDwarfDebugInfo := TDwarfDebugInfo.Create(FImageGate);
   FDwarfDebugInfo.AppendUnitName := DefaultDwarfAppendUnitName;
-  FLoadSectionsOnly := ALoadSectionsOnly;
+  FImageLoadType := AImageLoadType;
   LoadFromImage;
   ProfilingEnd;
 end;
@@ -266,7 +300,7 @@ constructor TRawCoffImage.Create(const ModuleData: TModuleData;
   AModuleIndex: Integer);
 begin
   FIndex := AModuleIndex;
-  Create(ModuleData.ImagePath, False, ModuleData.ImageBase);
+  Create(ModuleData.ImagePath, iltFull, ModuleData.ImageBase);
 end;
 
 function TRawCoffImage.DebugData: TDebugInfoTypes;
@@ -452,15 +486,19 @@ begin
 
     if not LoadSections(Raw) then Exit;
 
-    if FLoadSectionsOnly then Exit;
+    FValidImage := True;
+
+    if FImageLoadType = iltSectionOnly then Exit;
 
     LoadExport(Raw);
     LoadImport(Raw);
 
+    if FImageLoadType = iltWithoutDebug then Exit;
+
     FDebugLinkPath := GetGnuDebugLink(Raw);
     if FDebugLinkPath <> '' then
     begin
-      DebugLinkImage := TRawCoffImage.Create(FDebugLinkPath, True, ImageBase);
+      DebugLinkImage := TRawCoffImage.Create(FDebugLinkPath, iltWithoutDebug, ImageBase);
       FImageGate.ReplaceImage(DebugLinkImage);
       Raw.LoadFromFile(FDebugLinkPath);
     end;
@@ -518,6 +556,16 @@ begin
   Result := RawAddr;
 end;
 
+function TRawCoffImage.RvaToRaw(RvaAddr: DWORD): DWORD;
+begin
+  Result := RvaAddr;
+end;
+
+function TRawCoffImage.RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
+begin
+  Result := RvaAddr;
+end;
+
 function TRawCoffImage.SectionAlignment: DWORD;
 begin
   if Image64 then
@@ -548,6 +596,11 @@ begin
       Result := True;
       Break;
     end;
+end;
+
+function TRawCoffImage.ValidImage: Boolean;
+begin
+  Result := FValidImage;
 end;
 
 function TRawCoffImage.VaToRaw(AddrVA: ULONG_PTR64): DWORD;

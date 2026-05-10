@@ -5,8 +5,8 @@
 //  * Unit Name : uFindData.pas
 //  * Purpose   : Диалог для поиска данных в памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.45
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,13 +22,14 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, Vcl.ComCtrls, VirtualTrees,
+  Vcl.StdCtrls, Vcl.ExtCtrls, VirtualTrees,
 
   MemoryMap.Core,
   MemoryMap.Utils,
 
   uBaseForm,
-  uSearchResult;
+  uSearchResult,
+  FWProgressBar;
 
 type
   TSearchType = (stAnsi, stUnicode, stBuff,
@@ -43,11 +44,11 @@ type
     btnCancel: TButton;
     btnSearch: TButton;
     cbSkipROMem: TCheckBox;
-    ProgressBar: TProgressBar;
     Label4: TLabel;
     edStartAddr: TEdit;
     cbSearchInputType: TComboBox;
     cbSearchText: TComboBox;
+    pnProgress: TPanel;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure btnSearchClick(Sender: TObject);
@@ -56,6 +57,7 @@ type
     procedure FormShow(Sender: TObject);
     procedure cbSearchInputTypeChange(Sender: TObject);
   private
+    ProgressBar: TFWProgressBar;
     Process: THandle;
     SearchBuff: array of Byte;
     SearchPos: Pointer;
@@ -201,7 +203,14 @@ begin
 end;
 
 procedure TdlgFindData.FormCreate(Sender: TObject);
+var
+  ProgressHeight: Integer;
 begin
+  ProgressBar := TFWProgressBar.Create(Self);
+  ProgressBar.Parent := pnProgress;
+  ProgressHeight := ToDpi(6, FCurrentPPI);
+  ProgressBar.SetBounds(0, (pnProgress.Height - ProgressHeight) div 2,
+    pnProgress.ClientWidth, ProgressHeight);
   Process := OpenProcessWithReconnect;
   ProgressDelta := MemoryMapCore.HighAddress div 100;
   for var S in stCaptions do
@@ -391,12 +400,21 @@ begin
 end;
 
 procedure TdlgFindData.SearchAtSearchPos;
+var
+  PreviosPos: Integer;
 
   procedure IncSearchPos(Value: NativeUInt);
+  var
+    NewPos: Integer;
   begin
     SearchPos := Pointer(NativeUInt(SearchPos) + Value);
-    ProgressBar.Position := NativeInt(SearchPos) div ProgressDelta;
-    Application.ProcessMessages;
+    NewPos := NativeInt(SearchPos) div ProgressDelta;
+    if NewPos <> PreviosPos then
+    begin
+      ProgressBar.Position := NewPos;
+      PreviosPos := NewPos;
+      ProgressBar.Repaint;
+    end;
   end;
 
 var
@@ -406,11 +424,12 @@ var
   ProcessLock: TProcessLockHandleList;
   ReadCondition: TReadCondition;
 begin
-  if not MakeSearchBuff then Exit;  
+  if not MakeSearchBuff then Exit;
   ProcessLock := nil;
   if Settings.SuspendProcess then
     ProcessLock := SuspendProcess(MemoryMapCore.PID);
   try
+    PreviosPos := 0;
     while NativeUInt(SearchPos) < MemoryMapCore.HighAddress do
     begin
       dwLength := SizeOf(TMemoryBasicInformation);

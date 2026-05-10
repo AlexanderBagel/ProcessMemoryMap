@@ -5,14 +5,13 @@ inherited dlgCallStack: TdlgCallStack
   KeyPreview = True
   Position = poMainFormCenter
   Visible = True
+  StyleElements = [seFont, seClient, seBorder]
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
-  ExplicitWidth = 1081
-  ExplicitHeight = 587
-  PixelsPerInch = 96
-  TextHeight = 13
+  ExplicitWidth = 1087
+  ExplicitHeight = 604
   object Splitter: TSplitter
     Left = 233
     Top = 0
@@ -20,9 +19,6 @@ inherited dlgCallStack: TdlgCallStack
     Height = 548
     Color = clBtnShadow
     ParentColor = False
-    ExplicitLeft = 385
-    ExplicitTop = -142
-    ExplicitHeight = 553
   end
   object lvStack: TListView
     Left = 239

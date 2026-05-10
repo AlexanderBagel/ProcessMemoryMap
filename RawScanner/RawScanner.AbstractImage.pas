@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.AbstractImage.pas
 //  * Purpose   : Базовый класс образа файла с которым умеет работать RawScanner
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.24
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -22,9 +22,11 @@ interface
   {$I rawscanner.inc}
 
 uses
+  {$IFNDEF FPC}
   Windows,
+  {$ENDIF}
   {$IFDEF USE_PROFILING}
-  Diagnostics,
+  System.Diagnostics,
   {$ENDIF}
   RawScanner.Types,
   RawScanner.CoffDwarf;
@@ -35,6 +37,8 @@ type
     StartRVA, Size: DWORD;
     Read, Write, Execute: Boolean;
   end;
+
+  TImageLoadType = (iltSectionOnly, iltWithoutDebug, iltFull);
 
   TImageType = (itUnknown,
     itPE32, itPE64, itELF32, itELF64, itCOFF32, itCOFF64,
@@ -65,8 +69,11 @@ type
     function Image64: Boolean; virtual; abstract;
     function ImageBase: ULONG_PTR64; virtual; abstract;
     function RawToVa(RawAddr: DWORD): ULONG_PTR64; virtual; abstract;
+    function RvaToRaw(RvaAddr: DWORD): DWORD; virtual; abstract;
+    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64; virtual; abstract;
     function VaToRaw(AddrVA: ULONG_PTR64): DWORD; virtual; abstract;
     function VaToRva(VaAddr: ULONG_PTR64): DWORD; virtual; abstract;
+    function ValidImage: Boolean; virtual; abstract;
     property ImageType: TImageType read FImageType;
   end;
 

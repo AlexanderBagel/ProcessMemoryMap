@@ -6,8 +6,8 @@
 //  * Purpose   : Вспомогательный модуль для отображения содержимого
 //  *           : памяти в свойствах региона и размапленных структур
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.45
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -53,6 +53,8 @@ const
   // Process Parameters (32) под Xp кривой
   // EnvironmentSize в конце соответствует началу блока данных из CurrentDirectory.DosPath = [20290]
 
+  function ByteToHexStr(Base: NativeUInt; Data: Pointer;
+    Len: Integer; const Comment: string = ''): string;
   function DumpMemory(Process: THandle; Address: Pointer): string;
   function DumpMemoryFromBuff(Process: THandle; Address: Pointer;
     RawBuff: TMemoryDump; nSize: Integer): string;

@@ -1,27 +1,34 @@
 object dlgSearchResult: TdlgSearchResult
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   Caption = 'Process Memory Map - Search Results'
-  ClientHeight = 411
-  ClientWidth = 852
+  ClientHeight = 617
+  ClientWidth = 1287
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
-  OldCreateOrder = False
   Position = poScreenCenter
   OnClose = FormClose
   OnKeyPress = FormKeyPress
-  PixelsPerInch = 96
-  TextHeight = 13
+  PixelsPerInch = 144
+  TextHeight = 21
   object PageControl: TPageControl
     Left = 0
     Top = 0
-    Width = 852
-    Height = 411
+    Width = 1287
+    Height = 617
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alClient
     PopupMenu = pmPage
     TabOrder = 0
@@ -33,13 +40,22 @@ object dlgSearchResult: TdlgSearchResult
       Action = acOpen
       Default = True
     end
-    object CopyAddress1: TMenuItem
+    object OpenInExplorer1: TMenuItem
+      Action = acOpenInExplorer
+    end
+    object N4: TMenuItem
+      Caption = '-'
+    end
+    object mnuCopyAddress: TMenuItem
       Action = acCopyAddr
+    end
+    object mnuCopyLine: TMenuItem
+      Action = acCopyLine
     end
     object N1: TMenuItem
       Caption = '-'
     end
-    object Close1: TMenuItem
+    object mnuClose: TMenuItem
       Action = acClose
     end
     object CloseAllButThis1: TMenuItem
@@ -56,7 +72,7 @@ object dlgSearchResult: TdlgSearchResult
       object N3: TMenuItem
         Caption = '-'
       end
-      object CloseAll1: TMenuItem
+      object mnuCloseAll: TMenuItem
         Action = acCloseAll
       end
     end
@@ -65,13 +81,24 @@ object dlgSearchResult: TdlgSearchResult
     Left = 472
     Top = 208
     object acOpen: TAction
-      Caption = 'Open'
+      Caption = 'Go to Address'
+      ShortCut = 13
       OnExecute = acOpenExecute
       OnUpdate = acOpenUpdate
+    end
+    object acOpenInExplorer: TAction
+      Caption = 'Open In Explorer'
+      OnExecute = acOpenInExplorerExecute
+      OnUpdate = acOpenInExplorerUpdate
     end
     object acCopyAddr: TAction
       Caption = 'Copy Address'
       OnExecute = acCopyAddrExecute
+      OnUpdate = acOpenUpdate
+    end
+    object acCopyLine: TAction
+      Caption = 'Copy Line'
+      OnExecute = acCopyLineExecute
       OnUpdate = acOpenUpdate
     end
     object acClose: TAction

@@ -5,8 +5,8 @@
 //  * Unit Name : uFindData.pas
 //  * Purpose   : Диалог для поиска данных в памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.45
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -59,7 +59,7 @@ type
     pmViewer: TPopupMenu;
     mnuOpen: TMenuItem;
     N1: TMenuItem;
-    Close1: TMenuItem;
+    mnuClose: TMenuItem;
     CloseAllButThis1: TMenuItem;
     ActionList1: TActionList;
     acCopyAddr: TAction;
@@ -69,11 +69,11 @@ type
     acCloseRight: TAction;
     acCloseAllButThis: TAction;
     acOpen: TAction;
-    CopyAddress1: TMenuItem;
+    mnuCopyAddress: TMenuItem;
     CloseAllButThis2: TMenuItem;
     CloseAlltotheLeft1: TMenuItem;
     CloseAlltotheRight1: TMenuItem;
-    CloseAll1: TMenuItem;
+    mnuCloseAll: TMenuItem;
     pmPage: TPopupMenu;
     MenuItem4: TMenuItem;
     MenuItem5: TMenuItem;
@@ -83,6 +83,11 @@ type
     MenuItem9: TMenuItem;
     N2: TMenuItem;
     N3: TMenuItem;
+    acOpenInExplorer: TAction;
+    N4: TMenuItem;
+    OpenInExplorer1: TMenuItem;
+    acCopyLine: TAction;
+    mnuCopyLine: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure acOpenUpdate(Sender: TObject);
@@ -96,6 +101,9 @@ type
     procedure acCloseAllButThisUpdate(Sender: TObject);
     procedure acCloseRightUpdate(Sender: TObject);
     procedure acCloseLeftUpdate(Sender: TObject);
+    procedure acOpenInExplorerUpdate(Sender: TObject);
+    procedure acOpenInExplorerExecute(Sender: TObject);
+    procedure acCopyLineExecute(Sender: TObject);
   protected
     function GetSelectedIndex: Integer;
     function GetActiveView: TSearchView;
@@ -122,7 +130,21 @@ uses
   Clipbrd,
   uDisplayUtils,
   uSettings,
+  uUtils,
   uRegionProperties;
+
+const
+  FilterString: array [TFilters] of string = (
+    'None',
+    'Image',
+    'Private',
+    'Shareable',
+    'Mapped',
+    'Heap',
+    'Thread',
+    'System',
+    'Free'
+  );
 
 {$R *.dfm}
 
@@ -205,9 +227,44 @@ begin
   Clipboard.AsText := IntToHex(GetActiveView.List.List[Idx].AddrVA);
 end;
 
+procedure TdlgSearchResult.acCopyLineExecute(Sender: TObject);
+var
+  Idx: Integer;
+begin
+  Idx := GetSelectedIndex;
+  if Idx < 0 then Exit;
+  with GetActiveView.List.List[Idx] do
+    Clipboard.AsText :=
+      IntToHex(AddrVA) + #9 +
+      ExtractRegionTypeString(MBI) + #9 +
+      FilterString[RegionFilter] + #9 +
+      ExtractAccessString(MBI.Protect) + #9 +
+      Details  + #9 + Section;
+end;
+
 procedure TdlgSearchResult.acOpenExecute(Sender: TObject);
 begin
   OnDblClick(GetActiveView);
+end;
+
+procedure TdlgSearchResult.acOpenInExplorerExecute(Sender: TObject);
+begin
+  OpenExplorerAndSelectFile(GetActiveView.List[GetSelectedIndex].Details);
+end;
+
+procedure TdlgSearchResult.acOpenInExplorerUpdate(Sender: TObject);
+var
+  Idx: Integer;
+  APath: string;
+begin
+  Idx := GetSelectedIndex;
+  if Idx >= 0 then
+  begin
+    APath := GetActiveView.List[Idx].Details;
+    TAction(Sender).Enabled := FileExists(APath);
+  end
+  else
+    TAction(Sender).Enabled := False;
 end;
 
 procedure TdlgSearchResult.acOpenUpdate(Sender: TObject);
@@ -334,18 +391,6 @@ end;
 procedure TdlgSearchResult.OnGetText(Sender: TBaseVirtualTree;
   Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
   var CellText: string);
-const
-  FilterString: array [TFilters] of string = (
-    'None',
-    'Image',
-    'Private',
-    'Shareable',
-    'Mapped',
-    'Heap',
-    'Thread',
-    'System',
-    'Free'
-  );
 begin
   case Column of
     0: CellText :=

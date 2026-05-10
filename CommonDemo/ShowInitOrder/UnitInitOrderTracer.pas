@@ -43,6 +43,7 @@ implementation
 
 uses
   MemoryMap.DebugMapData,
+  RawScanner.AbstractImage,
   RawScanner.Image.Pe,
   RawScanner.Disassembler,
   RawScanner.SymbolStorage,
@@ -360,7 +361,7 @@ begin
   SymbolStorage.Clear;
 
   // грузим сам образ
-  PEImage := TRawPEImage.Create(FilePath, False);
+  PEImage := TRawPEImage.Create(FilePath, iltFull);
   try
     // если в образе присутствует отладочные COFF символы,
     // значит это скорее всего Lazarus/FPC, проверяем наличие таблицы "INITFINAL"

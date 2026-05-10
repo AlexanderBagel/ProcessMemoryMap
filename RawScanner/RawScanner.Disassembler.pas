@@ -8,8 +8,8 @@
 //  *           : Не используется в составе фреймворка,
 //  *           : и предназначен для внешнего кода.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.15
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -70,23 +70,37 @@ type
     AddrData: array [0..3] of TAddrData;
   end;
 
-  TDisassembler = class
+  TAbstractDisassembler = class
   private
     FAddrVA: ULONG_PTR64;
     FBufferSize: Integer;
     FCode64: Boolean;
-    FProcessHandle: THandle;
+
     function FixAddr(AddrVA: ULONG_PTR64): ULONG_PTR64;
     procedure GetAddrTypes(Inst: TDInst; out Data: TAddrTypesData);
     function GetInstructionType(Value: TDInst): TInstructionType;
     function GET_WString(w: _WString): string;
     function HexUpperCase(const Value: string): string;
     function InitCodeInfo(Code: PByte): TCodeInfo;
+  protected
+    function ReadMemory(const lpBaseAddress: ULONG_PTR64;
+      lpBuffer: Pointer; nSize: SIZE_T): Boolean; virtual; abstract;
   public
-    constructor Create(AProcessHandle: THandle; AAddrVA: ULONG_PTR64;
+    constructor Create(AAddrVA: ULONG_PTR64;
       ABufferSize: Integer;  ACode64: Boolean);
     function DecodeBuff(pBuff: PByte; DecodeMode: TDecodeMode;
       CollapceZero: Boolean): TInstructionArray;
+  end;
+
+  TDisassembler = class(TAbstractDisassembler)
+  private
+    FProcessHandle: THandle;
+  protected
+    function ReadMemory(const lpBaseAddress: ULONG_PTR64;
+      lpBuffer: Pointer; nSize: SIZE_T): Boolean; override;
+  public
+    constructor Create(AProcessHandle: THandle; AAddrVA: ULONG_PTR64;
+      ABufferSize: Integer;  ACode64: Boolean);
   end;
 
 implementation
@@ -108,18 +122,17 @@ begin
     (A.DecodedString <> B.DecodedString);
 end;
 
-{ TDisassembler }
+{ TAbstractDisassembler }
 
-constructor TDisassembler.Create(AProcessHandle: THandle; AAddrVA: ULONG_PTR64;
+constructor TAbstractDisassembler.Create(AAddrVA: ULONG_PTR64;
   ABufferSize: Integer; ACode64: Boolean);
 begin
   FAddrVA := AAddrVA;
   FBufferSize := ABufferSize;
   FCode64 := ACode64;
-  FProcessHandle := AProcessHandle;
 end;
 
-function TDisassembler.DecodeBuff(pBuff: PByte;
+function TAbstractDisassembler.DecodeBuff(pBuff: PByte;
   DecodeMode: TDecodeMode; CollapceZero: Boolean): TInstructionArray;
 var
   DecodeResult: TDecodeResult;
@@ -227,6 +240,8 @@ begin
       Result[I].DecodedString :=
         HexUpperCase(GET_WString(Instruction.mnemonic)) + Space +
         HexUpperCase(GET_WString(Instruction.operands)) + HintStr;
+      if Result[I].DecodedString = 'RDTSC ' then
+        Result[I].InstType := itOther;
     end;
 
     if (DecodeMode = dmUntilUndefined) and not CollapceZero and
@@ -273,7 +288,7 @@ begin
               OffsetAddr := InstList[I].addr + InstList[I].size + ATypes.AddrData[A].AddrVA;
               {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
               Result[I].RipAddrVA := OffsetAddr;
-              ReadRemoteMemory(FProcessHandle, OffsetAddr, @Result[I].RipAddrPtr, 8);
+              ReadMemory(OffsetAddr, @Result[I].RipAddrPtr, 8);
               // какой по очереди встретился RIP, чтобы вывести в правильном порядке
               Result[I].RipFirst := Result[I].JmpAddrVa = 0;
               if Result[I].RipFirst then
@@ -282,7 +297,7 @@ begin
             atPointer4:
             begin
               AddrVA := 0;
-              if ReadRemoteMemory(FProcessHandle, ATypes.AddrData[A].AddrVA, @AddrVA, 4) then
+              if ReadMemory(ATypes.AddrData[A].AddrVA, @AddrVA, 4) then
               begin
                 if FCode64 then
                   Result[I].JmpAddrVa := AddrVA
@@ -295,7 +310,7 @@ begin
               end;
             end;
             atPointer8:
-              if ReadRemoteMemory(FProcessHandle, ATypes.AddrData[A].AddrVA, @AddrVA, 8) then
+              if ReadMemory(ATypes.AddrData[A].AddrVA, @AddrVA, 8) then
                 Result[I].JmpAddrVa := AddrVA;
           end;
         end;
@@ -311,7 +326,7 @@ begin
   end;
 end;
 
-function TDisassembler.FixAddr(AddrVA: ULONG_PTR64): ULONG_PTR64;
+function TAbstractDisassembler.FixAddr(AddrVA: ULONG_PTR64): ULONG_PTR64;
 begin
   if FCode64 then
     Result := AddrVA
@@ -319,7 +334,7 @@ begin
     Result := DWORD(AddrVA);
 end;
 
-procedure TDisassembler.GetAddrTypes(Inst: TDInst; out Data: TAddrTypesData);
+procedure TAbstractDisassembler.GetAddrTypes(Inst: TDInst; out Data: TAddrTypesData);
 var
   I: Integer;
 begin
@@ -377,7 +392,7 @@ begin
   end;
 end;
 
-function TDisassembler.GetInstructionType(Value: TDInst): TInstructionType;
+function TAbstractDisassembler.GetInstructionType(Value: TDInst): TInstructionType;
 begin
   Result := itOther;
   if Value.flags and FLAG_PRIVILEGED_INSTRUCTION <> 0 then
@@ -403,18 +418,18 @@ begin
     end;
 end;
 
-function TDisassembler.GET_WString(w: _WString): string;
+function TAbstractDisassembler.GET_WString(w: _WString): string;
 begin
   Result := string(PAnsiChar(@w.p[0]));
 end;
 
-function TDisassembler.HexUpperCase(const Value: string): string;
+function TAbstractDisassembler.HexUpperCase(const Value: string): string;
 begin
   Result := UpperCase(Value);
   Result := StringReplace(Result, '0X', '0x', [rfReplaceAll]);
 end;
 
-function TDisassembler.InitCodeInfo(Code: PByte): TCodeInfo;
+function TAbstractDisassembler.InitCodeInfo(Code: PByte): TCodeInfo;
 begin
   ZeroMemory(@Result, SizeOf(TCodeInfo));
   Result.codeOffset := FAddrVA;
@@ -427,6 +442,21 @@ begin
   end;
   Result.code := Code;
   Result.codeLen := FBufferSize;
+end;
+
+{ TDisassembler }
+
+constructor TDisassembler.Create(AProcessHandle: THandle; AAddrVA: ULONG_PTR64;
+  ABufferSize: Integer; ACode64: Boolean);
+begin
+  inherited Create(AAddrVA, ABufferSize, ACode64);
+  FProcessHandle := AProcessHandle;
+end;
+
+function TDisassembler.ReadMemory(const lpBaseAddress: ULONG_PTR64;
+  lpBuffer: Pointer; nSize: SIZE_T): Boolean;
+begin
+  Result := ReadRemoteMemory(FProcessHandle, lpBaseAddress, lpBuffer, nSize);
 end;
 
 end.

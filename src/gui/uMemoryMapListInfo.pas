@@ -5,8 +5,8 @@
 //  * Unit Name : uMemoryMapListInfo.pas
 //  * Purpose   : Сканирование памяти процесса на основе адресов и контрольных сумм
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.30
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -271,10 +271,8 @@ var
   Size, RegionSize: NativeUInt;
 begin
   MMLRecord := MMLData[Index];
-  dlgProgress.ProgressBar.Position := Index + 1;
-  dlgProgress.lblProgress.Caption :=
-    'Process address: ' + IntToHex(UINT_PTR(MMLRecord.Addr), 1);
-  Application.ProcessMessages;
+  dlgProgress.UpdateCaption('Process address: ' +
+    IntToHex(UINT_PTR(MMLRecord.Addr), 1), Index + 1);
 
   CRC := DWORD(-1);
   Shared := False;

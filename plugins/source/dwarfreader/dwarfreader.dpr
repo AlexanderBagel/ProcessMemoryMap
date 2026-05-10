@@ -5,8 +5,8 @@
 //  * Unit Name : dwarfreader.dpr
 //  * Purpose   : Утилита статического анализа PE/ELF файлов и вывода DWARF информации
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.0
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
+//  * Version   : 1.1
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -24,6 +24,7 @@ program dwarfreader;
 uses
   Windows,
   SysUtils,
+  Classes,
   Math,
   RawScanner.ApiSet in '..\..\..\RawScanner\RawScanner.ApiSet.pas',
   RawScanner.CoffDwarf in '..\..\..\RawScanner\RawScanner.CoffDwarf.pas',
@@ -54,6 +55,7 @@ const
   VaHeader = '  AddrVA  |';
   SizeHdr = ' Size |';
   AccessHeader = 'RWE|';
+  TypeHeader = 'Inf|';
 
 procedure ShowHeader;
 begin
@@ -188,21 +190,21 @@ var
   Image: TAbstractImage;
 begin
   Result := -1;
-  Image := TRawPEImage.Create(Path, True);
+  Image := TRawPEImage.Create(Path, iltSectionOnly);
   try
     if Image.ImageType in [itPE32, itPE64] then
       Exit(0);
   finally
     Image.Free;
   end;
-  Image := TRawELFImage.Create(Path, True);
+  Image := TRawELFImage.Create(Path, iltSectionOnly);
   try
     if Image.ImageType in [itELF32, itELF64] then
       Exit(1);
   finally
     Image.Free;
   end;
-  Image := TRawCoffImage.Create(Path, True);
+  Image := TRawCoffImage.Create(Path, iltSectionOnly);
   try
     if Image.ImageType in [itCOFF32, itCOFF64] then
       Exit(2);
@@ -406,7 +408,7 @@ var
   Sym: TImageSymbol;
   Section: TElfSectionHeader;
   AddrVA: UInt64;
-  Flags, AName: string;
+  Info, Flags, AName: string;
   ACount: Integer;
 begin
   DumpImageInfo(AImage);
@@ -427,6 +429,15 @@ begin
     Exit;
   end;
 
+  if AImage.ImportLibs.Count > 0 then
+  begin
+    Writeln;
+    Writeln('Dump import libraries.');
+    Line;
+    for Info in AImage.ImportLibs do
+      Writeln(Info);
+  end;
+
   DumpDwarf(AImage);
 
   if AImage.Symbols.Count > 0 then
@@ -438,7 +449,7 @@ begin
       Write(RawHeader);
     if AImage.HeaderPresent then
       Write(VaHeader);
-    Writeln(SizeHdr, AccessHeader);
+    Writeln(SizeHdr, TypeHeader, AccessHeader);
     Line;
 
     ACount := 0;
@@ -446,14 +457,17 @@ begin
     begin
       if Sym.DisplayName = '' then
         Continue;
-      if not (ELF32_ST_TYPE(Sym.Hdr.st_info) in [STT_OBJECT, STT_FUNC]) then
-        Continue;
-      if not AImage.SectionAtIndex(Sym.Hdr.st_shndx, Section) then
-        Continue;
-      if not (Section.Hdr.sh_type in [SHT_PROGBITS, SHT_DYNAMIC]) then
-        Continue;
-      if Section.Hdr.sh_flags = 0 then
-        Continue;
+      if Sym.SymbolType <> istImport then
+      begin
+        if not (ELF32_ST_TYPE(Sym.Hdr.st_info) in [STT_OBJECT, STT_FUNC]) then
+          Continue;
+        if not AImage.SectionAtIndex(Sym.Hdr.st_shndx, Section) then
+          Continue;
+        if not (Section.Hdr.sh_type in [SHT_PROGBITS, SHT_DYNAMIC]) then
+          Continue;
+        if Section.Hdr.sh_flags = 0 then
+          Continue;
+      end;
 
       AddrVA := Sym.Hdr.st_value;
       if not AImage.HeaderPresent then
@@ -470,6 +484,14 @@ begin
         if not ShowVariables then
           Continue;
 
+      case Sym.SymbolType of
+        istImport: Info := 'IMP|';
+        istExport: Info := 'EXP|';
+        istDebug: Info := 'DBG|';
+      else
+        Info := '???|';
+      end;
+
       if DemangleNames then
         AName := DemangleName(Sym.DisplayName, Sym.Executable)
       else
@@ -480,7 +502,7 @@ begin
       DumpUInt64(AddrVA, IfThen(AImage.HeaderPresent, 10, 8));
 
       DumpUInt64(Sym.Hdr.st_size, 6);
-      Writeln(Flags, AName);
+      Writeln(Info, Flags, AName);
 
       Inc(ACount);
     end;
@@ -631,7 +653,7 @@ begin
     case CheckFileType(ParamStr(1)) of
       0: // PE
       begin
-        Pe := TRawPEImage.Create(ParamStr(1), False);
+        Pe := TRawPEImage.Create(ParamStr(1), iltFull);
         try
           ProfileImageElapsed := Pe.Elapsed;
           WriteSuccess('done.');
@@ -642,7 +664,7 @@ begin
       end;
       1: // ELF
       begin
-        Elf := TRawElfImage.Create(ParamStr(1), False);
+        Elf := TRawElfImage.Create(ParamStr(1), iltFull);
         try
           ProfileImageElapsed := Elf.Elapsed;
           WriteSuccess('done.');
@@ -653,7 +675,7 @@ begin
       end;
       2: // COFF
       begin
-        Coff := TRawCoffImage.Create(ParamStr(1), False);
+        Coff := TRawCoffImage.Create(ParamStr(1), iltFull);
         try
           ProfileImageElapsed := Coff.Elapsed;
           WriteSuccess('done.');

@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.Utils.pas
 //  * Purpose   : Набор утилитарных методов общих для модулей RawScanner.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.15
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -29,8 +29,15 @@ uses
   ImageHlp,
   StrUtils,
   RawScanner.Types,
+  RawScanner.Elf,
   RawScanner.Wow64,
   RawScanner.X64Gates;
+
+type
+  TFilePathAtImageBase = reference to function(AddrVA: ULONG_PTR64): string;
+
+var
+  FilePathAtImageBase: TFilePathAtImageBase = nil;
 
   procedure InitNtQueryVirtualMemory64(Value: Pointer);
   procedure ReleaseNtQueryVirtualMemory64;
@@ -43,6 +50,11 @@ uses
     var lpBuffer: TMemoryBasicInformation64; dwLength: NativeUInt): DWORD;
   function GetMappedModule(ProcessHandle: THandle; AddrVa: ULONG_PTR64): string;
   function UnDecorateSymbolName(const Value: string): string;
+
+type
+  TBinaryImageType = (bitUnknown, bitPe, bitElf, bitCoff, bitRes);
+
+  function GetBinaryImageType(AStream: TStream): TBinaryImageType;
 
 implementation
 
@@ -353,6 +365,55 @@ begin
     Index := Index2 + 1;
   if Index > 1 then
     Result := Copy(Value, Index, Length(Value));
+end;
+
+function GetBinaryImageType(AStream: TStream): TBinaryImageType;
+const
+  ID_WORD = $FFFF;
+  RES_BINARY_HEADER: array [0..7] of ULONG = (0, $20, ID_WORD, ID_WORD, 0, 0, 0, 0);
+var
+  StartPos: Int64;
+  IDH: TImageDosHeader;
+  NTH: TImageNtHeaders64;
+  IFH: TImageFileHeader;
+  EID: EIdent;
+  Res: array [0..7] of ULONG;
+begin
+  Result := bitUnknown;
+  StartPos := AStream.Position;
+  try
+    if AStream.Read(IDH, SizeOf(IDH)) = SizeOf(IDH) then
+    begin
+      if IDH.e_magic = IMAGE_DOS_SIGNATURE then
+      begin
+        AStream.Position := StartPos + IDH._lfanew;
+        if AStream.Read(NTH, SizeOf(NTH)) = SizeOf(NTH) then
+        begin
+          if NTH.Signature = IMAGE_NT_SIGNATURE then
+            case NTH.FileHeader.Machine of
+              IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64: Exit(bitPe);
+            end;
+        end;
+      end;
+    end;
+    AStream.Position := StartPos;
+    if AStream.Read(EID, EI_NIDENT) = EI_NIDENT then
+    begin
+      if (EID.e_magic = ELF_MAGIC) and (EID.e_class in [ELFCLASS32, ELFCLASS64]) then
+        Exit(bitElf);
+    end;
+    AStream.Position := StartPos;
+    if AStream.Read(IFH, SizeOf(IFH)) = SizeOf(IFH) then
+      case IFH.Machine of
+        IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64: Exit(bitCoff);
+      end;
+    AStream.Position := StartPos;
+    if AStream.Read(Res, SizeOf(Res)) = SizeOf(Res) then
+      if CompareMem(@Res[0], @RES_BINARY_HEADER[0], SizeOf(Res)) then
+        Result := bitRes;
+  finally
+   AStream.Position := StartPos
+  end;
 end;
 
 end.

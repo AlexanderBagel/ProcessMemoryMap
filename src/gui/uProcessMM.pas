@@ -5,8 +5,8 @@
 //  * Unit Name : uProcessMM.pas
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.45
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -48,6 +48,7 @@ uses
   RawScanner.Logger,
   RawScanner.CoffDwarf,
   RawScanner.SymbolStorage,
+  RawScanner.Utils,
 
   uDisplayUtils,
   uIPC,
@@ -149,7 +150,7 @@ type
     Debugdata1: TMenuItem;
     acDebugInfo: TAction;
     acStrings: TAction;
-    ShowStrings1: TMenuItem;
+    mnuStrings: TMenuItem;
     pmGui: TPopupMenu;
     acCopyPID: TAction;
     CopyPID1: TMenuItem;
@@ -163,8 +164,10 @@ type
     DWARFReader1: TMenuItem;
     acRunDWARFReader: TAction;
     acSearchResult: TAction;
-    ShowSearchResults1: TMenuItem;
+    mnuSearchResults: TMenuItem;
     gbPages: TGroupBox;
+    acShowResources: TAction;
+    mnuResources: TMenuItem;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -230,6 +233,7 @@ type
     procedure acRunDWARFReaderExecute(Sender: TObject);
     procedure acSearchResultUpdate(Sender: TObject);
     procedure acSearchResultExecute(Sender: TObject);
+    procedure acShowResourcesExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
@@ -273,6 +277,7 @@ uses
   uComparator,
   uFindData,
   uSettings,
+  uSettings.Form,
   uUtils,
   uDump,
   uAbout,
@@ -285,6 +290,7 @@ uses
   uStringsViewer,
   uCallStack,
   uSearchResult,
+  uResources,
   ScaledCtrls,
   Shell.TaskBarListProgress;
 
@@ -753,6 +759,11 @@ begin
           dlgCallStack.Position := poScreenCenter;
           dlgCallStack.Show;
         end;
+        if AnsiSameText(ParamStr(DebugParamIndex), '-resources') then
+        begin
+          dlgResources := TdlgResources.Create(Application);
+          dlgResources.ShowResources;
+        end;
         Exit;
       end;
     end;
@@ -819,6 +830,17 @@ begin
   end;
   dlgKnownData := TdlgKnownData.Create(Application);
   dlgKnownData.ShowKnownData;
+end;
+
+procedure TdlgProcessMM.acShowResourcesExecute(Sender: TObject);
+begin
+  if dlgResources <> nil then
+  begin
+    dlgResources.BringToFront;
+    Exit;
+  end;
+  dlgResources := TdlgResources.Create(Application);
+  dlgResources.ShowResources;
 end;
 
 procedure TdlgProcessMM.acStringsExecute(Sender: TObject);
@@ -1071,6 +1093,20 @@ begin
   MemoryMapCore.OnProgress := OnInitProgress;
   MemoryMapCore.OnGetWow64Heaps := OnGetWow64Heaps;
 
+  FilePathAtImageBase := function (AddrVA: ULONG_PTR64): string
+  var
+    Idx: Integer;
+    RegionData: TRegionData;
+  begin
+    Result := '';
+    if MemoryMapCore.GetRegionIndex(Pointer(AddrVA), Idx) then
+    begin
+      RegionData := MemoryMapCore.GetRegionAtUnfilteredIndex(Idx);
+      if RegionData.RegionType in [rtExecutableImage, rtExecutableImage64] then
+        Result := RegionData.Details;
+    end;
+  end;
+
   Application.Title := Caption;
   FirstRun := True;
   FirstSelectProcess := True;
@@ -1189,18 +1225,19 @@ begin
         DebugLog.Clear;
         // загрузка DWARF не быстрый процесс, поэтому нужно тоже выводить прогресс
         TDwarfDebugInfo.LoadCallback := procedure(AStep: TLoadCallbackStep; ACurrent, AMax: Int64)
+        var
+          AHint: string;
         begin
           case AStep of
-            lcsLoadInfo: dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF.';
-            lcsPrepareAddr: dlgProgress.lblProgress.Caption := LastProgressCaption + ' prepare DWARF.';
-            lcsProcessInfo: dlgProgress.lblProgress.Caption := LastProgressCaption + ' process DWARF.';
+            lcsLoadInfo: AHint := LastProgressCaption + ' load DWARF.';
+            lcsPrepareAddr: AHint := LastProgressCaption + ' prepare DWARF.';
+            lcsProcessInfo: AHint := LastProgressCaption + ' process DWARF.';
           else
-            dlgProgress.lblProgress.Caption := LastProgressCaption + ' load DWARF lines.';
+            AHint := LastProgressCaption + ' load DWARF lines.';
           end;
           dlgProgress.ProgressBarAdv.Visible := ACurrent <> AMax;
           dlgProgress.ProgressBarAdv.Max := AMax;
-          dlgProgress.ProgressBarAdv.Position := ACurrent;
-          Application.ProcessMessages;
+          dlgProgress.UpdateCaption(AHint, ACurrent);
         end;
         RawScannerLogger.OnLog := OnLog;
         RawScannerCore.InitFromProcess(PID);
@@ -1306,9 +1343,7 @@ procedure TdlgProcessMM.OnInitProgress(const Step: string; APecent: Integer);
 begin
   if dlgProgress = nil then Exit;
   LastProgressCaption := Step;
-  dlgProgress.lblProgress.Caption := Step;
-  dlgProgress.ProgressBar.Position := APecent;
-  Application.ProcessMessages;
+  dlgProgress.UpdateCaption(Step, APecent);
 end;
 
 procedure TdlgProcessMM.OnLog(ALevel: TLogLevel; AType: TLogType;

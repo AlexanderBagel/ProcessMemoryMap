@@ -6,8 +6,8 @@
 //  * Purpose   : Классы получающие данные о состоянии PE файлов в процессе
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.24
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -143,7 +143,12 @@ type
     function SectionAtIndex(AIndex: Integer; out ASection: TSectionParams): Boolean; override;
     function SectionAtName(const AName: string; out ASection: TSectionParams): Boolean; override;
     function PointerToSymbolTable: ULONG_PTR64; override;
+    function RawToVa(RawAddr: DWORD): ULONG_PTR64; override;
     function Rebase(Value: ULONG_PTR64): ULONG_PTR64; override;
+    function RvaToRaw(RvaAddr: DWORD): DWORD; override;
+    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64; override;
+    function VaToRaw(VaAddr: ULONG_PTR64): DWORD; override;
+    function VaToRva(VaAddr: ULONG_PTR64): DWORD; override;
   end;
 
   TRawPEImage = class(TAbstractImage)
@@ -170,13 +175,13 @@ type
     FIndex: Integer;
     FImageBase: ULONG_PTR64;
     FImageGate: TPeImageGate;
+    FImageLoadType: TImageLoadType;
     FImagePath: string;
     FImageName, FOriginalName: string;
     FImport: TList<TImportChunk>;
     FImportDir: TDirectoryData;
     FImportAddressTable: TDirectoryData;
     FILOnly: Boolean;
-    FLoadSectionsOnly: Boolean;
     FNtHeader: TImageNtHeaders64;
     FRebased: Boolean;
     FRedirected: Boolean;
@@ -188,6 +193,7 @@ type
     FStrings: TList<TStringData>;
     FSizeOfFileImage: Int64;
     FTlsDir: TDirectoryData;
+    FValidImage: Boolean;
     FVirtualSizeOfImage: Int64;
     function GetGnuDebugLink(Raw: TStream): string;
     procedure InitDirectories;
@@ -213,7 +219,7 @@ type
     procedure ProcessApiSetRedirect(const LibName: string;
       var ExportChunk: TExportChunk); overload;
   public
-    constructor Create(const ImagePath: string; ALoadSectionsOnly: Boolean;
+    constructor Create(const ImagePath: string; AImageLoadType: TImageLoadType;
       ImageBase: ULONG_PTR64 = 0); overload;
     constructor Create(const ModuleData: TModuleData; AModuleIndex: Integer); overload;
     destructor Destroy; override;
@@ -230,13 +236,14 @@ type
     function ImageBase: ULONG_PTR64; override;
     procedure ProcessRelocations(AStream: TStream);
     function RawToVa(RawAddr: DWORD): ULONG_PTR64; override;
-    function RvaToRaw(RvaAddr: DWORD): DWORD;
-    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
+    function RvaToRaw(RvaAddr: DWORD): DWORD; override;
+    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64; override;
     function SectionAtAddr(AddrVA: ULONG_PTR64; out Section: TImageSectionHeaderEx): Boolean;
     function SectionAtIndex(AIndex: Integer; out Section: TImageSectionHeaderEx): Boolean;
     function SectionAtName(const AName: string; out AIndex: Integer): Boolean;
     function VaToRaw(VaAddr: ULONG_PTR64): DWORD; override;
     function VaToRva(VaAddr: ULONG_PTR64): DWORD; override;
+    function ValidImage: Boolean; override;
     property BoundDirectory: TDirectoryData read FBoundDir;
     property CoffDebugInfo: TCoffDebugInfo read FCoffDebugInfo;
     property ComPlusILOnly: Boolean read  FILOnly;
@@ -437,6 +444,11 @@ begin
   Result := FImage.NtHeader.FileHeader.PointerToSymbolTable;
 end;
 
+function TPeImageGate.RawToVa(RawAddr: DWORD): ULONG_PTR64;
+begin
+  Result := FImage.RawToVa(RawAddr);
+end;
+
 function TPeImageGate.Rebase(Value: ULONG_PTR64): ULONG_PTR64;
 begin
   if FImage.ImageBase <> FImage.NtHeader.OptionalHeader.ImageBase then
@@ -450,6 +462,16 @@ begin
   ClearReplaced;
   FImage := ANewImage;
   FImageReplaced := True;
+end;
+
+function TPeImageGate.RvaToRaw(RvaAddr: DWORD): DWORD;
+begin
+  Result := FImage.RvaToRaw(RvaAddr);
+end;
+
+function TPeImageGate.RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
+begin
+  Result := FImage.RvaToVa(RvaAddr);
 end;
 
 function TPeImageGate.SectionAtIndex(AIndex: Integer;
@@ -476,6 +498,16 @@ begin
   end;
 end;
 
+function TPeImageGate.VaToRaw(VaAddr: ULONG_PTR64): DWORD;
+begin
+  Result := FImage.VaToRaw(VaAddr);
+end;
+
+function TPeImageGate.VaToRva(VaAddr: ULONG_PTR64): DWORD;
+begin
+  Result := FImage.VaToRva(VaAddr);
+end;
+
 { TRawPEImage }
 
 constructor TRawPEImage.Create(const ModuleData: TModuleData;
@@ -484,11 +516,11 @@ begin
   FRebased := not ModuleData.IsBaseValid;
   FRedirected := ModuleData.IsRedirected;
   FIndex := AModuleIndex;
-  Create(ModuleData.ImagePath, False, ModuleData.ImageBase);
+  Create(ModuleData.ImagePath, iltFull, ModuleData.ImageBase);
 end;
 
 constructor TRawPEImage.Create(const ImagePath: string;
-  ALoadSectionsOnly: Boolean; ImageBase: ULONG_PTR64);
+  AImageLoadType: TImageLoadType; ImageBase: ULONG_PTR64);
 var
   SymbolData: TSymbolData;
 begin
@@ -509,7 +541,7 @@ begin
   FCoffDebugInfo := TCoffDebugInfo.Create(FImageGate);
   FDwarfDebugInfo := TDwarfDebugInfo.Create(FImageGate);
   FDwarfDebugInfo.AppendUnitName := DefaultDwarfAppendUnitName;
-  FLoadSectionsOnly := ALoadSectionsOnly;
+  FImageLoadType := AImageLoadType;
   SymbolData.AddrVA := ImageBase;
   SymbolData.DataType := sdtInstance;
   SymbolData.Binary.ModuleIndex := ModuleIndex;
@@ -550,6 +582,7 @@ function TRawPEImage.DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
 begin
   Result := -1;
   // Игнорируем IMAGE_DIRECTORY_ENTRY_SECURITY, она ведет себя крайне не понятно
+  if FNtHeader.OptionalHeader.NumberOfRvaAndSizes = 0 then Exit;  
   for var I := 0 to FNtHeader.OptionalHeader.NumberOfRvaAndSizes - 1 do
   begin
     if I = IMAGE_DIRECTORY_ENTRY_SECURITY then
@@ -1342,15 +1375,23 @@ var
   IDH: TImageDosHeader;
   SymbolData: TSymbolData;
   DebugLinkImage: TRawPEImage;
+  ImagePathWithRedirect: string;
 begin
   Raw := TMemoryStream.Create;
   try
     try
-      Raw.LoadFromFile(FImagePath);
+      ImagePathWithRedirect := ImagePath;
+      if not FileExists(ImagePathWithRedirect) then
+      begin
+        if Assigned(FilePathAtImageBase) then
+          ImagePathWithRedirect := FilePathAtImageBase(FImageBase);
+        Notify('Image not found: ' + ImagePath, 'Redirected to: ' + ImagePathWithRedirect);
+      end;
+      Raw.LoadFromFile(ImagePathWithRedirect);
     except
       on E: Exception do
       begin
-        Notify('Image load error ' + ImagePath, E.ClassName + ': ' + E.Message);
+        Notify('Image load error: ' + ImagePathWithRedirect, E.ClassName + ': ' + E.Message);
         Exit;
       end;
     end;
@@ -1373,9 +1414,11 @@ begin
     // читаем массив секций, они нужны для работы алигнов в RvaToRaw
     if not LoadSections(Raw) then Exit;
 
+    FValidImage := True;
+
     // при быстрой загрузке образа необходимы только секции,
     // на основе которых идут релоки, остальное лишнее
-    if FLoadSectionsOnly then Exit;
+    if FImageLoadType = iltSectionOnly then Exit;
 
     // теперь можем инициализировать параметры точки входа
     if NtHeader.OptionalHeader.AddressOfEntryPoint <> 0 then
@@ -1436,10 +1479,12 @@ begin
       // откуда будем брать актуальные отладочные данные, причем грузить его
       // будем только до секций (второй параметр), остальное в принципе лишнее
       // (да и нет там больше ничего)
-      DebugLinkImage := TRawPEImage.Create(FDebugLinkPath, True, ImageBase);
+      DebugLinkImage := TRawPEImage.Create(FDebugLinkPath, iltSectionOnly, ImageBase);
       FImageGate.ReplaceImage(DebugLinkImage);
       Raw.LoadFromFile(FDebugLinkPath);
     end;
+
+    if FImageLoadType = iltWithoutDebug then Exit;
 
     // если есть COFF debug, пробуем зачитать отладочную информацию
     LoadCoff(Raw);
@@ -2070,6 +2115,11 @@ begin
       Result := True;
       Break;
     end;
+end;
+
+function TRawPEImage.ValidImage: Boolean;
+begin
+  Result := FValidImage;
 end;
 
 function TRawPEImage.VaToRaw(VaAddr: ULONG_PTR64): DWORD;

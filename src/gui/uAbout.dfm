@@ -1,27 +1,34 @@
 object dlgAbout: TdlgAbout
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'About Process Memory Map'
-  ClientHeight = 251
-  ClientWidth = 498
+  ClientHeight = 377
+  ClientWidth = 756
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poMainFormCenter
   OnCreate = FormCreate
-  PixelsPerInch = 96
-  TextHeight = 13
+  PixelsPerInch = 144
+  TextHeight = 21
   object Image1: TImage
-    Left = 8
-    Top = 8
-    Width = 32
-    Height = 32
+    Left = 12
+    Top = 12
+    Width = 48
+    Height = 48
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     AutoSize = True
     Picture.Data = {
       055449636F6E000001000F000000000001000400D73C0000F600000030300000
@@ -4679,52 +4686,80 @@ object dlgAbout: TdlgAbout
       FF0000}
   end
   object lblPMMVer: TLabel
-    Left = 56
-    Top = 8
-    Width = 119
-    Height = 13
+    Left = 84
+    Top = 12
+    Width = 186
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Process Memory Map ???'
   end
   object Label2: TLabel
-    Left = 56
-    Top = 27
-    Width = 247
-    Height = 13
-    Caption = 'Copyright: '#169' 2013-2025 Alexander (Rouse_) Bagel'
+    Left = 84
+    Top = 41
+    Width = 379
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    Caption = 'Copyright: '#169' 2013-2026 Alexander (Rouse_) Bagel'
   end
   object Label3: TLabel
-    Left = 56
-    Top = 226
-    Width = 212
-    Height = 13
+    Left = 84
+    Top = 339
+    Width = 327
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Portions based on code by Mark Russinovich'
   end
   object lblMMVer: TLabel
-    Left = 56
-    Top = 98
-    Width = 106
-    Height = 13
+    Left = 84
+    Top = 147
+    Width = 164
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'MemoryMap Core: ???'
   end
   object lblRawVer: TLabel
-    Left = 56
-    Top = 117
-    Width = 108
-    Height = 13
+    Left = 84
+    Top = 176
+    Width = 166
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'RawScanner Core: ???'
   end
   object Label1: TLabel
-    Left = 56
-    Top = 163
-    Width = 50
-    Height = 13
+    Left = 84
+    Top = 245
+    Width = 79
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Third side:'
   end
   object LinkLabel3: TLinkLabel
-    Left = 56
-    Top = 65
-    Width = 354
-    Height = 19
+    Left = 84
+    Top = 98
+    Width = 523
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 
       'Sources: <a href="https://github.com/AlexanderBagel/ProcessMemor' +
       'yMap">https://github.com/AlexanderBagel/ProcessMemoryMap</a>'
@@ -4733,20 +4768,28 @@ object dlgAbout: TdlgAbout
     OnLinkClick = LinkLabel1LinkClick
   end
   object Button1: TButton
-    Left = 413
-    Top = 8
-    Width = 75
-    Height = 25
+    Left = 620
+    Top = 12
+    Width = 112
+    Height = 38
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'OK'
     Default = True
     ModalResult = 1
     TabOrder = 1
   end
   object LinkLabel4: TLinkLabel
-    Left = 56
-    Top = 182
-    Width = 423
-    Height = 19
+    Left = 84
+    Top = 273
+    Width = 627
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 
       'Virtual TreeView: <a href="https://github.com/JAM-Software/Virtu' +
       'al-TreeView">https://github.com/JAM-Software/Virtual-TreeView ve' +
@@ -4756,10 +4799,14 @@ object dlgAbout: TdlgAbout
     OnLinkClick = LinkLabel1LinkClick
   end
   object lblDistorm: TLinkLabel
-    Left = 56
-    Top = 201
-    Width = 188
-    Height = 19
+    Left = 84
+    Top = 302
+    Width = 283
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 
       'Disasm engine: <a href="https://github.com/gdabah/distorm">diSto' +
       'rm version ???</a>'
@@ -4768,10 +4815,14 @@ object dlgAbout: TdlgAbout
     OnLinkClick = LinkLabel1LinkClick
   end
   object LinkLabel1: TLinkLabel
-    Left = 56
-    Top = 46
-    Width = 177
-    Height = 19
+    Left = 84
+    Top = 69
+    Width = 261
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 
       'Home Page: <a href="http://rouse.drkb.ru">http://rouse.drkb.ru</' +
       'a>'
@@ -4780,10 +4831,14 @@ object dlgAbout: TdlgAbout
     OnLinkClick = LinkLabel1LinkClick
   end
   object lblZipVer: TLinkLabel
-    Left = 56
-    Top = 136
-    Width = 171
-    Height = 19
+    Left = 84
+    Top = 204
+    Width = 256
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 
       'FWZip Compression Library: <a href="https://github.com/Alexander' +
       'Bagel/FWZip">???</a>'

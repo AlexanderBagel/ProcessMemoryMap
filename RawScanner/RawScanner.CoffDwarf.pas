@@ -6,8 +6,8 @@
 //  * Purpose   : Декларация типов используемых для чтения отладочной
 //  *           : информации в форматах COFF и DWARF.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
-//  * Version   : 1.1.25
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -37,14 +37,19 @@ interface
   {$I rawscanner.inc}
 
 uses
+  {$IFDEF FPC}
+  LCLType,
+  StrUtils,
+  {$ELSE}
   Windows,
+  AnsiStrings,
+  {$ENDIF}
+  {$IFDEF USE_PROFILING}
+  System.Diagnostics,
+  {$ENDIF}
   Classes,
   SysUtils,
   Math,
-  AnsiStrings,
-  {$IFDEF USE_PROFILING}
-  Diagnostics,
-  {$ENDIF}
   Generics.Collections,
   RawScanner.Types,
   RawScanner.SymbolStorage;
@@ -999,29 +1004,6 @@ type
     n_value: DWORD;   // value of symbol (or sdb offset)
   end;
 
-  TSectionParams = record
-    AddressVA: ULONG_PTR64;
-    AddressRaw: DWORD;
-    DisplayName: string;
-    SizeOfRawData: DWORD;
-    IsExecutable: Boolean;
-  end;
-
-  // для PE и ELF реализации разные, поэтому работаем через абстракцию
-  TAbstractImageGate = class
-  private
-    FModuleIndex: Integer;
-  public
-    function IsObjectFile: Boolean; virtual; abstract;
-    function GetIs64Image: Boolean; virtual; abstract;
-    function NumberOfSymbols: Integer; virtual; abstract;
-    function SectionAtIndex(AIndex: Integer; out ASection: TSectionParams): Boolean; virtual; abstract;
-    function SectionAtName(const AName: string; out ASection: TSectionParams): Boolean; virtual; abstract;
-    function PointerToSymbolTable: ULONG_PTR64; virtual; abstract;
-    function Rebase(Value: ULONG_PTR64): ULONG_PTR64; virtual; abstract;
-    property ModuleIndex: Integer read FModuleIndex write FModuleIndex;
-  end;
-
   TCoffFunction = record
     FuncAddrVA: ULONG_PTR64;
     SectionIndex: Integer;
@@ -1944,7 +1926,7 @@ function TDwarfStream.ReadPAnsiChar: PAnsiChar;
 begin
   Result := GetMemory;
   Inc(Result, GetNativePosition);
-  Seek(AnsiStrings.StrLen(Result) + 1, soFromCurrent);
+  Seek({$IFNDEF FPC}AnsiStrings.{$ENDIF}StrLen(Result) + 1, soFromCurrent);
 end;
 
 function TDwarfStream.ReadString: string;
@@ -2980,9 +2962,6 @@ begin
   Result.OffsetID := FDieOffsetInUnit;
   Result.AbsoluteOffset := FStream.AbsolutePosition;
   Result.Tag := AAbbrevDescr.Tag;
-
-//  if Result.AbsoluteOffset = $5dd3a then
-//    Beep;
 end;
 
 destructor TDwarfInfoUnit.Destroy;
@@ -3440,7 +3419,7 @@ var
   ASize: Int64;
   Opcode: Byte;
 begin
-  ZeroMemory(@Result, SizeOf(Result));
+  Result := Default(TLocationData);
   ASize := ReadAttribute(Attribute, FLocationBuff.Memory, MAXBYTE);
 
   if ASize = 0 then
@@ -3685,7 +3664,7 @@ var
   SLeb: Int64;
   Indirect: Boolean;
 begin
-  ZeroMemory(pBuff, ASize);
+  FillChar(pBuff^, 0, ASize);
   AForm := Attribute.Form;
   repeat
     Indirect := False;

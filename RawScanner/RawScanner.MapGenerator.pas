@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.MapGenerator.pas
 //  * Purpose   : Генератор отладочного MAP файла на основе DWARF информации.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.20
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -26,6 +26,7 @@ uses
   Math,
   Generics.Defaults,
   Generics.Collections,
+  RawScanner.Types,
   RawScanner.CoffDwarf;
 
   function MakeDebugMap(const FilePath, MapFilePath: string;

@@ -6,8 +6,8 @@
 //  * Purpose   : Классы получающие данные о состоянии ELF файлов в процессе
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
-//  * Version   : 1.1.25
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -20,10 +20,15 @@ unit RawScanner.Image.Elf;
 
 interface
 
+  {$I rawscanner.inc}
+
 uses
+  {$IFNDEF FPC}
   Windows,
+  {$ENDIF}
   Classes,
   SysUtils,
+  Math,
   Generics.Collections,
   RawScanner.AbstractImage,
   RawScanner.Types,
@@ -36,15 +41,22 @@ type
     Hdr: Elf64_Shdr;
   end;
 
+  TImageSymbolType = (istUnknown, istImport, istExport, istDebug);
+
   TImageSymbol = record
     DisplayName: string;
     Executable: Boolean;
     Hdr: Elf64_Sym;
-  end;
-
-  TImportChunk = record
-    DisplayName: string;
-    Hdr: Elf64_Sym;
+    SymbolType: TImageSymbolType;
+    case TImageSymbolType of
+      istImport: (
+        GotAddrVA: Int64;
+        GotIdx: Integer;
+      );
+      istExport: (
+        Hash: UInt32;
+        HashIdx: Integer;
+      );
   end;
 
   TRawElfImage = class;
@@ -66,7 +78,37 @@ type
     function SectionAtIndex(AIndex: Integer; out ASection: TSectionParams): Boolean; override;
     function SectionAtName(const AName: string; out ASection: TSectionParams): Boolean; override;
     function PointerToSymbolTable: ULONG_PTR64; override;
+    function RawToVa(RawAddr: DWORD): ULONG_PTR64; override;
     function Rebase(Value: ULONG_PTR64): ULONG_PTR64; override;
+    function RvaToRaw(RvaAddr: DWORD): DWORD; override;
+    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64; override;
+    function VaToRaw(VaAddr: ULONG_PTR64): DWORD; override;
+    function VaToRva(VaAddr: ULONG_PTR64): DWORD; override;
+  end;
+
+  THashReader = class
+  strict private
+    FOwner: TRawElfImage;
+    FBucketCount, FChainCount: Integer;
+    FBuckets: array of UInt32;
+    FChains: array of UInt32;
+  public
+    constructor Create(AOwner: TRawElfImage);
+    function CheckSymbolExportIndex(var Symbol: TImageSymbol; Idx: Integer): Boolean;
+    function LoadGnuHash(Raw: TMemoryStream): Boolean;
+  end;
+
+  TGnuHashReader = class
+  strict private
+    FOwner: TRawElfImage;
+    FBloomFilter: array of UInt64;
+    FBuckets: array of UInt32;
+    FHeader: TGnuHashHeader;
+    FHashValues: array of UInt32;
+  public
+    constructor Create(AOwner: TRawElfImage);
+    function CheckSymbolExportIndex(var Symbol: TImageSymbol): Boolean;
+    function LoadGnuHash(Raw: TMemoryStream): Boolean;
   end;
 
   TRawElfImage = class(TAbstractImage)
@@ -74,31 +116,34 @@ type
     FDebugData: TDebugInfoTypes;
     FDebugLinkPath: string;
     FDwarfDebugInfo: TDwarfDebugInfo;
+    FDynSymbolsCount: Integer;
+    FHashReader: THashReader;
+    FGnuHashReader: TGnuHashReader;
     FHeader: Elf64_Ehdr;
     FHeaderSize: DWORD;
     FHeaderPresent: Boolean;
     FImageBase, FLoadedImageBase, FEntryPoint: ULONG_PTR64;
     FImageGate: TElfImageGate;
+    FImageLoadType: TImageLoadType;
     FImagePath, FImageName: string;
-    FImport: TList<TImportChunk>;
+    FImportLibs: TStringList;
     FIndex: Integer;
-    FLoadSectionsOnly: Boolean;
     FProgramHeaders: array of Elf64_Phdr;
     FSections: array of TElfSectionHeader;
     FSectionsPresent: Boolean;
     FSizeOfFileImage: Int64;
     FSymbols: TList<TImageSymbol>;
+    FValidImage: Boolean;
     function GetGnuDebugLink(Raw: TStream): string;
     procedure LoadFromImage;
     procedure LoadDwarf(Raw: TStream);
     function LoadHeader(Raw: TStream): Boolean;
     function LoadProgramHeaders(Raw: TStream): Boolean;
     function LoadSections(Raw: TMemoryStream): Boolean;
-    function LoadExport(Raw: TMemoryStream): Boolean;
-    function LoadImport(Raw: TMemoryStream): Boolean;
+    function LoadDynSection(Raw: TMemoryStream): Boolean;
     function LoadSymbols(Raw: TMemoryStream): Boolean;
   public
-    constructor Create(const ImagePath: string; ALoadSectionsOnly: Boolean;
+    constructor Create(const ImagePath: string; AImageLoadType: TImageLoadType;
       ImageBase: ULONG_PTR64 = 0); overload;
     constructor Create(const ModuleData: TModuleData; AModuleIndex: Integer); overload;
     destructor Destroy; override;
@@ -111,20 +156,30 @@ type
     function ImageBase: ULONG_PTR64; override;
 
     function RawToVa(RawAddr: DWORD): ULONG_PTR64; override;
+    function RvaToRaw(RvaAddr: DWORD): DWORD; override;
+    function RvaToVa(RvaAddr: DWORD): ULONG_PTR64; override;
     function VaToRaw(AddrVA: ULONG_PTR64): DWORD; override;
     function VaToRva(VaAddr: ULONG_PTR64): DWORD; override;
+    function ValidImage: Boolean; override;
 
+    function ProgramHeadersCount: Integer;
+    function ProgramHeaderAtAddrVA(AddrVA: Int64; out AHeader: Elf64_Phdr): Integer;
+    function ProgramHeaderAtIndex(AIndex: Integer; out AHeader: Elf64_Phdr): Boolean;
+    function ProgramHeaderByType(AType: UInt32; out AHeader: Elf64_Phdr): Boolean;
+
+    function SectionCount: Integer;
     function SectionAtIndex(AIndex: Integer; out Section: TElfSectionHeader): Boolean;
     function SectionAtName(const AName: string; out AIndex: Integer): Boolean;
     function SectionByType(AType: UInt32; out Section: TElfSectionHeader): Boolean;
 
+    property DynSymbolsCount: Integer read FDynSymbolsCount;
     property EntryPoint: ULONG_PTR64 read FEntryPoint;
     property Header: Elf64_Ehdr read FHeader;
     property HeaderPresent: Boolean read FHeaderPresent;
     property ImageBaseInHeaders: ULONG_PTR64 read FLoadedImageBase;
     property ImageName: string read FImageName;
     property ImagePath: string read FImagePath;
-    property ImportList: TList<TImportChunk> read FImport;
+    property ImportLibs: TStringList read FImportLibs;
     property ModuleIndex: Integer read FIndex;
     property SectionsPresent: Boolean read FSectionsPresent;
     property Symbols: TList<TImageSymbol> read FSymbols;
@@ -136,6 +191,9 @@ implementation
 uses
   RawScanner.Logger;
 {$ENDIF}
+
+const
+  PtrSize: array [Boolean] of Integer = (4, 8);
 
 procedure Error(const Description: string);
 begin
@@ -206,6 +264,11 @@ begin
   Result := 0;
 end;
 
+function TElfImageGate.RawToVa(RawAddr: DWORD): ULONG_PTR64;
+begin
+  Result := FImage.RawToVa(RawAddr);
+end;
+
 function TElfImageGate.Rebase(Value: ULONG_PTR64): ULONG_PTR64;
 begin
   if FImage.ImageBase <> FImage.ImageBaseInHeaders then
@@ -219,6 +282,16 @@ begin
   ClearReplaced;
   FImage := ANewImage;
   FImageReplaced := True;
+end;
+
+function TElfImageGate.RvaToRaw(RvaAddr: DWORD): DWORD;
+begin
+  Result := FImage.RvaToRaw(RvaAddr);
+end;
+
+function TElfImageGate.RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
+begin
+  Result := FImage.RvaToVa(RvaAddr);
 end;
 
 function TElfImageGate.SectionAtIndex(AIndex: Integer;
@@ -245,21 +318,164 @@ begin
   end;
 end;
 
+function TElfImageGate.VaToRaw(VaAddr: ULONG_PTR64): DWORD;
+begin
+  Result := FImage.VaToRaw(VaAddr);
+end;
+
+function TElfImageGate.VaToRva(VaAddr: ULONG_PTR64): DWORD;
+begin
+  Result := FImage.VaToRva(VaAddr);
+end;
+
+{ THashReader }
+
+function THashReader.CheckSymbolExportIndex(var Symbol: TImageSymbol; Idx: Integer): Boolean;
+var
+  Index: Integer;
+begin
+  Result := False;
+  if FBucketCount = 0 then Exit;
+  Symbol.Hash := CalculateElfHash(AnsiString(Symbol.DisplayName));
+  Index := FBuckets[Int32(Symbol.Hash) mod FBucketCount];
+  while Index <> STN_UNDEF do
+  begin
+    if Index = Idx then
+    begin
+      Symbol.HashIdx := Idx;
+      Result := True;
+      Exit;
+    end;
+    if Index >= FChainCount then
+      Break;
+    Index := FChains[Index];
+  end;
+  Symbol.Hash := 0;
+end;
+
+constructor THashReader.Create(AOwner: TRawElfImage);
+begin
+  FOwner := AOwner;
+end;
+
+function THashReader.LoadGnuHash(Raw: TMemoryStream): Boolean;
+var
+  I: Integer;
+  HashSection: TElfSectionHeader;
+begin
+  Result := FOwner.SectionAtName('.hash', I) and FOwner.SectionAtIndex(I, HashSection);
+  if not Result then Exit;
+  Raw.Position := HashSection.Hdr.sh_offset;
+  Raw.ReadBuffer(FBucketCount, SizeOf(Integer));
+  Raw.ReadBuffer(FChainCount, SizeOf(Integer));
+  SetLength(FBuckets, FBucketCount);
+  for I := 0 to FBucketCount - 1 do
+    Raw.Read(FBuckets[I], SizeOf(UInt32));
+  SetLength(FChains, FChainCount);
+  for I := 0 to FChainCount - 1 do
+    Raw.Read(FChains[I], SizeOf(UInt32));
+end;
+
+{ TGnuHashReader }
+
+function TGnuHashReader.CheckSymbolExportIndex(
+  var Symbol: TImageSymbol): Boolean;
+var
+  BucketIdx: UInt32;
+  SymIdx: UInt32;
+  BloomIdx: UInt32;
+  BitMask: UInt64;
+  HashIdx: Integer;
+  WordSizeBits: Integer;
+begin
+  Result:= False;
+  if (FHeader.nbuckets = 0) or (FHeader.maskwords = 0) then Exit;
+
+  Symbol.Hash := CalculateGnuHash(AnsiString(Symbol.DisplayName));
+  BucketIdx := Int32(Symbol.Hash) mod FHeader.nbuckets;
+
+  // Индекс символа из корзины
+  SymIdx := FBuckets[BucketIdx];
+  if SymIdx = 0 then
+  begin
+    Symbol.Hash := 0;
+    Exit;
+  end;
+
+  // Проверяем фильтр Блума
+  WordSizeBits := PtrSize[FOwner.Image64] shl 3;
+  BloomIdx := (Int32(Symbol.Hash) div WordSizeBits) mod FHeader.maskwords;
+  BitMask := (UInt64(1) shl (Int32(Symbol.Hash) mod WordSizeBits)) or
+    (UInt64(1) shl ((Int32(Symbol.Hash) shr FHeader.shift2) mod WordSizeBits));
+
+  if (FBloomFilter[BloomIdx] and BitMask) <> BitMask then
+  begin
+    Symbol.Hash := 0;
+    Exit;
+  end;
+
+  // Поиск в цепочке (нечетный хэш означает конец цепочки)
+  Symbol.Hash := Symbol.Hash and not 1;
+  for HashIdx := SymIdx - FHeader.symndx to Length(FHashValues) - 1 do
+  begin
+    if (FHashValues[HashIdx] and not 1 = Symbol.Hash) then
+    begin
+      Symbol.HashIdx := HashIdx + Int32(FHeader.symndx);
+      Exit(True);
+    end;
+
+    // Конец цепочки
+    if (FHashValues[HashIdx] and 1) <> 0 then
+      Break;
+  end;
+
+  Symbol.Hash := 0;
+end;
+
+constructor TGnuHashReader.Create(AOwner: TRawElfImage);
+begin
+  FOwner := AOwner;
+end;
+
+function TGnuHashReader.LoadGnuHash(Raw: TMemoryStream): Boolean;
+var
+  I, ACount: Integer;
+  HashSection: TElfSectionHeader;
+begin
+  Result := FOwner.SectionAtName('.gnu.hash', I) and FOwner.SectionAtIndex(I, HashSection);
+  if not Result then Exit;
+  Raw.Position := HashSection.Hdr.sh_offset;
+  FHeader := Default(TGnuHashHeader);
+  Raw.ReadBuffer(FHeader, SizeOf(FHeader));
+  SetLength(FBloomFilter, FHeader.maskwords);
+  for I := 0 to Length(FBloomFilter) - 1 do
+    Raw.Read(FBloomFilter[I], PtrSize[FOwner.Image64]);
+  SetLength(FBuckets, FHeader.nbuckets);
+  for I := 0 to Length(FBuckets) - 1 do
+    Raw.Read(FBuckets[I], SizeOf(UInt32));
+  ACount := Int32(HashSection.Hdr.sh_size - (UInt64(Raw.Position) - HashSection.Hdr.sh_offset)) shr 2;
+  SetLength(FHashValues, ACount);
+  for I := 0 to Length(FHashValues) - 1 do
+    Raw.Read(FHashValues[I], SizeOf(UInt32));
+end;
+
 { TRawElfImage }
 
 constructor TRawElfImage.Create(const ImagePath: string;
-  ALoadSectionsOnly: Boolean; ImageBase: ULONG_PTR64);
+  AImageLoadType: TImageLoadType; ImageBase: ULONG_PTR64);
 begin
   ProfilingBegin;
   FImagePath := ImagePath;
   FImageBase := ImageBase;
   FImageName := ExtractFileName(ImagePath);
-  FImport := TList<TImportChunk>.Create;
-  FLoadSectionsOnly := ALoadSectionsOnly;
+  FImageLoadType := AImageLoadType;
   FSymbols := TList<TImageSymbol>.Create;
   FImageGate := TElfImageGate.Create(Self);
+  FImportLibs := TStringList.Create;
   FDwarfDebugInfo := TDwarfDebugInfo.Create(FImageGate);
   FDwarfDebugInfo.AppendUnitName := DefaultDwarfAppendUnitName;
+  FHashReader := THashReader.Create(Self);
+  FGnuHashReader := TGnuHashReader.Create(Self);
   LoadFromImage;
   ProfilingEnd;
 end;
@@ -268,7 +484,7 @@ constructor TRawElfImage.Create(const ModuleData: TModuleData;
   AModuleIndex: Integer);
 begin
   FIndex := AModuleIndex;
-  Create(ModuleData.ImagePath, False, ModuleData.ImageBase);
+  Create(ModuleData.ImagePath, iltFull, ModuleData.ImageBase);
 end;
 
 function TRawElfImage.DebugData: TDebugInfoTypes;
@@ -283,9 +499,11 @@ end;
 
 destructor TRawElfImage.Destroy;
 begin
+  FHashReader.Free;
+  FGnuHashReader.Free;
   FDwarfDebugInfo.Free;
   FImageGate.Free;
-  FImport.Free;
+  FImportLibs.Free;
   FSymbols.Free;
   inherited;
 end;
@@ -319,7 +537,7 @@ var
   I: Integer;
 begin
   Result := False;
-  ZeroMemory(@Data, SizeOf(Data));
+  Data := Default(TSectionData);
   if RvaAddr <= FHeaderSize then
     Exit;
   for I := 0 to Length(FSections) - 1 do
@@ -359,11 +577,6 @@ begin
   FDebugData := FDebugData + FDwarfDebugInfo.Load(Raw);
 end;
 
-function TRawElfImage.LoadExport(Raw: TMemoryStream): Boolean;
-begin
-  Result := False;
-end;
-
 procedure TRawElfImage.LoadFromImage;
 var
   Raw: TMemoryStream;
@@ -386,11 +599,14 @@ begin
     FSectionsPresent := LoadSections(Raw);
     FHeaderPresent := LoadProgramHeaders(Raw);
 
-    if FLoadSectionsOnly then Exit;
+    FValidImage := True;
 
-    LoadExport(Raw);
-    LoadImport(Raw);
+    if FImageLoadType = iltSectionOnly then Exit;
+
+    LoadDynSection(Raw);
     LoadSymbols(Raw);
+
+    if FImageLoadType = iltWithoutDebug then Exit;
 
     // COFF + DWARF могут сидеть во внешнем отладочном файле
     // ссылка на который будет находится в секции .gnu_debuglink
@@ -401,7 +617,7 @@ begin
       // откуда будем брать актуальные отладочные данные, причем грузить его
       // будем только до секций (второй параметр), остальное в принципе лишнее
       // (да и нет там больше ничего)
-      DebugLinkImage := TRawElfImage.Create(FDebugLinkPath, True, ImageBase);
+      DebugLinkImage := TRawElfImage.Create(FDebugLinkPath, iltSectionOnly, ImageBase);
       FImageGate.ReplaceImage(DebugLinkImage);
       Raw.LoadFromFile(FDebugLinkPath);
     end;
@@ -461,15 +677,21 @@ begin
   Result := True;
 end;
 
-function TRawElfImage.LoadImport(Raw: TMemoryStream): Boolean;
+function TRawElfImage.LoadDynSection(Raw: TMemoryStream): Boolean;
 var
-  SymSection, SymStrSection, ExecutableSection: TElfSectionHeader;
-  ImportChunk: TImportChunk;
+  SymSection, SymStrSection, RelaPltSection, ExecutableSection: TElfSectionHeader;
+  Symbol: TImageSymbol;
   I, ACount: Integer;
   Hdr32: Elf32_Sym;
   Strings: PByte;
   Elf64Dyn: Elf64_Dyn;
-  S: string;
+  Elf32Dyn: Elf32_Dyn;
+  ASectionsCount: Integer;
+  LibName: string;
+  IsValidExportFlags: Boolean;
+  RelaPltDict: TDictionary<Integer, Elf64_Rela>;
+  Elf64Rela: Elf64_Rela;
+  Elf32Rela: Elf32_Rela;
 begin
   Result := SectionByType(SHT_DYNAMIC, SymSection) and
     SectionAtIndex(SymSection.Hdr.sh_link, SymStrSection);
@@ -479,59 +701,134 @@ begin
   else
     Result := SymSection.Hdr.sh_entsize = SizeOf(Elf32_Dyn);
   if not Result then Exit;
-  ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
-  Raw.Position := SymSection.Hdr.sh_offset;
-  Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
-  FillChar(Elf64Dyn, SizeOf(Elf64Dyn), 0);
-  for I := 0 to ACount - 1 do
-  begin
-    if Image64 then
-      Raw.ReadBuffer(Elf64Dyn, SizeOf(Elf64Dyn))
-    else
-    begin
 
-    end;
-    if Elf64Dyn.d_tag = DT_NEEDED then
-    begin
-      S := string(PAnsiChar(Strings + Elf64Dyn.d_ptr));
-      if S <> '' then
-        S := '';
-    end;
-  end;
+  RelaPltDict := TDictionary<Integer, Elf64_Rela>.Create;
+  try
 
-  Result := SectionByType(SHT_DYNSYM, SymSection) and
-    SectionAtIndex(SymSection.Hdr.sh_link, SymStrSection);
-  if not Result then Exit;
-  if Image64 then
-    Result := SymSection.Hdr.sh_entsize = SizeOf(Elf64_Sym)
-  else
-    Result := SymSection.Hdr.sh_entsize = SizeOf(Elf32_Sym);
-  if not Result then Exit;
-  ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
-  FImport.Count := ACount;
-  if ACount = 0 then Exit;
-  Raw.Position := SymSection.Hdr.sh_offset;
-  Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
-  FillChar(ImportChunk, SizeOf(Symbols), 0);
-  for I := 0 to ACount - 1 do
-  begin
-    if Image64 then
-      Raw.ReadBuffer(ImportChunk.Hdr, SizeOf(Elf64_Sym))
-    else
+    ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
+    Raw.Position := SymSection.Hdr.sh_offset;
+    Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
+    Elf64Dyn := Default(Elf64_Dyn);
+    for I := 0 to ACount - 1 do
     begin
-      Raw.ReadBuffer(Hdr32, SizeOf(Hdr32));
-      ImportChunk.Hdr.st_name := Hdr32.st_name;
-      ImportChunk.Hdr.st_info := Hdr32.st_info;
-      ImportChunk.Hdr.st_other := Hdr32.st_info;
-      ImportChunk.Hdr.st_shndx := Hdr32.st_shndx;
-      ImportChunk.Hdr.st_value := Hdr32.st_value;
-      ImportChunk.Hdr.st_size := Hdr32.st_size;
+      if Image64 then
+        Raw.ReadBuffer(Elf64Dyn, SizeOf(Elf64Dyn))
+      else
+      begin
+        Raw.ReadBuffer(Elf32Dyn, SizeOf(Elf32Dyn));
+        Elf64Dyn.d_tag := Elf32Dyn.d_tag;
+        Elf32Dyn.d_ptr := Elf32Dyn.d_ptr;
+      end;
+      if Elf64Dyn.d_tag = DT_NEEDED then
+      begin
+        LibName := string(PAnsiChar(Strings + Elf64Dyn.d_ptr));
+        if LibName <> '' then
+          ImportLibs.Add(LibName);
+      end;
     end;
-    if (ImportChunk.Hdr.st_name > 0) and (ImportChunk.Hdr.st_name < SymStrSection.Hdr.sh_size) then
-      ImportChunk.DisplayName := string(PAnsiChar(Strings + ImportChunk.Hdr.st_name))
+
+    Result := SectionByType(SHT_DYNSYM, SymSection) and
+      SectionAtIndex(SymSection.Hdr.sh_link, SymStrSection);
+    if not Result then Exit;
+    if Image64 then
+      Result := SymSection.Hdr.sh_entsize = SizeOf(Elf64_Sym)
     else
-      ImportChunk.DisplayName := '';
-    FImport[I] := ImportChunk;
+      Result := SymSection.Hdr.sh_entsize = SizeOf(Elf32_Sym);
+    if not Result then Exit;
+    ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
+    FSymbols.Count := ACount;
+    if ACount = 0 then Exit;
+    Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
+    Symbol := Default(TImageSymbol);
+    ASectionsCount := Length(FSections);
+
+    // зачитываем таблицу импортируемых символов
+    if SectionAtName('.rela.plt', I) and SectionAtIndex(I, RelaPltSection) then
+    begin
+      Raw.Position := RelaPltSection.Hdr.sh_offset;
+      Elf64Rela := Default(Elf64_Rela);
+      for I := 0 to (RelaPltSection.Hdr.sh_size div RelaPltSection.Hdr.sh_entsize) - 1 do
+      begin
+        if Image64 then
+          Raw.ReadBuffer(Elf64Rela, SizeOf(Elf64_Rela))
+        else
+        begin
+          Raw.ReadBuffer(Elf32Rela, SizeOf(Elf32_Rela));
+          Elf64Rela.r_offset := Elf32Rela.r_offset;
+          Elf64Rela.r_info := ELF64_R_INFO(
+            ELF32_R_SYM(Elf32Rela.r_info), ELF32_R_TYPE(Elf32Rela.r_info));
+          Elf64Rela.r_addend := Elf32Rela.r_addend;
+        end;
+        Elf64Rela.r_addend := I;
+        RelaPltDict.Add(ELF64_R_SYM(Elf64Rela.r_info), Elf64Rela);
+      end;
+    end;
+
+    // зачитываем список хэшей экспортируемых функций
+    FHashReader.LoadGnuHash(Raw);
+    FGnuHashReader.LoadGnuHash(Raw);
+
+    Raw.Position := SymSection.Hdr.sh_offset;
+    for I := 0 to ACount - 1 do
+    begin
+      Symbol := Default(TImageSymbol);
+      if Image64 then
+        Raw.ReadBuffer(Symbol.Hdr, SizeOf(Elf64_Sym))
+      else
+      begin
+        Raw.ReadBuffer(Hdr32, SizeOf(Hdr32));
+        Symbol.Hdr.st_name := Hdr32.st_name;
+        Symbol.Hdr.st_info := Hdr32.st_info;
+        Symbol.Hdr.st_other := Hdr32.st_other;
+        Symbol.Hdr.st_shndx := Hdr32.st_shndx;
+        Symbol.Hdr.st_value := Hdr32.st_value;
+        Symbol.Hdr.st_size := Hdr32.st_size;
+      end;
+
+      // игнорируем абсолютные и OS специфичные символы
+      if Symbol.Hdr.st_shndx >= ASectionsCount then
+        Continue;
+
+      if (Symbol.Hdr.st_name > 0) and (Symbol.Hdr.st_name < SymStrSection.Hdr.sh_size) then
+        Symbol.DisplayName := string(PAnsiChar(Strings + Symbol.Hdr.st_name))
+      else
+        Symbol.DisplayName := '';
+
+      // Экспорт идентифицируется по следующим признакам:
+      // 1. st_shndx != undef
+      // 2. bind == STB_GLOBAL
+      // 3. type == STT_OBJECT, STT_FUNC
+      // 4. visiblity == STV_DEFAULT, STV_PROTECTED
+      IsValidExportFlags :=
+        (Symbol.Hdr.st_value > 0) and
+        (ELF32_ST_TYPE(Symbol.Hdr.st_info) in [STT_OBJECT, STT_FUNC, STT_GNU_IFUNC]) and
+        (ELF32_ST_BIND(Symbol.Hdr.st_info) in [STB_GLOBAL, STB_WEAK, STB_GNU_UNIQUE]) and
+        (ELF32_ST_VISIBLITY(Symbol.Hdr.st_other) in [STV_DEFAULT, STV_PROTECTED]);
+
+      Symbol.SymbolType := istUnknown;
+      if RelaPltDict.TryGetValue(I, Elf64Rela) then
+      begin
+        if FSections[Symbol.Hdr.st_shndx].Hdr.sh_flags and SHF_ALLOC = 0 then
+        begin
+          Symbol.SymbolType := istImport;
+          Symbol.GotAddrVA := Int64(Elf64Rela.r_offset);
+          Symbol.GotIdx := Elf64Rela.r_addend;
+        end;
+      end;
+
+      if (Symbol.SymbolType <> istImport) and IsValidExportFlags and
+        (FGnuHashReader.CheckSymbolExportIndex(Symbol) or
+        FHashReader.CheckSymbolExportIndex(Symbol, I)) then
+        Symbol.SymbolType := istExport;
+
+      Symbol.Executable :=
+        SectionAtIndex(Symbol.Hdr.st_shndx, ExecutableSection) and
+        ((ExecutableSection.Hdr.sh_flags and SHF_EXECINSTR) <> 0);
+
+      FSymbols[I] := Symbol;
+    end;
+  finally
+    RelaPltDict.Free;
   end;
 end;
 
@@ -670,11 +967,13 @@ begin
     Result := SymSection.Hdr.sh_entsize = SizeOf(Elf32_Sym);
   if not Result then Exit;
   ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
-  Symbols.Count := ACount;
+  FDynSymbolsCount := Symbols.Count;
+  Symbols.Count := FDynSymbolsCount + ACount;
   if ACount = 0 then Exit;
   Raw.Position := SymSection.Hdr.sh_offset;
   Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
-  FillChar(Symbol, SizeOf(Symbols), 0);
+  Symbol := Default(TImageSymbol);
+  Symbol.SymbolType := istDebug;
   for I := 0 to ACount - 1 do
   begin
     if Image64 then
@@ -689,34 +988,141 @@ begin
       Symbol.Hdr.st_value := Hdr32.st_value;
       Symbol.Hdr.st_size := Hdr32.st_size;
     end;
-    Symbol.Executable := False;
-    if (Symbol.Hdr.st_shndx > 0) and (ELF32_ST_TYPE(Symbol.Hdr.st_info) = STT_FUNC) then
-      if SectionAtIndex(Symbol.Hdr.st_shndx, ExecutableSection) then
-        Symbol.Executable := (ExecutableSection.Hdr.sh_flags and SHF_EXECINSTR) <> 0;
+    Symbol.Executable :=
+      (Symbol.Hdr.st_shndx > 0) and
+      (ELF32_ST_TYPE(Symbol.Hdr.st_info) in [STT_FUNC, STT_GNU_IFUNC]) and
+      SectionAtIndex(Symbol.Hdr.st_shndx, ExecutableSection) and
+      ((ExecutableSection.Hdr.sh_flags and SHF_EXECINSTR) <> 0);
     if (Symbol.Hdr.st_name > 0) and (Symbol.Hdr.st_name < SymStrSection.Hdr.sh_size) then
       Symbol.DisplayName := string(PAnsiChar(Strings + Symbol.Hdr.st_name))
     else
       Symbol.DisplayName := '';
-    Symbols[I] := Symbol;
+    Symbols[FDynSymbolsCount + I] := Symbol;
   end;
   Include(FDebugData, ditSymbols);
+end;
+
+function TRawElfImage.ProgramHeaderAtAddrVA(AddrVA: Int64;
+  out AHeader: Elf64_Phdr): Integer;
+var
+  I: Integer;
+  StartRVA, Size: Int64;
+begin
+  Result := -1;
+  AHeader := Default(Elf64_Phdr);
+  if AddrVA <= FHeaderSize then
+    Exit;
+  for I := 0 to Length(FProgramHeaders) - 1 do
+  begin
+    if FProgramHeaders[I].p_offset = 0 then
+      Continue;
+    if FProgramHeaders[I].p_vaddr = 0 then
+      Continue;
+    if FProgramHeaders[I].p_filesz = 0 then
+      Continue;
+    if FProgramHeaders[I].p_memsz = 0 then
+      Continue;
+    StartRVA := FProgramHeaders[I].p_vaddr;
+    Size := FProgramHeaders[I].p_memsz;
+    if FProgramHeaders[I].p_type = PT_TLS then
+    begin
+      StartRVA := AlignUp(StartRVA, FProgramHeaders[I].p_align);
+      Size := AlignDown(Size, FProgramHeaders[I].p_align);
+    end;
+    if (AddrVA >= StartRVA) and (AddrVA < StartRVA + Size) then
+    begin
+      if AHeader.p_vaddr = 0 then
+        AHeader := FProgramHeaders[I]
+      else
+        if AHeader.p_vaddr < FProgramHeaders[I].p_vaddr then
+          AHeader := FProgramHeaders[I];
+        if AHeader.p_vaddr + AHeader.p_memsz >
+          FProgramHeaders[I].p_vaddr + FProgramHeaders[I].p_memsz then
+          AHeader := FProgramHeaders[I];
+      Result := I;
+    end;
+  end;
+end;
+
+function TRawElfImage.ProgramHeaderAtIndex(AIndex: Integer;
+  out AHeader: Elf64_Phdr): Boolean;
+begin
+  Result := (AIndex >= 0) and (AIndex < Length(FProgramHeaders));
+  if Result then
+    AHeader := FProgramHeaders[AIndex];
+end;
+
+function TRawElfImage.ProgramHeaderByType(AType: UInt32;
+  out AHeader: Elf64_Phdr): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to Length(FProgramHeaders) - 1 do
+    if FProgramHeaders[I].p_type = AType then
+    begin
+      AHeader := FProgramHeaders[I];
+      Result := True;
+      Break;
+    end;
+end;
+
+function TRawElfImage.ProgramHeadersCount: Integer;
+begin
+  Result := Length(FProgramHeaders);
 end;
 
 function TRawElfImage.RawToVa(RawAddr: DWORD): ULONG_PTR64;
 var
   I: Integer;
   StartRVA: DWORD;
+  FoundProgHeader: Elf64_Phdr;
 begin
-  Result := ImageBase + RawAddr;
+  Result := 0;
   for I := 0 to Length(FSections) - 1 do
     if (RawAddr >= FSections[I].Hdr.sh_offset) and
       (RawAddr < FSections[I].Hdr.sh_offset + FSections[I].Hdr.sh_size) then
     begin
       StartRVA := FSections[I].Hdr.sh_addr;
-      StartRVA := AlignDown(StartRVA, FSections[I].Hdr.sh_addralign);
-      Result := RawAddr - FSections[I].Hdr.sh_addr + StartRVA + ImageBase;
-      Break;
+      Result := RawAddr - FSections[I].Hdr.sh_offset + StartRVA;
+      Exit;
     end;
+  FoundProgHeader := Default(Elf64_Phdr);
+  for I := 0 to Length(FProgramHeaders) - 1 do
+    if (RawAddr >= FProgramHeaders[I].p_offset) and
+      (RawAddr < FProgramHeaders[I].p_offset + FProgramHeaders[I].p_filesz) then
+    begin
+      if FoundProgHeader.p_vaddr = 0 then
+        FoundProgHeader := FProgramHeaders[I]
+      else
+      begin
+        if FoundProgHeader.p_vaddr < FProgramHeaders[I].p_vaddr then
+          FoundProgHeader := FProgramHeaders[I];
+        if FoundProgHeader.p_vaddr + FoundProgHeader.p_memsz >
+          FProgramHeaders[I].p_vaddr + FProgramHeaders[I].p_memsz then
+          FoundProgHeader := FProgramHeaders[I];
+      end;
+    end;
+  if FoundProgHeader.p_offset <> 0 then
+  begin
+    if FoundProgHeader.p_type = PT_TLS then
+      StartRVA := AlignDown(FoundProgHeader.p_vaddr, FoundProgHeader.p_align)
+    else
+      StartRVA := FoundProgHeader.p_vaddr;
+    Result := RawAddr - FoundProgHeader.p_offset + StartRVA;
+  end;
+end;
+
+function TRawElfImage.RvaToRaw(RvaAddr: DWORD): DWORD;
+begin
+  // ELF файлы не работают в RVA адресации
+  Result := VaToRaw(RvaAddr);
+end;
+
+function TRawElfImage.RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
+begin
+  // ELF файлы не работают в RVA адресации
+  Result := RvaAddr;
 end;
 
 function TRawElfImage.SectionAtIndex(AIndex: Integer;
@@ -758,11 +1164,22 @@ begin
     end;
 end;
 
+function TRawElfImage.SectionCount: Integer;
+begin
+  Result := Length(FSections);
+end;
+
+function TRawElfImage.ValidImage: Boolean;
+begin
+  Result := FValidImage;
+end;
+
 function TRawElfImage.VaToRaw(AddrVA: ULONG_PTR64): DWORD;
 var
   NumberOfSections: Integer;
   SectionData: TSectionData;
   PointerToRawData: DWORD;
+  ProgHeader: Elf64_Phdr;
 begin
   Result := 0;
 
@@ -781,6 +1198,14 @@ begin
   begin
     PointerToRawData := FSections[SectionData.Index].Hdr.sh_offset;
     Inc(PointerToRawData, AddrVA - SectionData.StartRVA);
+    if PointerToRawData < FSizeOfFileImage then
+      Exit(PointerToRawData);
+  end;
+
+  if ProgramHeaderAtAddrVA(AddrVA, ProgHeader) >= 0 then
+  begin
+    PointerToRawData := ProgHeader.p_offset;
+    Inc(PointerToRawData, AddrVA - ProgHeader.p_vaddr);
     if PointerToRawData < FSizeOfFileImage then
       Result := PointerToRawData;
   end;

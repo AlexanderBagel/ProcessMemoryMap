@@ -5,8 +5,8 @@
 //  * Unit Name : RawScanner.ActivationContext.pas
 //  * Purpose   : Модуль для работы с контекстами активации процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -365,6 +365,7 @@ begin
   Item.DataType := sdtCtxStrSecEntry;
   Item.AddrVA := AddrVA + Header.ElementListOffset;
 
+  if Header.ElementCount = 0 then Exit;
   for I := 0 to Header.ElementCount - 1 do
   begin
     if not ReadRemoteMemory(FProcess, Item.AddrVA,

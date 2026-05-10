@@ -7,8 +7,8 @@
 //  *           : и хранящий информацию об известных для анализа и отображения
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
-//  * Version   : 1.1.25
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.26
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -30,6 +30,7 @@ uses
   {$IFNDEF DISABLE_ACTCTX}
   RawScanner.ActivationContext,
   {$ENDIF}
+  RawScanner.AbstractImage,
   RawScanner.Analyzer,
   RawScanner.ApiSet,
   RawScanner.LoaderData,
@@ -44,8 +45,8 @@ uses
   RawScanner.X64Gates;
 
 const
-  RawScannerVersionInt = $01010019;
-  RawScannerVersionStr = '1.1 (revision 25)';
+  RawScannerVersionInt = $0102001A;
+  RawScannerVersionStr = '1.2 (revision 26)';
 
 type
   TPEB64 = record
@@ -555,7 +556,7 @@ begin
           if ExtractFileName(Module.ImagePath).ToLower = 'ntdll.dll' then
           begin
             // если нашли (а мы должны найти) инициализирем с учетом её инстанса
-            NtDll := TRawPEImage.Create(Module.ImagePath, False, Module.ImageBase);
+            NtDll := TRawPEImage.Create(Module.ImagePath, iltWithoutDebug, Module.ImageBase);
             try
               // и только теперь получаем адрес NtQueryVirtualMemory
               // который актуален применительно к нашему процессу

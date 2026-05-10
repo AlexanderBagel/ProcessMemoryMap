@@ -4,7 +4,7 @@
         <ProjectVersion>19.2</ProjectVersion>
         <FrameworkType>None</FrameworkType>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win64</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Console</AppType>
@@ -104,7 +104,7 @@
         <Debugger_RunParams>&quot;D:\buffer\GSmeta&quot; -r -n -u -p</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
-        <Debugger_RunParams>&quot;W:\lazarus\trunk\lazarus\lazarus.exe&quot; -m=d:\tmp\lazarus.map</Debugger_RunParams>
+        <Debugger_RunParams>&quot;X:\buffer\exceptlogger_test&quot; /n /r /p</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>

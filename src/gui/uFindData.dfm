@@ -1,70 +1,97 @@
 object dlgFindData: TdlgFindData
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   BorderStyle = bsDialog
   Caption = 'Process Memory Map - Search Data'
-  ClientHeight = 113
-  ClientWidth = 489
+  ClientHeight = 170
+  ClientWidth = 743
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poMainFormCenter
   OnClose = FormClose
   OnCreate = FormCreate
   OnShow = FormShow
-  PixelsPerInch = 96
-  TextHeight = 13
+  PixelsPerInch = 144
+  TextHeight = 21
   object Label1: TLabel
-    Left = 16
-    Top = 8
-    Width = 28
-    Height = 13
+    Left = 24
+    Top = 12
+    Width = 42
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Type:'
   end
   object Label2: TLabel
-    Left = 16
-    Top = 35
-    Width = 26
-    Height = 13
+    Left = 24
+    Top = 53
+    Width = 39
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Text:'
   end
   object Label4: TLabel
-    Left = 16
-    Top = 87
-    Width = 58
-    Height = 13
+    Left = 24
+    Top = 131
+    Width = 92
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Start (HEX):'
   end
   object btnCancel: TButton
-    Left = 406
-    Top = 82
-    Width = 75
-    Height = 25
+    Left = 609
+    Top = 123
+    Width = 113
+    Height = 38
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Cancel = True
     Caption = 'Cancel'
     TabOrder = 0
     OnClick = btnCancelClick
   end
   object btnSearch: TButton
-    Left = 325
-    Top = 82
-    Width = 75
-    Height = 25
+    Left = 488
+    Top = 123
+    Width = 112
+    Height = 38
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Search'
     Default = True
     TabOrder = 1
     OnClick = btnSearchClick
   end
   object cbSkipROMem: TCheckBox
-    Left = 8
-    Top = 59
-    Width = 66
-    Height = 17
+    Left = 12
+    Top = 89
+    Width = 99
+    Height = 25
     Hint = 'Skip "read-only" memory pages'
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Skip RO'
     Checked = True
     ParentShowHint = False
@@ -73,38 +100,55 @@ object dlgFindData: TdlgFindData
     TabOrder = 2
     OnClick = cbSearchInputTypeChange
   end
-  object ProgressBar: TProgressBar
-    Left = 80
-    Top = 59
-    Width = 401
-    Height = 17
-    TabOrder = 3
-  end
   object edStartAddr: TEdit
-    Left = 80
-    Top = 84
-    Width = 137
-    Height = 21
-    TabOrder = 4
+    Left = 120
+    Top = 126
+    Width = 206
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    TabOrder = 3
     Text = '0'
     OnChange = edStartAddrChange
   end
   object cbSearchInputType: TComboBox
-    Left = 48
-    Top = 5
-    Width = 433
-    Height = 21
+    Left = 72
+    Top = 8
+    Width = 650
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Style = csDropDownList
-    TabOrder = 5
+    TabOrder = 4
     OnChange = cbSearchInputTypeChange
   end
   object cbSearchText: TComboBox
-    Left = 48
-    Top = 32
-    Width = 433
-    Height = 21
-    TabOrder = 6
+    Left = 72
+    Top = 48
+    Width = 650
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    TabOrder = 5
     TextHint = 'Enter search pattern...'
     OnChange = cbSearchInputTypeChange
+  end
+  object pnProgress: TPanel
+    Left = 120
+    Top = 89
+    Width = 602
+    Height = 25
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    BevelOuter = bvNone
+    TabOrder = 6
   end
 end

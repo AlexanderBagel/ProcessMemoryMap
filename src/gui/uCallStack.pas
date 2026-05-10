@@ -128,7 +128,7 @@ type
       Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
       var Ghosted: Boolean; var ImageIndex: TImageIndex);
     procedure tvThreadMeasureItem(Sender: TBaseVirtualTree;
-      TargetCanvas: TCanvas; Node: PVirtualNode; var NodeHeight: Integer);
+      TargetCanvas: TCanvas; Node: PVirtualNode; var NodeHeight: TDimension);
   private
     FThreads: TThreads;
     FCurrentStackData: TStringList;
@@ -955,7 +955,7 @@ begin
 end;
 
 procedure TdlgCallStack.tvThreadMeasureItem(Sender: TBaseVirtualTree;
-  TargetCanvas: TCanvas; Node: PVirtualNode; var NodeHeight: Integer);
+  TargetCanvas: TCanvas; Node: PVirtualNode; var NodeHeight: TDimension);
 begin
   NodeHeight := MulDiv(18, FCurrentPPI, USER_DEFAULT_SCREEN_DPI);
 end;

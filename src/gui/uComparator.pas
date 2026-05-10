@@ -5,8 +5,8 @@
 //  * Unit Name : uComparator.pas
 //  * Purpose   : Диалог отображает результаты сравнения двух карт памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2023.
-//  * Version   : 1.4.30
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -340,11 +340,13 @@ var
   begin
     if TotalChanges > 0 then
     begin
-      dlgProgress.lblProgress.Caption := 'Found changes: ' + IntToStr(TotalChanges);
-      dlgProgress.ProgressBar.Position := Value div ProgressDelta;
       if not dlgProgress.Visible then
+      begin
         dlgProgress.Show;
-      Application.ProcessMessages;
+        Application.ProcessMessages;
+      end;
+      dlgProgress.UpdateCaption('Found changes: ' + IntToStr(TotalChanges),
+        Value div ProgressDelta);
     end;
   end;
 

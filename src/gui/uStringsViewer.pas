@@ -5,8 +5,8 @@
 //  * Unit Name : uStringsViewer.pas
 //  * Purpose   : Диалог для отображения списка строк в удаленном процессе
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.47
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -45,6 +45,7 @@ type
     mnuCopyLine: TMenuItem;
     mnuSeparator2: TMenuItem;
     mnuNextMatch: TMenuItem;
+    mnuOpenInExplorer: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormShow(Sender: TObject);
@@ -60,6 +61,7 @@ type
     procedure mnuCopyLineClick(Sender: TObject);
     procedure lvStringsHeaderClick(Sender: TVTHeader;
       HitInfo: TVTHeaderHitInfo);
+    procedure mnuOpenInExplorerClick(Sender: TObject);
   private
     SearchString: string;
     SearchPosition: Integer;
@@ -80,6 +82,7 @@ uses
   Clipbrd,
   uProcessMM,
   uSettings,
+  uUtils,
   uRegionProperties,
   RawScanner.Core,
   RawScanner.Image.Pe,
@@ -329,6 +332,19 @@ begin
     Inc(SearchPosition);
     Search(SearchString);
   end;
+end;
+
+procedure TdlgStringsViewer.mnuOpenInExplorerClick(Sender: TObject);
+var
+  E: TVTVirtualNodeEnumerator;
+  PEImage: TRawPEImage;
+  Index: TInt64IntRec;
+begin
+  E := lvStrings.SelectedNodes.GetEnumerator;
+  if not E.MoveNext then Exit;
+  Index := List.List[E.Current^.Index];
+  PEImage := RawScannerCore.Modules.Items[Index.Hi];
+  OpenExplorerAndSelectFile(PEImage.ImagePath);
 end;
 
 procedure TdlgStringsViewer.ReloadWithStrings;

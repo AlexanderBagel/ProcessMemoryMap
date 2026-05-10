@@ -1,18 +1,21 @@
 object dlgProcessMM: TdlgProcessMM
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   Caption = 'Process Memory Map'
-  ClientHeight = 589
-  ClientWidth = 1007
+  ClientHeight = 884
+  ClientWidth = 1511
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
   Menu = MainMenu
-  OldCreateOrder = False
   PopupMenu = pmGui
   Position = poScreenCenter
   OnActivate = FormActivate
@@ -20,64 +23,98 @@ object dlgProcessMM: TdlgProcessMM
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
   OnShow = FormShow
+  PixelsPerInch = 144
   DesignSize = (
-    1007
-    589)
-  PixelsPerInch = 96
-  TextHeight = 13
+    1511
+    884)
+  TextHeight = 21
   object imgProcess: TImage
-    Left = 8
-    Top = 8
-    Width = 32
-    Height = 32
+    Left = 12
+    Top = 12
+    Width = 48
+    Height = 48
     Cursor = crHandPoint
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Stretch = True
     OnClick = imgProcessClick
   end
   object lblProcessName: TLabel
-    Left = 56
-    Top = 8
-    Width = 41
-    Height = 13
+    Left = 84
+    Top = 12
+    Width = 63
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Process:'
   end
   object lblProcessNameData: TLabel
-    Left = 103
-    Top = 8
-    Width = 3
-    Height = 13
+    Left = 155
+    Top = 12
+    Width = 5
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
   end
   object lblProcessPID: TLabel
-    Left = 56
-    Top = 24
-    Width = 21
-    Height = 13
+    Left = 84
+    Top = 36
+    Width = 33
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'PID:'
   end
   object lblProcessPIDData: TLabel
-    Left = 103
-    Top = 24
-    Width = 3
-    Height = 13
+    Left = 155
+    Top = 36
+    Width = 5
+    Height = 21
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
   end
   object gbSummary: TGroupBox
-    Left = 8
-    Top = 43
-    Width = 991
-    Height = 215
+    Left = 12
+    Top = 65
+    Width = 1487
+    Height = 322
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Anchors = [akLeft, akTop, akRight]
     Caption = 'Summary:'
     TabOrder = 0
     object lvSummary: TVirtualStringTree
       Left = 2
-      Top = 15
-      Width = 987
-      Height = 198
+      Top = 23
+      Width = 1483
+      Height = 297
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       Align = alClient
+      DefaultNodeHeight = 27
       Header.AutoSizeIndex = 0
-      Header.Height = 17
+      Header.Height = 28
+      Header.MaxHeight = 15000
+      Header.MinHeight = 15
       Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+      Indent = 27
+      Margin = 6
       TabOrder = 0
+      TextMargin = 6
       TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
       TreeOptions.SelectionOptions = [toFullRowSelect]
       OnBeforeItemErase = lvSummaryBeforeItemErase
@@ -87,49 +124,75 @@ object dlgProcessMM: TdlgProcessMM
       Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
       Columns = <
         item
+          MaxWidth = 15000
+          MinWidth = 15
           Position = 0
+          Spacing = 5
           Text = 'Type'
-          Width = 100
+          Width = 150
         end
         item
           Alignment = taRightJustify
+          MaxWidth = 15000
+          MinWidth = 15
           Position = 1
+          Spacing = 5
           Text = 'Size'
-          Width = 150
+          Width = 225
         end
         item
           Alignment = taRightJustify
+          MaxWidth = 15000
+          MinWidth = 15
           Position = 2
+          Spacing = 5
           Text = 'Commited'
-          Width = 150
+          Width = 225
         end
         item
           Alignment = taRightJustify
+          MaxWidth = 15000
+          MinWidth = 15
           Position = 3
+          Spacing = 5
           Text = 'Blocks'
-          Width = 150
+          Width = 225
         end>
     end
   end
   object gbPages: TGroupBox
-    Left = 8
-    Top = 264
-    Width = 989
-    Height = 315
+    Left = 12
+    Top = 396
+    Width = 1484
+    Height = 473
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Anchors = [akLeft, akTop, akRight, akBottom]
     Caption = 'Pages:'
     TabOrder = 1
     object stMemoryMap: TVirtualStringTree
       Left = 2
-      Top = 15
-      Width = 985
-      Height = 298
+      Top = 23
+      Width = 1480
+      Height = 448
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       Align = alClient
+      DefaultNodeHeight = 27
       Header.AutoSizeIndex = 0
-      Header.Height = 17
+      Header.Height = 28
+      Header.MaxHeight = 15000
+      Header.MinHeight = 15
       Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+      Indent = 27
+      Margin = 6
       PopupMenu = PopupMenu
       TabOrder = 0
+      TextMargin = 6
       TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection, toUseExplorerTheme, toHideTreeLinesIfThemed]
       TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect]
       OnBeforeItemErase = stMemoryMapBeforeItemErase
@@ -137,60 +200,84 @@ object dlgProcessMM: TdlgProcessMM
       OnNodeDblClick = stMemoryMapNodeDblClick
       Touch.InteractiveGestures = [igPan, igPressAndTap]
       Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
-      ExplicitLeft = -804
-      ExplicitTop = -210
-      ExplicitWidth = 989
-      ExplicitHeight = 315
       Columns = <
         item
+          MaxWidth = 15000
+          MinWidth = 15
           Position = 0
+          Spacing = 5
           Text = 'Address'
-          Width = 170
+          Width = 255
         end
         item
+          MaxWidth = 15000
+          MinWidth = 15
           Position = 1
+          Spacing = 5
           Text = 'Type'
-          Width = 300
+          Width = 450
         end
         item
           Alignment = taRightJustify
           CaptionAlignment = taRightJustify
+          MaxWidth = 15000
+          MinWidth = 15
           Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
           Position = 2
+          Spacing = 5
           Text = 'Size'
+          Width = 113
+        end
+        item
+          MaxWidth = 15000
+          MinWidth = 15
+          Position = 3
+          Spacing = 5
+          Text = 'Section'
+          Width = 96
+        end
+        item
+          MaxWidth = 15000
+          MinWidth = 15
+          Position = 4
+          Spacing = 5
+          Text = 'Contains'
+          Width = 180
+        end
+        item
+          MaxWidth = 15000
+          MinWidth = 15
+          Position = 5
+          Spacing = 5
+          Text = 'Access'
+          Width = 150
+        end
+        item
+          MaxWidth = 15000
+          MinWidth = 15
+          Position = 6
+          Spacing = 5
+          Text = 'Initial Access'
+          Width = 150
+        end
+        item
+          Alignment = taRightJustify
+          CaptionAlignment = taRightJustify
+          MaxWidth = 15000
+          MinWidth = 15
+          Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
+          Position = 7
+          Spacing = 5
+          Text = 'Blocks'
           Width = 75
         end
         item
-          Position = 3
-          Text = 'Section'
-          Width = 64
-        end
-        item
-          Position = 4
-          Text = 'Contains'
-          Width = 120
-        end
-        item
-          Position = 5
-          Text = 'Access'
-          Width = 100
-        end
-        item
-          Position = 6
-          Text = 'Initial Access'
-          Width = 100
-        end
-        item
-          Alignment = taRightJustify
-          CaptionAlignment = taRightJustify
-          Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
-          Position = 7
-          Text = 'Blocks'
-        end
-        item
+          MaxWidth = 15000
+          MinWidth = 15
           Position = 8
+          Spacing = 5
           Text = 'Details'
-          Width = 560
+          Width = 840
         end>
     end
   end
@@ -272,11 +359,14 @@ object dlgProcessMM: TdlgProcessMM
       object mnuShowKnonData: TMenuItem
         Action = acShowKnown
       end
-      object ShowStrings1: TMenuItem
+      object mnuStrings: TMenuItem
         Action = acStrings
       end
-      object ShowSearchResults1: TMenuItem
+      object mnuSearchResults: TMenuItem
         Action = acSearchResult
+      end
+      object mnuResources: TMenuItem
+        Action = acShowResources
       end
     end
     object mnuUtils: TMenuItem
@@ -600,6 +690,13 @@ object dlgProcessMM: TdlgProcessMM
       ShortCut = 8262
       OnExecute = acSearchResultExecute
       OnUpdate = acSearchResultUpdate
+    end
+    object acShowResources: TAction
+      Category = 'View'
+      Caption = 'Show Resources...'
+      ShortCut = 16466
+      OnExecute = acShowResourcesExecute
+      OnUpdate = acSaveUpdate
     end
   end
   object SaveDMPDialog: TSaveDialog
