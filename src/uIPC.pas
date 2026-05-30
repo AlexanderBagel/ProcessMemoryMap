@@ -5,8 +5,8 @@
 //  * Unit Name : uIPC.pas
 //  * Purpose   : Модуль для обмена данными о кучах между процессами
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2013, 2022.
-//  * Version   : 1.3.19
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.48
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -125,8 +125,9 @@ begin
   begin
     MMFData := MapViewOfFile(FMMFHandle, FILE_MAP_WRITE, 0, 0, 0);
     if MMFData <> nil then
-    begin
+    try
       PIPCServerParams(MMFData)^ := FIPCServerParams;
+    finally
       UnmapViewOfFile(MMFData);
     end;
   end;
@@ -195,10 +196,14 @@ begin
     Data := MapViewOfFile(MMFHandle, FILE_MAP_READ, 0, 0, 0);
     if Data = nil then Exit;
     try
-      IPCServerParams := PIPCServerParams(Data)^;
-    except
-      // Другое приложение файл создало, но еще ничего туда не записало..
-      on EAccessViolation do ;
+      try
+        IPCServerParams := PIPCServerParams(Data)^;
+      except
+        // Другое приложение файл создало, но еще ничего туда не записало..
+        on EAccessViolation do ;
+      end;
+    finally
+      UnmapViewOfFile(Data);
     end;
   finally
     CloseHandle(MMFHandle);

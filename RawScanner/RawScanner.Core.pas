@@ -8,7 +8,7 @@
 //  *           : адресах
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.27
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -45,8 +45,8 @@ uses
   RawScanner.X64Gates;
 
 const
-  RawScannerVersionInt = $0102001A;
-  RawScannerVersionStr = '1.2 (revision 26)';
+  RawScannerVersionInt = $0102001B;
+  RawScannerVersionStr = '1.2 (revision 27)';
 
 type
   TPEB64 = record
@@ -57,7 +57,8 @@ type
     Mutant: ULONG_PTR64;
     ImageBaseAddress: ULONG_PTR64;
     LoaderData: ULONG_PTR64;
-    Dummy: array [0..$2D7] of Byte;
+    ProcessParameters: ULONG_PTR64;
+    Dummy: array [0..$2CF] of Byte;
     ActivationContextData: ULONG_PTR64;
     ProcessAssemblyStorageMap: ULONG_PTR64;
     SystemDefaultActivationContextData: ULONG_PTR64;
@@ -88,8 +89,6 @@ type
     FProgress: TProgressEvent;
     procedure Clear;
     procedure DoProgress(const Step: string; APecent: Integer);
-    function GetPEB(AProcess: THandle;
-      Read32Peb: Boolean; out APeb: TPEB64): Boolean;
     procedure InitModules(ALoader: TLoaderData);
     procedure InitNtQueryVirtualMemory;
   public
@@ -105,6 +104,8 @@ type
     property Modules: TRawModules read FModules;
     property OnProgress: TProgressEvent read FProgress write FProgress;
   end;
+
+  function GetPEB(AProcess: THandle; Read32Peb: Boolean; out APeb: TPEB64): Boolean;
 
   function RawScannerCore: TRawScanner;
 
@@ -124,7 +125,8 @@ type
     Mutant: ULONG;
     ImageBaseAddress: ULONG;
     LoaderData: ULONG;
-    Dummy: array [0..$1E7] of Byte;
+    ProcessParameters: ULONG;
+    Dummy: array [0..$1E3] of Byte;
     ActivationContextData: ULONG;
     ProcessAssemblyStorageMap: ULONG;
     SystemDefaultActivationContextData: ULONG;
@@ -140,10 +142,11 @@ type
     Mutant: THandle;
     ImageBaseAddress: PVOID;
     LoaderData: PVOID;
+    ProcessParameters: PVOID;
     {$IFDEF WIN32}
-    Dummy: array [0..$1E7] of Byte;
+    Dummy: array [0..$1E3] of Byte;
     {$ELSE}
-    Dummy: array [0..$2D7] of Byte;
+    Dummy: array [0..$2CF] of Byte;
     {$ENDIF}
     ActivationContextData: PVOID;
     ProcessAssemblyStorageMap: PVOID;
@@ -197,84 +200,7 @@ begin
   {$ENDIF}
 end;
 
-{ TRawScanner }
-
-function TRawScanner.Active: Boolean;
-begin
-  Result := Assigned(FAnalizer) and (FModules.Items.Count > 0);
-end;
-
-class destructor TRawScanner.ClassDestroy;
-begin
-  FInstance.Free;
-end;
-
-procedure TRawScanner.Clear;
-begin
-  if FProcess <> 0 then
-    CloseHandle(FProcess);
-  FProcess := 0;
-  ZeroMemory(@FPEB32, SizeOf(TPEB64));
-  ZeroMemory(@FPEB64, SizeOf(TPEB64));
-  ZeroMemory(@FInitResult, SizeOf(TInitializationResult));  
-  FreeAndNil(FAnalizer);
-  {$IFNDEF DISABLE_ACTCTX}
-  FreeAndNil(FProcessContext);
-  FreeAndNil(FSystemContext);
-  {$ENDIF}
-  FModules.Clear;
-  SymbolStorage.Clear;
-end;
-
-constructor TRawScanner.Create;
-begin
-  {$IFDEF WIN32}
-  if Wow64Support.Use64AddrMode then
-  begin
-    Wow64Support.DisableRedirection;
-    try
-      InitNtQueryVirtualMemory;
-    finally
-      Wow64Support.EnableRedirection;
-    end;
-  end;
-  {$ELSE}
-  // чтобы в 64 битах не висел ворнинг - просто вызов заглушки
-  InitNtQueryVirtualMemory;
-  {$ENDIF}
-  FModules := TRawModules.Create;
-end;
-
-destructor TRawScanner.Destroy;
-begin
-  Clear;
-  FModules.Free;
-  {$IFDEF WIN32}
-  ReleaseNtQueryVirtualMemory64;
-  {$ENDIF}
-  FInstance := nil;
-  inherited;
-end;
-
-procedure TRawScanner.DoProgress(const Step: string; APecent: Integer);
-begin
-  if Assigned(FProgress) then
-    FProgress(Step, APecent);
-end;
-
-function TRawScanner.GetDataTypeAtAddr(AdrrVA: ULONG_PTR64): TSymbolDataType;
-begin
-  Result := SymbolStorage.GetDataTypeAtAddr(AdrrVA);
-end;
-
-class function TRawScanner.GetInstance: TRawScanner;
-begin
-  if FInstance = nil then
-    FInstance := TRawScanner.Create;
-  Result := FInstance;
-end;
-
-function TRawScanner.GetPEB(AProcess: THandle;
+function GetPEB(AProcess: THandle;
   Read32Peb: Boolean; out APeb: TPEB64): Boolean;
 const
   QueryError = 'Query %s error %d, %s';
@@ -291,6 +217,7 @@ const
     APeb.Mutant := Value.Mutant;
     APeb.ImageBaseAddress := Value.ImageBaseAddress;
     APeb.LoaderData := Value.LoaderData;
+    APeb.ProcessParameters := Value.ProcessParameters;
     APeb.ActivationContextData := Value.ActivationContextData;
     APeb.ProcessAssemblyStorageMap := Value.ProcessAssemblyStorageMap;
     APeb.SystemDefaultActivationContextData := Value.SystemDefaultActivationContextData;
@@ -392,6 +319,83 @@ begin
   else
     Result := ReadNativePeb;
   {$ENDIF}
+end;
+
+{ TRawScanner }
+
+function TRawScanner.Active: Boolean;
+begin
+  Result := Assigned(FAnalizer) and (FModules.Items.Count > 0);
+end;
+
+class destructor TRawScanner.ClassDestroy;
+begin
+  FInstance.Free;
+end;
+
+procedure TRawScanner.Clear;
+begin
+  if FProcess <> 0 then
+    CloseHandle(FProcess);
+  FProcess := 0;
+  ZeroMemory(@FPEB32, SizeOf(TPEB64));
+  ZeroMemory(@FPEB64, SizeOf(TPEB64));
+  ZeroMemory(@FInitResult, SizeOf(TInitializationResult));  
+  FreeAndNil(FAnalizer);
+  {$IFNDEF DISABLE_ACTCTX}
+  FreeAndNil(FProcessContext);
+  FreeAndNil(FSystemContext);
+  {$ENDIF}
+  FModules.Clear;
+  SymbolStorage.Clear;
+end;
+
+constructor TRawScanner.Create;
+begin
+  {$IFDEF WIN32}
+  if Wow64Support.Use64AddrMode then
+  begin
+    Wow64Support.DisableRedirection;
+    try
+      InitNtQueryVirtualMemory;
+    finally
+      Wow64Support.EnableRedirection;
+    end;
+  end;
+  {$ELSE}
+  // чтобы в 64 битах не висел ворнинг - просто вызов заглушки
+  InitNtQueryVirtualMemory;
+  {$ENDIF}
+  FModules := TRawModules.Create;
+end;
+
+destructor TRawScanner.Destroy;
+begin
+  Clear;
+  FModules.Free;
+  {$IFDEF WIN32}
+  ReleaseNtQueryVirtualMemory64;
+  {$ENDIF}
+  FInstance := nil;
+  inherited;
+end;
+
+procedure TRawScanner.DoProgress(const Step: string; APecent: Integer);
+begin
+  if Assigned(FProgress) then
+    FProgress(Step, APecent);
+end;
+
+function TRawScanner.GetDataTypeAtAddr(AdrrVA: ULONG_PTR64): TSymbolDataType;
+begin
+  Result := SymbolStorage.GetDataTypeAtAddr(AdrrVA);
+end;
+
+class function TRawScanner.GetInstance: TRawScanner;
+begin
+  if FInstance = nil then
+    FInstance := TRawScanner.Create;
+  Result := FInstance;
 end;
 
 procedure TRawScanner.InitFromProcess(

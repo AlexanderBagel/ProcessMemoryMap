@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Threads.pas
 //  * Purpose   : Класс собирает данные о потоках процесса.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.4.37
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.4.38
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -250,7 +250,7 @@ begin
   Result.AddrPC.Mode := Value.AddrPC.Mode;
   Result.AddrReturn.Offset := Value.AddrReturn.Offset;
   Result.AddrReturn.Segment := Value.AddrReturn.Segment;
-  Result.AddrReturn.Mode := Value.AddrPC.Mode;
+  Result.AddrReturn.Mode := Value.AddrReturn.Mode;
   Result.AddrFrame.Offset := Value.AddrFrame.Offset;
   Result.AddrFrame.Segment := Value.AddrFrame.Segment;
   Result.AddrFrame.Mode := Value.AddrFrame.Mode;
@@ -391,7 +391,7 @@ begin
     end;
 
   finally
-    VirtualFree(ThreadContext, SizeOf(TContext), MEM_FREE);
+    VirtualFree(ThreadContext, SizeOf(TContext), MEM_RELEASE);
   end;
 end;
 
@@ -453,7 +453,7 @@ begin
     end;
 
   finally
-    VirtualFree(ThreadContext, SizeOf(TContext), MEM_FREE);
+    VirtualFree(ThreadContext, SizeOf(TWow64Context), MEM_RELEASE);
   end;
 end;
 
@@ -490,7 +490,7 @@ begin
     SEHEntry.Wow64 := Wow64;
     SEHEntries.Add(SEHEntry);
     InitialAddr := SEHEntry.Previous;
-    if DWORD(InitialAddr) <= 0 then Break;
+    if DWORD(InitialAddr) = $FFFFFFFF then Break;
   end;
 end;
 

@@ -6,8 +6,8 @@
 //  * Purpose   : Класс сравнивает состояние памяти процесса с рассчитаным
 //  *           : на основе образов файлов с диска и отдает результаты наружу.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.1.24
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.27
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -258,21 +258,18 @@ var
   Tmp: Byte;
 begin
   Result := FWorkingSet.TryGetValue(AddrVA and PageMask, SharedCount);
+  // Если информации по странице нет в кэше первичной инициализации ворксета,
+  // то нужно её принудительно подгрузить в ворксет чтением 1 байта по адресу
   if not Result then
   begin
-    // Если информации по странице нет в кэше первичной инициализации ворксета,
-    // то нужно её принудительно подгрузить в ворксет чтением 1 байта по адресу
-    if not Result then
+    if ReadRemoteMemory(FProcessHandle, AddrVa, @Tmp, 1) then
     begin
-      if ReadRemoteMemory(FProcessHandle, AddrVa, @Tmp, 1) then
-      begin
-        InitWorkingSet;
-        Result := FWorkingSet.TryGetValue(AddrVA and PageMask, SharedCount);
-      end
-      else
-        Error('CheckPageSharing',
-          'Can not read remote memory at addr: ' + IntToHex(AddrVa));
-    end;
+      InitWorkingSet;
+      Result := FWorkingSet.TryGetValue(AddrVA and PageMask, SharedCount);
+    end
+    else
+      Error('CheckPageSharing',
+        'Can not read remote memory at addr: ' + IntToHex(AddrVa));
   end;
 end;
 

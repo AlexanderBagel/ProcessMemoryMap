@@ -5,6 +5,11 @@ object dlgResources: TdlgResources
   ClientHeight = 443
   ClientWidth = 837
   Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -12
+  Font.Name = 'Segoe UI'
+  Font.Style = []
   KeyPreview = True
   Position = poMainFormCenter
   OnClose = FormClose
@@ -12,6 +17,7 @@ object dlgResources: TdlgResources
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
   OnShow = FormShow
+  TextHeight = 15
   object spLeftSplitter: TSplitter
     Left = 241
     Top = 35

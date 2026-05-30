@@ -5,8 +5,8 @@
 //  * Unit Name : uUtils.pas
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.45
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.48
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -159,7 +159,7 @@ begin
   Result := False;
   if OpenProcessToken(GetCurrentProcess,
     TOKEN_ADJUST_PRIVILEGES or TOKEN_QUERY, hToken) then
-  begin
+  try
     if LookupPrivilegeValue(nil,
       PChar('SeDebugPrivilege'), Tkp.Privileges[0].Luid) then
     begin
@@ -167,6 +167,8 @@ begin
       Tkp.Privileges[0].Attributes := SE_PRIVILEGE_ENABLED;
       Result := AdjustTokenPrivileges(hToken, False, Tkp, 0, nil, ReturnLength);
     end;
+  finally
+    CloseHandle(hToken);
   end;
 end;
 
@@ -272,6 +274,7 @@ var
       Result := MBI.Protect and (
         PAGE_EXECUTE_READ or
         PAGE_EXECUTE_READWRITE or
+        PAGE_EXECUTE_WRITECOPY or
         PAGE_READONLY or
         PAGE_READWRITE or
         PAGE_WRITECOPY) <> 0;

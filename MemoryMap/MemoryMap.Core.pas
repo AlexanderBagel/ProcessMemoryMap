@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Core.pas
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.4.37
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.4.38
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,8 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01040025;
-  MemoryMapVersionStr = '1.4 (revision 37)';
+  MemoryMapVersionInt = $01040026;
+  MemoryMapVersionStr = '1.4 (revision 38)';
 
 type
   // Типы фильтров
@@ -1119,8 +1119,6 @@ var
   PPointerData: Pointer;
 begin
   ReturnLength := 0;
-
-  ReturnLength := 0;
   if NtQueryInformationProcess(FProcess, ProcessBasicInformation,
     @pProcBasicInfo, SizeOf(PROCESS_BASIC_INFORMATION),
     @ReturnLength) <> STATUS_SUCCESS then
@@ -1205,7 +1203,7 @@ begin
 
   PPointerData := nil;
   if not ReadProcessMemory(FProcess, FPeb.ReadOnlyStaticServerData,
-    @PPointerData, 4, ReturnLength) then
+    @PPointerData, SizeOf(Pointer), ReturnLength) then
     RaiseLastOSError;
 
   AddNewData('ReadOnlyStaticServerData', PPointerData);
@@ -1234,10 +1232,15 @@ begin
     RaiseLastOSError;
   AddNewData('Process Environments', ProcessParameters.Environment);
 
-  SetLength(FProcessPath, ProcessParameters.ImagePathName.Length div SizeOf(Char));
-  if not ReadProcessMemory(FProcess, ProcessParameters.ImagePathName.Buffer,
-    @FProcessPath[1], ProcessParameters.ImagePathName.Length, ReturnLength) then
-    RaiseLastOSError;
+  if ProcessParameters.ImagePathName.Length > 0 then
+  begin
+    SetLength(FProcessPath, ProcessParameters.ImagePathName.Length div SizeOf(Char));
+    if not ReadProcessMemory(FProcess, ProcessParameters.ImagePathName.Buffer,
+      @FProcessPath[1], ProcessParameters.ImagePathName.Length, ReturnLength) then
+      RaiseLastOSError;
+  end
+  else
+    FProcessPath := '';
 
   GetSystemInfo(SBI);
   AddNewData('KE_USER_SHARED_DATA',
