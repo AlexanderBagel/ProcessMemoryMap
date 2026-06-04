@@ -89,7 +89,8 @@ uses
   uSettings in 'src\uSettings.pas',
   uDumpResources in 'src\uDumpResources.pas',
   RawScanner.Resources.Helpers in 'RawScanner\RawScanner.Resources.Helpers.pas',
-  uDisplayStyleInfo in 'src\uDisplayStyleInfo.pas';
+  uDisplayStyleInfo in 'src\uDisplayStyleInfo.pas',
+  uPatchRestore in 'src\gui\uPatchRestore.pas' {dlgPatchRestore};
 
 {$R *.res}
 

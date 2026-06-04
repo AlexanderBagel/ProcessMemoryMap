@@ -5,8 +5,8 @@
 //  * Unit Name : uPatchDetect.pas
 //  * Purpose   : Диалог для работы со сканером перехваченых функций
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.49
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -39,7 +39,8 @@ uses
   RawScanner.Utils,
 
   ScaledCtrls,
-  uBaseForm;
+  uBaseForm,
+  uPatchRestore;
 
 type
   TCalculateHookData = record
@@ -61,6 +62,8 @@ type
     N1: TMenuItem;
     mnuRefresh: TMenuItem;
     SelectAll1: TMenuItem;
+    N2: TMenuItem;
+    Restore1: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure FormShow(Sender: TObject);
@@ -70,9 +73,12 @@ type
     procedure mnuCopyClick(Sender: TObject);
     procedure mnuGotoAddressClick(Sender: TObject);
     procedure SelectAll1Click(Sender: TObject);
+    procedure Restore1Click(Sender: TObject);
+    procedure mnuRefreshClick(Sender: TObject);
   private
     FCodeError, FImportError, FDelayedImportError, FExportError: Integer;
     FFilter: TFilter;
+    FPatchList: TPatchList;
     // обработчики событий анализатора
     procedure ProcessCodeHook(const Data: TCodeHookData);
     procedure ProcessTableHook(const Data: THookData);
@@ -237,10 +243,12 @@ end;
 procedure TdlgPatches.FormCreate(Sender: TObject);
 begin
   FFilter := TFilter.Create;
+  FPatchList := TPatchList.Create;
 end;
 
 procedure TdlgPatches.FormDestroy(Sender: TObject);
 begin
+  FPatchList.Free;
   FFilter.Free;
 end;
 
@@ -273,6 +281,7 @@ begin
         edLog.Lines.BeginUpdate;
         try
           edLog.Lines.Clear;
+          FPatchList.Clear;
           Add('Initialization...');
 
           FImportError := 0;
@@ -442,6 +451,11 @@ begin
   mnuGotoAddress.Enabled := SelectedAddr <> 0;
 end;
 
+procedure TdlgPatches.mnuRefreshClick(Sender: TObject);
+begin
+  FormShow(nil);
+end;
+
 procedure TdlgPatches.OnLog(ALevel: TLogLevel; AType: TLogType; const FuncName,
   Description: string);
 
@@ -494,6 +508,20 @@ procedure TdlgPatches.ProcessCodeHook(const Data: TCodeHookData);
     end;
   end;
 
+  procedure AddPatchInfo(MaxAddr: ULONG_PTR64);
+  var
+    PatchData: TPatchedData;
+  begin
+    PatchData.Description := Format('Restore code at %X: %s', [Data.AddrVA, Data.ExportFunc]);
+    PatchData.AddrVA := Data.AddrVA;
+    SetLength(PatchData.OriginalBuff, MaxAddr - Data.AddrVA + 1);
+    if Length(PatchData.OriginalBuff) > 0 then
+    begin
+      Move(Data.Raw^, PatchData.OriginalBuff[0], Length(PatchData.OriginalBuff));
+      FPatchList.Add(PatchData);
+    end;
+  end;
+
 const
   ExpModified = 'Export modified';
 
@@ -542,6 +570,9 @@ begin
       ExpectedPfx + ByteToHexStr(Data.Raw, Data.BufSize));
     RawScannerLogger.Info(llAnalizer,
       'Present:  ' + ByteToHexStr(Data.Remote, Data.BufSize));
+
+    AddPatchInfo(Data.AddrVA + Data.BufSize);
+
     Exit;
   end;
 
@@ -703,6 +734,8 @@ begin
     Add('*** end code hook data ***');
     EmptyLine;
 
+    AddPatchInfo(MaxAddr);
+
   finally
     ReleaseCalculateHookData(chd);
   end;
@@ -727,6 +760,7 @@ const
 var
   chd: TCalculateHookData;
   Pfx, ExternalModule: string;
+  PatchData: TPatchedData;
 begin
   Pfx := EmptyStr;
   chd := InitCalculateHookData(Data);
@@ -811,6 +845,20 @@ begin
     Add('*** end table hook data ***');
     EmptyLine;
 
+    case Data.HookType of
+      htImport: Pfx := 'Import';
+      htDelayedImport: Pfx := 'Delayed import';
+      htExport: Pfx := 'Export';
+    end;
+
+    PatchData.Description := Format('Restore %s at %X: %s -> %s', [Pfx, Data.AddrVA, Data.ModuleName, Data.FuncName]);
+    PatchData.AddrVA := Data.AddrVA;
+    SetLength(PatchData.OriginalBuff, IfThen(Data.HookType = htExport, 4, IfThen(Data.Image64, 8, 4)));
+    if Data.HookType = htExport then
+      Move(Data.ExportAdv.ExpRawRva, PatchData.OriginalBuff[0], Length(PatchData.OriginalBuff))
+    else
+      Move(Data.RawVA, PatchData.OriginalBuff[0], Length(PatchData.OriginalBuff));
+    FPatchList.Add(PatchData);
 
   finally
     ReleaseCalculateHookData(chd);
@@ -820,6 +868,16 @@ end;
 procedure TdlgPatches.ReleaseCalculateHookData(const Value: TCalculateHookData);
 begin
   Value.DumpStrings.Free;
+end;
+
+procedure TdlgPatches.Restore1Click(Sender: TObject);
+begin
+  dlgPatchRestore := TdlgPatchRestore.Create(Self);
+  try
+    dlgPatchRestore.Restore(FPatchList);
+  finally
+    dlgPatchRestore.Free;
+  end;
 end;
 
 procedure TdlgPatches.SelectAll1Click(Sender: TObject);

@@ -1,16 +1,19 @@
 object BaseAppForm: TBaseAppForm
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   Caption = 'BaseAppForm'
-  ClientHeight = 411
-  ClientWidth = 852
+  ClientHeight = 617
+  ClientWidth = 1278
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
-  Font.Name = 'Tahoma'
+  Font.Height = -17
+  Font.Name = 'Segoe UI'
   Font.Style = []
-  OldCreateOrder = False
-  PixelsPerInch = 96
-  TextHeight = 13
+  PixelsPerInch = 144
+  TextHeight = 23
 end

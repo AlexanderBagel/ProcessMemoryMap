@@ -1,17 +1,13 @@
 object dlgProcessMM: TdlgProcessMM
   Left = 0
   Top = 0
-  Margins.Left = 5
-  Margins.Top = 5
-  Margins.Right = 5
-  Margins.Bottom = 5
   Caption = 'Process Memory Map'
-  ClientHeight = 884
-  ClientWidth = 1511
+  ClientHeight = 589
+  ClientWidth = 1007
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -17
+  Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
@@ -23,98 +19,63 @@ object dlgProcessMM: TdlgProcessMM
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
   OnShow = FormShow
-  PixelsPerInch = 144
   DesignSize = (
-    1511
-    884)
-  TextHeight = 21
+    1007
+    589)
+  TextHeight = 13
   object imgProcess: TImage
-    Left = 12
-    Top = 12
-    Width = 48
-    Height = 48
+    Left = 8
+    Top = 8
+    Width = 32
+    Height = 32
     Cursor = crHandPoint
-    Margins.Left = 5
-    Margins.Top = 5
-    Margins.Right = 5
-    Margins.Bottom = 5
     Stretch = True
     OnClick = imgProcessClick
   end
   object lblProcessName: TLabel
-    Left = 84
-    Top = 12
-    Width = 63
-    Height = 21
-    Margins.Left = 5
-    Margins.Top = 5
-    Margins.Right = 5
-    Margins.Bottom = 5
+    Left = 56
+    Top = 8
+    Width = 41
+    Height = 13
     Caption = 'Process:'
   end
   object lblProcessNameData: TLabel
-    Left = 155
-    Top = 12
-    Width = 5
-    Height = 21
-    Margins.Left = 5
-    Margins.Top = 5
-    Margins.Right = 5
-    Margins.Bottom = 5
+    Left = 103
+    Top = 8
+    Width = 3
+    Height = 13
   end
   object lblProcessPID: TLabel
-    Left = 84
-    Top = 36
-    Width = 33
-    Height = 21
-    Margins.Left = 5
-    Margins.Top = 5
-    Margins.Right = 5
-    Margins.Bottom = 5
+    Left = 56
+    Top = 24
+    Width = 21
+    Height = 13
     Caption = 'PID:'
   end
   object lblProcessPIDData: TLabel
-    Left = 155
-    Top = 36
-    Width = 5
-    Height = 21
-    Margins.Left = 5
-    Margins.Top = 5
-    Margins.Right = 5
-    Margins.Bottom = 5
+    Left = 103
+    Top = 24
+    Width = 3
+    Height = 13
   end
   object gbSummary: TGroupBox
-    Left = 12
-    Top = 65
-    Width = 1487
-    Height = 322
-    Margins.Left = 5
-    Margins.Top = 5
-    Margins.Right = 5
-    Margins.Bottom = 5
+    Left = 8
+    Top = 43
+    Width = 991
+    Height = 215
     Anchors = [akLeft, akTop, akRight]
     Caption = 'Summary:'
     TabOrder = 0
     object lvSummary: TVirtualStringTree
-      Left = 2
-      Top = 23
-      Width = 1483
-      Height = 297
-      Margins.Left = 5
-      Margins.Top = 5
-      Margins.Right = 5
-      Margins.Bottom = 5
+      Left = 1
+      Top = 15
+      Width = 989
+      Height = 198
       Align = alClient
-      DefaultNodeHeight = 27
       Header.AutoSizeIndex = 0
-      Header.Height = 28
-      Header.MaxHeight = 15000
-      Header.MinHeight = 15
+      Header.Height = 17
       Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
-      Indent = 27
-      Margin = 6
       TabOrder = 0
-      TextMargin = 6
       TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
       TreeOptions.SelectionOptions = [toFullRowSelect]
       OnBeforeItemErase = lvSummaryBeforeItemErase
@@ -124,75 +85,49 @@ object dlgProcessMM: TdlgProcessMM
       Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
       Columns = <
         item
-          MaxWidth = 15000
-          MinWidth = 15
           Position = 0
-          Spacing = 5
           Text = 'Type'
+          Width = 100
+        end
+        item
+          Alignment = taRightJustify
+          Position = 1
+          Text = 'Size'
           Width = 150
         end
         item
           Alignment = taRightJustify
-          MaxWidth = 15000
-          MinWidth = 15
-          Position = 1
-          Spacing = 5
-          Text = 'Size'
-          Width = 225
-        end
-        item
-          Alignment = taRightJustify
-          MaxWidth = 15000
-          MinWidth = 15
           Position = 2
-          Spacing = 5
           Text = 'Commited'
-          Width = 225
+          Width = 150
         end
         item
           Alignment = taRightJustify
-          MaxWidth = 15000
-          MinWidth = 15
           Position = 3
-          Spacing = 5
           Text = 'Blocks'
-          Width = 225
+          Width = 150
         end>
     end
   end
   object gbPages: TGroupBox
-    Left = 12
-    Top = 396
-    Width = 1484
-    Height = 473
-    Margins.Left = 5
-    Margins.Top = 5
-    Margins.Right = 5
-    Margins.Bottom = 5
+    Left = 8
+    Top = 264
+    Width = 989
+    Height = 315
     Anchors = [akLeft, akTop, akRight, akBottom]
     Caption = 'Pages:'
     TabOrder = 1
     object stMemoryMap: TVirtualStringTree
-      Left = 2
-      Top = 23
-      Width = 1480
-      Height = 448
-      Margins.Left = 5
-      Margins.Top = 5
-      Margins.Right = 5
-      Margins.Bottom = 5
+      Left = 1
+      Top = 15
+      Width = 987
+      Height = 299
       Align = alClient
-      DefaultNodeHeight = 27
       Header.AutoSizeIndex = 0
-      Header.Height = 28
-      Header.MaxHeight = 15000
-      Header.MinHeight = 15
+      Header.Height = 17
       Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
-      Indent = 27
-      Margin = 6
       PopupMenu = PopupMenu
       TabOrder = 0
-      TextMargin = 6
       TreeOptions.PaintOptions = [toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection, toUseExplorerTheme, toHideTreeLinesIfThemed]
       TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect]
       OnBeforeItemErase = stMemoryMapBeforeItemErase
@@ -202,82 +137,54 @@ object dlgProcessMM: TdlgProcessMM
       Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
       Columns = <
         item
-          MaxWidth = 15000
-          MinWidth = 15
           Position = 0
-          Spacing = 5
           Text = 'Address'
-          Width = 255
+          Width = 170
         end
         item
-          MaxWidth = 15000
-          MinWidth = 15
           Position = 1
-          Spacing = 5
           Text = 'Type'
-          Width = 450
+          Width = 300
         end
         item
           Alignment = taRightJustify
           CaptionAlignment = taRightJustify
-          MaxWidth = 15000
-          MinWidth = 15
           Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
           Position = 2
-          Spacing = 5
           Text = 'Size'
-          Width = 113
-        end
-        item
-          MaxWidth = 15000
-          MinWidth = 15
-          Position = 3
-          Spacing = 5
-          Text = 'Section'
-          Width = 96
-        end
-        item
-          MaxWidth = 15000
-          MinWidth = 15
-          Position = 4
-          Spacing = 5
-          Text = 'Contains'
-          Width = 180
-        end
-        item
-          MaxWidth = 15000
-          MinWidth = 15
-          Position = 5
-          Spacing = 5
-          Text = 'Access'
-          Width = 150
-        end
-        item
-          MaxWidth = 15000
-          MinWidth = 15
-          Position = 6
-          Spacing = 5
-          Text = 'Initial Access'
-          Width = 150
-        end
-        item
-          Alignment = taRightJustify
-          CaptionAlignment = taRightJustify
-          MaxWidth = 15000
-          MinWidth = 15
-          Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
-          Position = 7
-          Spacing = 5
-          Text = 'Blocks'
           Width = 75
         end
         item
-          MaxWidth = 15000
-          MinWidth = 15
+          Position = 3
+          Text = 'Section'
+          Width = 64
+        end
+        item
+          Position = 4
+          Text = 'Contains'
+          Width = 120
+        end
+        item
+          Position = 5
+          Text = 'Access'
+          Width = 100
+        end
+        item
+          Position = 6
+          Text = 'Initial Access'
+          Width = 100
+        end
+        item
+          Alignment = taRightJustify
+          CaptionAlignment = taRightJustify
+          Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coUseCaptionAlignment]
+          Position = 7
+          Text = 'Blocks'
+        end
+        item
           Position = 8
-          Spacing = 5
           Text = 'Details'
-          Width = 840
+          Width = 560
         end>
     end
   end

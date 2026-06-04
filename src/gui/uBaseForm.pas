@@ -5,8 +5,8 @@
 //  * Unit Name : uBaseForm.pas
 //  * Purpose   : Базовая форма от которой наследуются все дочерние
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.30
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.6.49
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************

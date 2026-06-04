@@ -77,7 +77,7 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
         <SanitizedProjectName>ProcessMM</SanitizedProjectName>
-        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.6.48.2514;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.6;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.6.49.2525;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.6;Comments=</VerInfo_Keys>
         <Manifest_File>None</Manifest_File>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Icon_MainIcon>ProcessMM_Icon1.ico</Icon_MainIcon>
@@ -91,8 +91,8 @@
         <DCC_K>false</DCC_K>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_MinorVer>6</VerInfo_MinorVer>
-        <VerInfo_Release>48</VerInfo_Release>
-        <VerInfo_Build>2514</VerInfo_Build>
+        <VerInfo_Release>49</VerInfo_Release>
+        <VerInfo_Build>2525</VerInfo_Build>
         <DCC_MapFile>3</DCC_MapFile>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
         <VerInfo_PreRelease>true</VerInfo_PreRelease>
@@ -290,6 +290,10 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCCReference Include="src\uDumpResources.pas"/>
         <DCCReference Include="RawScanner\RawScanner.Resources.Helpers.pas"/>
         <DCCReference Include="src\uDisplayStyleInfo.pas"/>
+        <DCCReference Include="src\gui\uPatchRestore.pas">
+            <Form>dlgPatchRestore</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <None Include="RawScanner\rawscanner.inc"/>
         <None Include="README.md"/>
         <None Include="updates.txt"/>
@@ -365,6 +369,12 @@ $(PreBuildEvent)]]></PreBuildEvent>
             </Delphi.Personality>
             <Deployment Version="5">
                 <DeployFile LocalName="README.md" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="README.md" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="README.md" Configuration="SingleInstance" Class="ProjectFile">
                     <Platform Name="Win64">
                         <RemoteDir>.\</RemoteDir>
@@ -372,6 +382,12 @@ $(PreBuildEvent)]]></PreBuildEvent>
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="RawScanner\rawscanner.inc" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="RawScanner\rawscanner.inc" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="RawScanner\rawscanner.inc" Configuration="SingleInstance" Class="ProjectFile">
                     <Platform Name="Win64">
                         <RemoteDir>.\</RemoteDir>
@@ -379,6 +395,12 @@ $(PreBuildEvent)]]></PreBuildEvent>
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="Win32\Release\ProcessMM.exe" Configuration="Release" Class="ProjectOutput"/>
+                <DeployFile LocalName="Win32\Release\ProcessMM.exe" Configuration="Release" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>ProcessMM.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="Win32\SingleInstance\ProcessMM.exe" Configuration="SingleInstance" Class="ProjectOutput"/>
                 <DeployFile LocalName="Win64\Debug\ProcessMM.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="Win64\SingleInstance\ProcessMM.exe" Configuration="SingleInstance" Class="ProjectOutput">
@@ -388,6 +410,12 @@ $(PreBuildEvent)]]></PreBuildEvent>
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="updates.txt" Configuration="Release" Class="ProjectFile"/>
+                <DeployFile LocalName="updates.txt" Configuration="Release" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="updates.txt" Configuration="SingleInstance" Class="ProjectFile">
                     <Platform Name="Win64">
                         <RemoteDir>.\</RemoteDir>

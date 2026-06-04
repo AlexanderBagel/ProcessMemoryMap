@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.48
+//  * Version   : 1.6.49
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -62,6 +62,8 @@ type
   function ReadProcessData(Process: THandle; Address, OutBuffer: Pointer;
     var Size: NativeUInt; out RegionSize: NativeUInt;
     ReadCondition: TReadCondition): Boolean;
+  function WriteProcessData(Process: THandle; Address, InBuffer: Pointer;
+    Size: NativeUInt): Boolean;
 
   function OpenProcessWithReconnect: THandle;
   function OpenExplorerAndSelectFile(const Path: string): Boolean;
@@ -249,6 +251,22 @@ begin
   SendMessage(AHandle, EM_SHOWBALLOONTIP, 0, Integer(@BaloonTip));
 end;
 
+function CanWrite(const MBI: TMemoryBasicInformation): Boolean;
+const
+  PAGE_WRITECOMBINE = $400;
+begin
+  Result := MBI.State = MEM_COMMIT;
+  if Result then
+    Result := MBI.Protect and (
+      PAGE_EXECUTE_WRITECOPY or
+      PAGE_EXECUTE_READWRITE or
+      PAGE_WRITECOPY or
+      PAGE_READWRITE or
+      PAGE_WRITECOMBINE) <> 0;
+  if Result then
+    Result := (MBI.Protect and PAGE_GUARD) = 0;
+end;
+
 //
 //  Функция читает данные с удаленного процесса
 //  in     Process - хэндл процесса
@@ -278,22 +296,6 @@ var
         PAGE_READONLY or
         PAGE_READWRITE or
         PAGE_WRITECOPY) <> 0;
-    if Result then
-      Result := (MBI.Protect and PAGE_GUARD) = 0;
-  end;
-
-  function CanWrite: Boolean;
-  const
-    PAGE_WRITECOMBINE = $400;
-  begin
-    Result := MBI.State = MEM_COMMIT;
-    if Result then
-      Result := MBI.Protect and (
-        PAGE_EXECUTE_WRITECOPY or
-        PAGE_EXECUTE_READWRITE or
-        PAGE_WRITECOPY or
-        PAGE_READWRITE or
-        PAGE_WRITECOMBINE) <> 0;
     if Result then
       Result := (MBI.Protect and PAGE_GUARD) = 0;
   end;
@@ -329,7 +331,7 @@ begin
         Exit;
       end;
     rcReadIfReadWriteAccessPresent:
-      if not (CanRead and CanWrite) then
+      if not (CanRead and CanWrite(MBI)) then
       begin
         Size := 0;
         Exit;
@@ -349,6 +351,32 @@ begin
   if ReadCondition = rcReadAllwais then
     VirtualProtectEx(Process, MBI.BaseAddress, MBI.RegionSize,
       OldProtect, OldProtect);
+end;
+
+function WriteProcessData(Process: THandle; Address, InBuffer: Pointer;
+  Size: NativeUInt): Boolean;
+var
+  MBI: TMemoryBasicInformation;
+  dwLength: Cardinal;
+  OldProtect: Cardinal;
+begin
+  Result := False;
+  dwLength := SizeOf(TMemoryBasicInformation);
+  if VirtualQueryEx(Process,
+    Address, MBI, dwLength) <> dwLength then Exit;
+  if CanWrite(MBI) then
+    Result := WriteProcessMemory(Process, Address, InBuffer, Size, Size)
+  else
+  begin
+    VirtualProtectEx(Process, MBI.BaseAddress, MBI.RegionSize,
+      PAGE_EXECUTE_READWRITE, OldProtect);
+    try
+      Result := WriteProcessMemory(Process, Address, InBuffer, Size, Size);
+    finally
+      VirtualProtectEx(Process, MBI.BaseAddress, MBI.RegionSize,
+        OldProtect, OldProtect);
+    end;
+  end;
 end;
 
 function CRC32(RawBuff: TMemoryDump): DWORD;
