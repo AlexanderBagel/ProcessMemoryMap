@@ -1,13 +1,17 @@
 object dlgResources: TdlgResources
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   Caption = 'Process Memory Map - Resources'
-  ClientHeight = 443
-  ClientWidth = 837
+  ClientHeight = 669
+  ClientWidth = 1250
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -12
+  Font.Height = -18
   Font.Name = 'Segoe UI'
   Font.Style = []
   KeyPreview = True
@@ -17,24 +21,38 @@ object dlgResources: TdlgResources
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
   OnShow = FormShow
-  TextHeight = 15
+  PixelsPerInch = 144
+  TextHeight = 21
   object spLeftSplitter: TSplitter
-    Left = 241
-    Top = 35
-    Width = 2
-    Height = 408
+    Left = 362
+    Top = 53
+    Height = 616
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    MinSize = 45
   end
   object tvResources: TVirtualStringTree
     Left = 0
-    Top = 35
-    Width = 241
-    Height = 408
+    Top = 53
+    Width = 362
+    Height = 616
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alLeft
-    DefaultNodeHeight = 17
+    DefaultNodeHeight = 28
     Header.AutoSizeIndex = 0
-    Header.Height = 15
+    Header.Height = 25
     Header.MainColumn = -1
+    Header.MaxHeight = 15000
+    Header.MinHeight = 15
+    Indent = 27
+    Margin = 6
     TabOrder = 0
+    TextMargin = 6
     TreeOptions.PaintOptions = [toHotTrack, toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages, toFullVertGridLines, toUseBlendedSelection, toUseExplorerTheme]
     TreeOptions.SelectionOptions = [toFullRowSelect, toSelectNextNodeOnRemoval]
     OnAddToSelection = tvResourcesAddToSelection
@@ -46,64 +64,98 @@ object dlgResources: TdlgResources
   object pnTop: TPanel
     Left = 0
     Top = 0
-    Width = 837
-    Height = 35
+    Width = 1250
+    Height = 53
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 1
     object lblFilter: TLabel
-      Left = 16
-      Top = 9
-      Width = 71
-      Height = 15
+      Left = 24
+      Top = 14
+      Width = 107
+      Height = 25
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       Caption = 'Filter by type:'
     end
     object cbTypes: TComboBox
-      Left = 94
-      Top = 6
-      Width = 145
+      Left = 141
+      Top = 9
+      Width = 218
       Height = 33
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       Style = csDropDownList
       TabOrder = 0
       OnChange = cbTypesChange
     end
   end
   object pnRight: TPanel
-    Left = 243
-    Top = 35
-    Width = 594
-    Height = 408
+    Left = 365
+    Top = 53
+    Width = 885
+    Height = 616
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alClient
     BevelOuter = bvNone
     Caption = 'pnRight'
     TabOrder = 2
     object spBottomSplitter: TSplitter
       Left = 0
-      Top = 301
-      Width = 594
-      Height = 3
+      Top = 455
+      Width = 885
+      Height = 5
       Cursor = crVSplit
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       Align = alBottom
+      MinSize = 45
+      ExplicitTop = 456
     end
     object pcResViewers: TPageControl
       Left = 0
       Top = 0
-      Width = 594
-      Height = 301
+      Width = 885
+      Height = 455
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       ActivePage = tsText
       Align = alClient
       TabOrder = 0
       object tsRaw: TTabSheet
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
         Caption = 'Raw'
         object memResRaw: TMemo
           Left = 0
           Top = 0
-          Width = 589
-          Height = 274
+          Width = 884
+          Height = 411
+          Margins.Left = 5
+          Margins.Top = 5
+          Margins.Right = 5
+          Margins.Bottom = 5
           Align = alClient
           Font.Charset = RUSSIAN_CHARSET
           Font.Color = clWindowText
-          Font.Height = -12
+          Font.Height = -18
           Font.Name = 'Consolas'
           Font.Style = []
           ParentFont = False
@@ -113,43 +165,63 @@ object dlgResources: TdlgResources
         end
       end
       object tsText: TTabSheet
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
         Caption = 'Text'
         ImageIndex = 1
         object memResText: TMemo
           Left = 0
           Top = 0
-          Width = 586
-          Height = 271
+          Width = 877
+          Height = 415
+          Margins.Left = 5
+          Margins.Top = 5
+          Margins.Right = 5
+          Margins.Bottom = 5
           Align = alClient
           Font.Charset = RUSSIAN_CHARSET
           Font.Color = clWindowText
-          Font.Height = -12
+          Font.Height = -18
           Font.Name = 'Consolas'
           Font.Style = []
           ParentFont = False
           ReadOnly = True
           ScrollBars = ssBoth
           TabOrder = 0
-          ExplicitWidth = 589
-          ExplicitHeight = 275
+          ExplicitWidth = 873
+          ExplicitHeight = 411
         end
       end
       object tsImage: TTabSheet
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
         Caption = 'Image'
         ImageIndex = 2
         object pbResImage: TPaintBox
           Left = 0
           Top = 0
-          Width = 571
-          Height = 274
+          Width = 857
+          Height = 411
+          Margins.Left = 5
+          Margins.Top = 5
+          Margins.Right = 5
+          Margins.Bottom = 5
           Align = alClient
           OnPaint = pbResImagePaint
         end
         object ScrollBar1: TScrollBar
-          Left = 571
+          Left = 857
           Top = 0
-          Width = 18
-          Height = 274
+          Width = 27
+          Height = 411
+          Margins.Left = 5
+          Margins.Top = 5
+          Margins.Right = 5
+          Margins.Bottom = 5
           Align = alRight
           Kind = sbVertical
           PageSize = 0
@@ -160,19 +232,24 @@ object dlgResources: TdlgResources
     end
     object memResInfo: TMemo
       Left = 0
-      Top = 304
-      Width = 594
-      Height = 104
+      Top = 460
+      Width = 885
+      Height = 156
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
       Align = alBottom
       DoubleBuffered = True
       Font.Charset = RUSSIAN_CHARSET
       Font.Color = clWindowText
-      Font.Height = -12
+      Font.Height = -18
       Font.Name = 'Consolas'
       Font.Style = []
       ParentDoubleBuffered = False
       ParentFont = False
       TabOrder = 1
+      ExplicitTop = 461
     end
   end
 end
