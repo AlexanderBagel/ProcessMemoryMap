@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.49
+//  * Version   : 1.6.50
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -49,7 +49,8 @@ type
   function SizeToStr2(Value: NativeUInt): string;
   function UInt64ToStr(Value: NativeUInt): string; overload;
   function UInt64ToStr(Value: Pointer): string; overload;
-  procedure ShowErrorHint(AHandle: THandle);
+  procedure ShowErrorHint(AHandle: THandle); overload;
+  procedure ShowErrorHint(AHandle: THandle; const ATitle, AText: string); overload;
   function CRC32(RawBuff: TMemoryDump): DWORD;
   function HexValueToInt64(Value: string; out HexValue: Int64): Boolean;
 
@@ -241,14 +242,21 @@ begin
 end;
 
 procedure ShowErrorHint(AHandle: THandle);
+begin
+  ShowErrorHint(AHandle,
+    'Unacceptable Character',
+    'You can only type a number here.');
+end;
+
+procedure ShowErrorHint(AHandle: THandle; const ATitle, AText: string); overload;
 var
   BaloonTip: TEditBalloonTip;
 begin
   BaloonTip.cbStruct := SizeOf(TEditBalloonTip);
-  BaloonTip.pszTitle := 'Unacceptable Character';
-  BaloonTip.pszText := 'You can only type a number here.';
+  BaloonTip.pszTitle := PChar(ATitle);
+  BaloonTip.pszText := PChar(AText);
   BaloonTip.ttiIcon := TTI_ERROR;
-  SendMessage(AHandle, EM_SHOWBALLOONTIP, 0, Integer(@BaloonTip));
+  SendMessage(AHandle, EM_SHOWBALLOONTIP, 0, LPARAM(@BaloonTip));
 end;
 
 function CanWrite(const MBI: TMemoryBasicInformation): Boolean;

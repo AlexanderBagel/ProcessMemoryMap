@@ -20,6 +20,9 @@ object dlgFindData: TdlgFindData
   OnCreate = FormCreate
   OnShow = FormShow
   PixelsPerInch = 144
+  DesignSize = (
+    743
+    170)
   TextHeight = 21
   object Label1: TLabel
     Left = 24
@@ -53,6 +56,15 @@ object dlgFindData: TdlgFindData
     Margins.Right = 5
     Margins.Bottom = 5
     Caption = 'Start (HEX):'
+  end
+  object btnHelp: TSpeedButton
+    Left = 693
+    Top = 48
+    Width = 29
+    Height = 29
+    Anchors = [akTop, akRight]
+    Caption = '?'
+    OnClick = btnHelpClick
   end
   object btnCancel: TButton
     Left = 609
@@ -129,7 +141,7 @@ object dlgFindData: TdlgFindData
   object cbSearchText: TComboBox
     Left = 72
     Top = 48
-    Width = 650
+    Width = 613
     Height = 29
     Margins.Left = 5
     Margins.Top = 5

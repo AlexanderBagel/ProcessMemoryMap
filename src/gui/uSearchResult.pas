@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для поиска данных в памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.47
+//  * Version   : 1.6.50
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -40,7 +40,7 @@ type
     RegionType: TRegionType;
     Contain: TContainItemType;
     MBI: TMemoryBasicInformation;
-    Details, Section: string;
+    Details, Section, DebugHint: string;
   end;
   TSearchResultList = class(TList<TSearchItem>);
 
@@ -48,6 +48,7 @@ type
   private
     FList: TSearchResultList;
   protected
+    procedure SaveToFile(const FilePath: string);
     property List: TSearchResultList read FList;
   public
     constructor Create(AOwner: TComponent); override;
@@ -88,6 +89,10 @@ type
     OpenInExplorer1: TMenuItem;
     acCopyLine: TAction;
     mnuCopyLine: TMenuItem;
+    StatusBar: TStatusBar;
+    acSaveToFile: TAction;
+    SaveToFile1: TMenuItem;
+    SaveDialog: TSaveDialog;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure acOpenUpdate(Sender: TObject);
@@ -104,6 +109,8 @@ type
     procedure acOpenInExplorerUpdate(Sender: TObject);
     procedure acOpenInExplorerExecute(Sender: TObject);
     procedure acCopyLineExecute(Sender: TObject);
+    procedure acSaveToFileExecute(Sender: TObject);
+    procedure PageControlChange(Sender: TObject);
   protected
     function GetSelectedIndex: Integer;
     function GetActiveView: TSearchView;
@@ -115,6 +122,7 @@ type
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
     procedure OnHeaderClick(Sender: TVTHeader;
       HitInfo: TVTHeaderHitInfo);
+    procedure UpdateStatus;
   public
     function AddNewSearchList(const ACaption: string): TSearchView;
     procedure UpdateSearchList(AView: TSearchView; const Value: TSearchItem);
@@ -160,6 +168,30 @@ destructor TSearchView.Destroy;
 begin
   FList.Free;
   inherited;
+end;
+
+procedure TSearchView.SaveToFile(const FilePath: string);
+var
+  I: TSearchItem;
+  S: TStringList;
+  FormatTemplate: string;
+begin
+  S := TStringList.Create;
+  try
+    if MemoryMapCore.Process64 then
+      FormatTemplate := '%.16X'#9'%s'#9'%s'#9'%s'#9'%s'#9'%s'
+    else
+      FormatTemplate := '%.8X'#9'%s'#9'%s'#9'%s'#9'%s'#9'%s';
+    for I in FList do
+    begin
+      S.Add(Format(FormatTemplate, [
+        I.AddrVA, ExtractRegionTypeString(I.MBI), FilterString[I.RegionFilter],
+        ExtractAccessString(I.MBI.Protect), I.Details + I.DebugHint, I.Section]));
+    end;
+    S.SaveToFile(FilePath);
+  finally
+    S.Free;
+  end;
 end;
 
 { TdlgSearchResult }
@@ -239,7 +271,7 @@ begin
       ExtractRegionTypeString(MBI) + #9 +
       FilterString[RegionFilter] + #9 +
       ExtractAccessString(MBI.Protect) + #9 +
-      Details  + #9 + Section;
+      Details + DebugHint + #9 + Section;
 end;
 
 procedure TdlgSearchResult.acOpenExecute(Sender: TObject);
@@ -272,6 +304,12 @@ begin
   TAction(Sender).Enabled := GetSelectedIndex >= 0;
 end;
 
+procedure TdlgSearchResult.acSaveToFileExecute(Sender: TObject);
+begin
+  if SaveDialog.Execute then
+    GetActiveView.SaveToFile(SaveDialog.FileName);
+end;
+
 function TdlgSearchResult.AddNewSearchList(
   const ACaption: string): TSearchView;
 
@@ -302,6 +340,7 @@ begin
   APage.PopupMenu := pmViewer;
   Result := TSearchView.Create(APage);
   Result.Parent := APage;
+  APage.Tag := NativeInt(Result);
   Result.Align := alClient;
   Result.EmptyListMessage := 'No data...';
   AddColumn('Address', ToDpi(110));
@@ -399,7 +438,11 @@ begin
     1: CellText := ExtractRegionTypeString(TSearchView(Sender).List.List[Node.Index].MBI);
     2: CellText := FilterString[TSearchView(Sender).List.List[Node.Index].RegionFilter];
     3: CellText := ExtractAccessString(TSearchView(Sender).List.List[Node.Index].MBI.Protect);
-    4: CellText := TSearchView(Sender).List.List[Node.Index].Details;
+    4:
+    begin
+      with TSearchView(Sender).List.List[Node.Index] do
+        CellText := Format('%s%s', [Details, DebugHint]);
+    end;
     5: CellText := TSearchView(Sender).List.List[Node.Index].Section;
   end;
 end;
@@ -461,12 +504,24 @@ begin
     end));
 end;
 
+procedure TdlgSearchResult.PageControlChange(Sender: TObject);
+begin
+  UpdateStatus;
+end;
+
 procedure TdlgSearchResult.UpdateSearchList(AView: TSearchView;
   const Value: TSearchItem);
 begin
   AView.List.Add(Value);
   AView.RootNodeCount := AView.List.Count;
   AView.Header.Height := MulDiv(18, FCurrentPPI, USER_DEFAULT_SCREEN_DPI);
+  UpdateStatus;
+end;
+
+procedure TdlgSearchResult.UpdateStatus;
+begin
+  StatusBar.Height := MulDiv(19, FCurrentPPI, USER_DEFAULT_SCREEN_DPI);
+  StatusBar.Panels[0].Text := ' Found: ' + IntToStr(GetActiveView.RootNodeCount);
 end;
 
 end.

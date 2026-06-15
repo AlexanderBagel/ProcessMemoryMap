@@ -32,6 +32,17 @@ object dlgSearchResult: TdlgSearchResult
     Align = alClient
     PopupMenu = pmPage
     TabOrder = 0
+    OnChange = PageControlChange
+  end
+  object StatusBar: TStatusBar
+    Left = 0
+    Top = 392
+    Width = 858
+    Height = 19
+    Panels = <
+      item
+        Width = 33
+      end>
   end
   object pmViewer: TPopupMenu
     Left = 248
@@ -51,6 +62,9 @@ object dlgSearchResult: TdlgSearchResult
     end
     object mnuCopyLine: TMenuItem
       Action = acCopyLine
+    end
+    object SaveToFile1: TMenuItem
+      Action = acSaveToFile
     end
     object N1: TMenuItem
       Caption = '-'
@@ -124,6 +138,10 @@ object dlgSearchResult: TdlgSearchResult
       OnExecute = acCloseAllButThisExecute
       OnUpdate = acCloseAllButThisUpdate
     end
+    object acSaveToFile: TAction
+      Caption = 'Save To File...'
+      OnExecute = acSaveToFileExecute
+    end
   end
   object pmPage: TPopupMenu
     Left = 328
@@ -149,5 +167,12 @@ object dlgSearchResult: TdlgSearchResult
     object MenuItem9: TMenuItem
       Action = acCloseAll
     end
+  end
+  object SaveDialog: TSaveDialog
+    DefaultExt = 'txt'
+    Filter = 'Text File (*.txt)|*.txt|All Files (*.*)|*.*'
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofPathMustExist, ofEnableSizing]
+    Left = 588
+    Top = 204
   end
 end

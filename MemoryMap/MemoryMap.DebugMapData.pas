@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.DebugMapData.pas
 //  * Purpose   : Класс для работы с отладочным MAP файлом.
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.4.36
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.4.39
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -35,6 +35,8 @@ type
     Executable: Boolean;
   end;
 
+  TLoadCallback = reference to procedure (Current, Total: Integer);
+
   TDebugMap = class
   private type
     TSectionData = record
@@ -58,7 +60,8 @@ type
     constructor Create;
     destructor Destroy; override;
     procedure Clear;
-    procedure Init(BaseAddress: ULONG_PTR; const ModulePath: string);
+    procedure Init(BaseAddress: ULONG_PTR; const ModulePath: string); overload;
+    procedure Init(BaseAddress: ULONG_PTR; const ModulePath: string; ACallback: TLoadCallback); overload;
     function GetAddrFromDescription(const Value: string): ULONG_PTR;
     function GetDescriptionAtAddr(Address: ULONG_PTR;
       AddModuleName: Boolean = True): string;
@@ -246,7 +249,8 @@ begin
   end;
 end;
 
-procedure TDebugMap.Init(BaseAddress: ULONG_PTR; const ModulePath: string);
+procedure TDebugMap.Init(BaseAddress: ULONG_PTR; const ModulePath: string;
+  ACallback: TLoadCallback);
 var
   I, Count: Integer;
   Line: string;
@@ -258,6 +262,8 @@ var
     Result := I < Count;
     if Result then
       Line := Trim(MapFile[I]);
+    if Assigned(ACallback) then
+      ACallback(I, Count);
   end;
 
   procedure SkipEmptyLines;
@@ -517,6 +523,11 @@ begin
     for I := FItems.Count - 1 downto StartPosition do
       FItems.Delete(I);
   end;
+end;
+
+procedure TDebugMap.Init(BaseAddress: ULONG_PTR; const ModulePath: string);
+begin
+  Init(BaseAddress, ModulePath, nil);
 end;
 
 function TDebugMap.ModuleLoaded(const ModuleName: string): Boolean;
