@@ -6,7 +6,7 @@
 //  * Purpose   : Декларация типов используемых для чтения ELF файлов.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -725,7 +725,7 @@ type
   TGnuHashHeader = packed record
     nbuckets: Integer;
     symndx: UInt32;
-    maskwords: Integer;
+    maskwords: UInt32;
     shift2: UInt32;
   end;
 

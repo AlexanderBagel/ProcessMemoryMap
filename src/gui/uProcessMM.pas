@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.49
+//  * Version   : 1.6.51
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************

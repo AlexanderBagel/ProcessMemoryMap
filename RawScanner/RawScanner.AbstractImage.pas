@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс образа файла с которым умеет работать RawScanner
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -38,7 +38,7 @@ type
     Read, Write, Execute: Boolean;
   end;
 
-  TImageLoadType = (iltSectionOnly, iltWithoutDebug, iltFull);
+  TImageLoadType = (iltSectionOnly, iltWithoutDebug, iltDebugOnly, iltFull);
 
   TImageType = (itUnknown,
     itPE32, itPE64, itELF32, itELF64, itCOFF32, itCOFF64,

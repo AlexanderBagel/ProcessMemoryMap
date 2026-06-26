@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -490,8 +490,11 @@ begin
 
     if FImageLoadType = iltSectionOnly then Exit;
 
-    LoadExport(Raw);
-    LoadImport(Raw);
+    if FImageLoadType <> iltDebugOnly then
+    begin
+      LoadExport(Raw);
+      LoadImport(Raw);
+    end;
 
     if FImageLoadType = iltWithoutDebug then Exit;
 

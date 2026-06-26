@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -392,7 +392,7 @@ begin
   if (FHeader.nbuckets = 0) or (FHeader.maskwords = 0) then Exit;
 
   Symbol.Hash := CalculateGnuHash(AnsiString(Symbol.DisplayName));
-  BucketIdx := Int32(Symbol.Hash) mod FHeader.nbuckets;
+  BucketIdx := Symbol.Hash mod UInt32(FHeader.nbuckets);
 
   // Индекс символа из корзины
   SymIdx := FBuckets[BucketIdx];
@@ -404,7 +404,7 @@ begin
 
   // Проверяем фильтр Блума
   WordSizeBits := PtrSize[FOwner.Image64] shl 3;
-  BloomIdx := (Int32(Symbol.Hash) div WordSizeBits) mod FHeader.maskwords;
+  BloomIdx := (Symbol.Hash div UInt32(WordSizeBits)) mod FHeader.maskwords;
   BitMask := (UInt64(1) shl (Int32(Symbol.Hash) mod WordSizeBits)) or
     (UInt64(1) shl ((Int32(Symbol.Hash) shr FHeader.shift2) mod WordSizeBits));
 
@@ -603,8 +603,11 @@ begin
 
     if FImageLoadType = iltSectionOnly then Exit;
 
-    LoadDynSection(Raw);
-    LoadSymbols(Raw);
+    if FImageLoadType <> iltDebugOnly then
+    begin
+      LoadDynSection(Raw);
+      LoadSymbols(Raw);
+    end;
 
     if FImageLoadType = iltWithoutDebug then Exit;
 
@@ -729,6 +732,7 @@ begin
 
     Result := SectionByType(SHT_DYNSYM, SymSection) and
       SectionAtIndex(SymSection.Hdr.sh_link, SymStrSection);
+
     if not Result then Exit;
     if Image64 then
       Result := SymSection.Hdr.sh_entsize = SizeOf(Elf64_Sym)

@@ -7,7 +7,7 @@
 //  *           : рассчитанные на основе образов файлов с диска.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.28
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -1436,39 +1436,43 @@ begin
       SymbolStorage.Add(SymbolData);
     end;
 
-    // читаем COM+ заголовок (если есть)
-    LoadCor20Header(Raw);
+    if FImageLoadType <> iltDebugOnly then
+    begin
 
-    // в принципе, если файл не исполняемый COM+, уже тут можно выходить
-    // но для проверки, оставим инициализацию всех данных.
+      // читаем COM+ заголовок (если есть)
+      LoadCor20Header(Raw);
 
-    // инициализируем адреса таблиц импорта и экспорта
-    // они пригодятся снаружи для ускорения проверки этих таблиц
-    InitDirectories;
+      // в принципе, если файл не исполняемый COM+, уже тут можно выходить
+      // но для проверки, оставим инициализацию всех данных.
 
-    // читаем директорию экспорта
-    LoadExport(Raw);
+      // инициализируем адреса таблиц импорта и экспорта
+      // они пригодятся снаружи для ускорения проверки этих таблиц
+      InitDirectories;
 
-    // читаем дескрипторы импорта
-    LoadImport(Raw);
+      // читаем директорию экспорта
+      LoadExport(Raw);
 
-    // дескрипторы отложеного импорта содержат данные с учетом релокейшенов
-    // для чтения правильных значений нужно сделать правки
-    if LoadRelocations(Raw) then
-      ProcessRelocations(Raw);
+      // читаем дескрипторы импорта
+      LoadImport(Raw);
 
-    // Читаем Tls калбэки
-    LoadTLS(Raw);
+      // дескрипторы отложеного импорта содержат данные с учетом релокейшенов
+      // для чтения правильных значений нужно сделать правки
+      if LoadRelocations(Raw) then
+        ProcessRelocations(Raw);
 
-    // читаем дескрипторы отложеного импорта
-    LoadDelayImport(Raw);
+      // Читаем Tls калбэки
+      LoadTLS(Raw);
 
-    // читаем все строки
-    if not DisableLoadStrings then
-      LoadStrings(Raw);
+      // читаем дескрипторы отложеного импорта
+      LoadDelayImport(Raw);
 
-    // читаем привязаный импорт
-    LoadBoundImport(Raw);
+      // читаем все строки
+      if not DisableLoadStrings then
+        LoadStrings(Raw);
+
+      // читаем привязаный импорт
+      LoadBoundImport(Raw);
+    end;
 
     // COFF + DWARF могут сидеть во внешнем отладочном файле
     // ссылка на который будет находится в секции .gnu_debuglink
