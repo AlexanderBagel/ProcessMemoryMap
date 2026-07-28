@@ -459,9 +459,9 @@ begin
     brtIcon, brtIconGroup:
     begin
       {$message 'brtIcon, brtIconGroup не реализовано'}
-      M := GetIconGroupStream(Res);
-      M.SaveToFile('d:\tmp\test.ico');
-      M.Free;
+//      M := GetIconGroupStream(Res);
+//      M.SaveToFile('d:\tmp\test.ico');
+//      M.Free;
     end;
     brtCursorDib:
     begin
@@ -479,9 +479,9 @@ begin
     brtCursor, brtCursorGroup:
     begin
       {$message 'brtCursor, brtCursorGroup не реализовано'}
-      M := GetCursorGroupStream(Res);
-      M.SaveToFile('d:\tmp\test.cur');
-      M.Free;
+//      M := GetCursorGroupStream(Res);
+//      M.SaveToFile('d:\tmp\test.cur');
+//      M.Free;
     end;
     brtBitmap: InitResImage(M, TBitmap);
     brtBitmapDib:
