@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка экспорта функций
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.47
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -97,6 +97,8 @@ type
     procedure mnuOpenInExplorerClick(Sender: TObject);
     procedure pmCopyPopup(Sender: TObject);
     procedure mnuShowDWARFDATAClick(Sender: TObject);
+    procedure FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+      NewDPI: Integer);
   private
     SearchString: string;
     SearchPosition: Integer;
@@ -123,6 +125,12 @@ const
   RootCaption = 'Process Memory Map - Exports';
 
 {$R *.dfm}
+
+procedure TdlgExportList.FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+  NewDPI: Integer);
+begin
+  FixVirtualStringTreeDpiBug(lvExports);
+end;
 
 procedure TdlgExportList.FormClose(Sender: TObject; var Action: TCloseAction);
 begin

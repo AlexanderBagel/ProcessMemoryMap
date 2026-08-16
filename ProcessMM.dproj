@@ -77,7 +77,7 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
         <SanitizedProjectName>ProcessMM</SanitizedProjectName>
-        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.6.52.2597;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.6;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=Tool for examining process memory;FileVersion=1.7.53.2643;InternalName=pmm.exe;LegalCopyright=© Alexander (Rouse_) Bagel;LegalTrademarks=;OriginalFilename=ProcessMM.exe;ProductName=Process Memory Map;ProductVersion=1.6;Comments=</VerInfo_Keys>
         <Manifest_File>None</Manifest_File>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Icon_MainIcon>ProcessMM_Icon1.ico</Icon_MainIcon>
@@ -90,12 +90,14 @@
         <DCC_F>false</DCC_F>
         <DCC_K>false</DCC_K>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <VerInfo_MinorVer>6</VerInfo_MinorVer>
-        <VerInfo_Release>52</VerInfo_Release>
-        <VerInfo_Build>2597</VerInfo_Build>
+        <VerInfo_MinorVer>7</VerInfo_MinorVer>
+        <VerInfo_Release>53</VerInfo_Release>
+        <VerInfo_Build>2643</VerInfo_Build>
         <DCC_MapFile>3</DCC_MapFile>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
         <VerInfo_PreRelease>true</VerInfo_PreRelease>
+        <DCC_PEOSVersion>5.0</DCC_PEOSVersion>
+        <DCC_PESubSysVersion>5.0</DCC_PESubSysVersion>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <UWP_DelphiLogo44>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_44.png</UWP_DelphiLogo44>
@@ -134,6 +136,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
+        <Debugger_RunParams>22592</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
@@ -159,6 +162,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
     <PropertyGroup Condition="'$(Cfg_3_Win32)'!=''">
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
         <BT_BuildType>Debug</BT_BuildType>
+        <Debugger_RunParams>17712</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_3_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
@@ -170,7 +174,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <DCC_Define>MP;$(DCC_Define)</DCC_Define>
         <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
         <DCC_RangeChecking>true</DCC_RangeChecking>
-        <Debugger_RunParams>19528</Debugger_RunParams>
+        <Debugger_RunParams>26772</Debugger_RunParams>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -294,6 +298,11 @@ $(PreBuildEvent)]]></PreBuildEvent>
             <Form>dlgPatchRestore</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="src\gui\uWindows.pas">
+            <Form>dlgWindows</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="Controls\FWAniPaintBox.pas"/>
         <None Include="RawScanner\rawscanner.inc"/>
         <None Include="README.md"/>
         <None Include="updates.txt"/>
@@ -368,6 +377,12 @@ $(PreBuildEvent)]]></PreBuildEvent>
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="5">
+                <DeployFile LocalName="README.md" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="README.md" Configuration="Release" Class="ProjectFile"/>
                 <DeployFile LocalName="README.md" Configuration="Release" Class="ProjectFile">
                     <Platform Name="Win32">
@@ -376,6 +391,12 @@ $(PreBuildEvent)]]></PreBuildEvent>
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="README.md" Configuration="SingleInstance" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="RawScanner\rawscanner.inc" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win64">
                         <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>
@@ -403,9 +424,27 @@ $(PreBuildEvent)]]></PreBuildEvent>
                 </DeployFile>
                 <DeployFile LocalName="Win32\SingleInstance\ProcessMM.exe" Configuration="SingleInstance" Class="ProjectOutput"/>
                 <DeployFile LocalName="Win64\Debug\ProcessMM.exe" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="Win64\Debug\ProcessMM.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win64">
+                        <RemoteName>ProcessMM.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="Win64\Debug\ProcessMM.rsm" Configuration="Debug" Class="DebugSymbols">
+                    <Platform Name="Win64">
+                        <RemoteName>ProcessMM.rsm</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="Win64\SingleInstance\ProcessMM.exe" Configuration="SingleInstance" Class="ProjectOutput">
                     <Platform Name="Win64">
                         <RemoteName>ProcessMM.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="updates.txt" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win64">
+                        <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -1397,7 +1436,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
     <Import Project="$(MSBuildProjectName).deployproj" Condition="Exists('$(MSBuildProjectName).deployproj')"/>
     <PropertyGroup Condition="'$(Config)'=='Debug' And '$(Platform)'=='Win32'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64debug.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Debug /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64debug.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
@@ -1405,7 +1444,7 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win32'">
-        <PreBuildEvent>call rsvars.bat&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64release.rc</PreBuildEvent>
+        <PreBuildEvent>call rsvars.bat&amp;&amp;msbuild $(PROJECTPATH) /t:Rebuild /p:Config=Release /p:Platform=Win64&amp;&amp;brcc32 $(PROJECTDIR)\win64release.rc</PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>

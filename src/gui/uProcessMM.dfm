@@ -15,6 +15,7 @@ object dlgProcessMM: TdlgProcessMM
   PopupMenu = pmGui
   Position = poScreenCenter
   OnActivate = FormActivate
+  OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
@@ -272,8 +273,14 @@ object dlgProcessMM: TdlgProcessMM
       object mnuSearchResults: TMenuItem
         Action = acSearchResult
       end
+      object CallStackDemangler1: TMenuItem
+        Action = acCallStackDemangler
+      end
       object mnuResources: TMenuItem
         Action = acShowResources
+      end
+      object ShowWindows1: TMenuItem
+        Action = acShowWindows
       end
     end
     object mnuUtils: TMenuItem
@@ -298,9 +305,6 @@ object dlgProcessMM: TdlgProcessMM
       end
       object FindPatchedData1: TMenuItem
         Action = acFindPachedData
-      end
-      object CallStackDemangler1: TMenuItem
-        Action = acCallStackDemangler
       end
       object N11: TMenuItem
         Caption = '-'
@@ -579,8 +583,8 @@ object dlgProcessMM: TdlgProcessMM
       OnUpdate = acOpenInExplorerUpdate
     end
     object acCallStackDemangler: TAction
-      Category = 'Utils'
-      Caption = 'Threads CallStack...'
+      Category = 'View'
+      Caption = 'Show Threads CallStack...'
       ShortCut = 115
       OnExecute = acCallStackDemanglerExecute
       OnUpdate = acFindPachedDataUpdate
@@ -603,6 +607,13 @@ object dlgProcessMM: TdlgProcessMM
       Caption = 'Show Resources...'
       ShortCut = 16466
       OnExecute = acShowResourcesExecute
+      OnUpdate = acSaveUpdate
+    end
+    object acShowWindows: TAction
+      Category = 'View'
+      Caption = 'Show Windows...'
+      ShortCut = 16471
+      OnExecute = acShowWindowsExecute
       OnUpdate = acSaveUpdate
     end
   end

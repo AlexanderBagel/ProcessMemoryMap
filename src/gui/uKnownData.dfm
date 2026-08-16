@@ -13,6 +13,7 @@ object dlgKnownData: TdlgKnownData
   KeyPreview = True
   OldCreateOrder = False
   Position = poMainFormCenter
+  OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy

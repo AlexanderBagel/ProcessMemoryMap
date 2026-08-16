@@ -6,7 +6,7 @@
 //  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.29
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -131,14 +131,16 @@ type
     FActive: Boolean;
     FItems, FAddrList: TList<TSymbolData>;
     FItemIndex: TDictionary<ULONG_PTR64, Integer>;
-    FStringsCount: Integer;
+    FLockCount, FStringsCount: Integer;
   public
     constructor Create; virtual;
     destructor Destroy; override;
     class function GetInstance: TRawScannerSymbolStorage;
     procedure Add(Value: TSymbolData);
+    function BeginLock: Integer;
     procedure Clear;
     function Count: Integer;
+    function EndLock: Integer;
     procedure PrepareForWork;
     function GetDataCountAtAddr(AddrVA: ULONG_PTR64): Integer;
     function GetDataTypeAtAddr(AddrVA: ULONG_PTR64; NextIndex: Integer = 0): TSymbolDataType;
@@ -177,10 +179,17 @@ end;
 
 procedure TRawScannerSymbolStorage.Add(Value: TSymbolData);
 begin
+  if FLockCount <> 0 then Exit;
   FActive := False;
   FItems.Add(Value);
   if Value.DataType in [sdtAString, sdtUString] then
     Inc(FStringsCount);
+end;
+
+function TRawScannerSymbolStorage.BeginLock: Integer;
+begin
+  Result := FLockCount;
+  Inc(FLockCount);
 end;
 
 class destructor TRawScannerSymbolStorage.ClassDestroy;
@@ -215,6 +224,12 @@ begin
   FAddrList.Free;
   FItems.Free;
   inherited;
+end;
+
+function TRawScannerSymbolStorage.EndLock: Integer;
+begin
+  Dec(FLockCount);
+  Result := FLockCount;
 end;
 
 function TRawScannerSymbolStorage.GetDataAtAddr(AddrVA: ULONG_PTR64;

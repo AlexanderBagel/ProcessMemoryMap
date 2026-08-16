@@ -5,7 +5,7 @@
 //  * Unit Name : ProcessMM.dpr
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.51
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -90,7 +90,9 @@ uses
   uDumpResources in 'src\uDumpResources.pas',
   RawScanner.Resources.Helpers in 'RawScanner\RawScanner.Resources.Helpers.pas',
   uDisplayStyleInfo in 'src\uDisplayStyleInfo.pas',
-  uPatchRestore in 'src\gui\uPatchRestore.pas' {dlgPatchRestore};
+  uPatchRestore in 'src\gui\uPatchRestore.pas' {dlgPatchRestore},
+  uWindows in 'src\gui\uWindows.pas' {dlgWindows},
+  FWAniPaintBox in 'Controls\FWAniPaintBox.pas';
 
 {$R *.res}
 

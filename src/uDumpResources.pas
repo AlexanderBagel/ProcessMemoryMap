@@ -6,7 +6,7 @@
 //  * Purpose   : Вспомогательные функции для работы с ресурсами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -28,10 +28,14 @@ uses
   RawScanner.Resources.Helpers,
   uDisplayStyleInfo;
 
+type
+  PIdList = ^TIdList;
+  TIdList = array of Word;
+
   function GetBitmapStreamFromDib(ARes: TResource): TMemoryStream;
   function GetCursorIconStreamFromDib(ARes: TResource; AResType: Word): TMemoryStream;
-  function GetCursorGroupStream(ARes: TResource): TMemoryStream;
-  function GetIconGroupStream(ARes: TResource): TMemoryStream;
+  function GetCursorGroupStream(ARes: TResource; out IdList: TIdList): TMemoryStream;
+  function GetIconGroupStream(ARes: TResource; out IdList: TIdList): TMemoryStream;
   function VersionToRC(ARes: TResource): TStringList;
   function LookupLangID(ALangID: LANGID; out ALangName, ASubName: string): Boolean;
   function StringsToRC(ARes: TResource): TStringList;
@@ -39,8 +43,9 @@ uses
   function AcceleratorsToRC(ARes: TResource): TStringList;
   function MenuToRC(ARes: TResource): TStringList;
   function DialogToRC(ARes: TResource): TStringList;
-  function DVCLALToRC(ARes: TResource): TStringList;
-  function DFMToRC(ARes: TResource): TStringList;
+  function DVCLALToString(ARes: TResource): TStringList;
+  function PackageInfoToString(ARes: TResource): TStringList;
+  function DFMToString(ARes: TResource): TStringList;
 
 implementation
 
@@ -606,14 +611,13 @@ begin
   Result.Position := 0;
 end;
 
-function GetCursorGroupStream(ARes: TResource): TMemoryStream;
+function GetCursorGroupStream(ARes: TResource; out IdList: TIdList): TMemoryStream;
 var
   Hdr: TCursorOrIcon;
   Entry: TGrpCursorEntry;
   DirEntry: TIconFileDirEntry;
   Root, CursorRes: TResource;
   I, DataOffset: Integer;
-  IdList: array of Word;
   RawData: TMemoryStream;
 begin
   Result := TMemoryStream.Create;
@@ -647,14 +651,13 @@ begin
   end;
 end;
 
-function GetIconGroupStream(ARes: TResource): TMemoryStream;
+function GetIconGroupStream(ARes: TResource; out IdList: TIdList): TMemoryStream;
 var
   Hdr: TCursorOrIcon;
   Entry: TGrpIconEntry;
   DirEntry: TIconFileDirEntry;
   Root, CursorRes: TResource;
   I, DataOffset: Integer;
-  IdList: array of Word;
   RawData: TMemoryStream;
 begin
   Result := TMemoryStream.Create;
@@ -702,7 +705,6 @@ begin
   Result := StringReplace(Result, #$A, '\n', [rfReplaceAll]);
 end;
 
-{$message 'Проверить на компилябельность'}
 function VersionToRC(ARes: TResource): TStringList;
 var
   VerStream: TResVersionStream;
@@ -718,13 +720,13 @@ begin
   try
     VerStream.Load(ARes.Data);
     Result.Add(Format('%s VERSIONINFO', [ARes.Owner.DisplayName]));
-    Result.Add(Format('FILEVERSION %d.%d.%d.%d', [
+    Result.Add(Format('FILEVERSION %d,%d,%d,%d', [
       VerStream.FixedFileInfo.FileVersionMS.LowPart,
       VerStream.FixedFileInfo.FileVersionMS.HiPart,      
       VerStream.FixedFileInfo.FileVersionLS.LowPart,      
       VerStream.FixedFileInfo.FileVersionLS.HiPart
     ]));
-    Result.Add(Format('PRODUCTVERSION %d.%d.%d.%d', [
+    Result.Add(Format('PRODUCTVERSION %d,%d,%d,%d', [
       VerStream.FixedFileInfo.ProductVersionMS.LowPart,
       VerStream.FixedFileInfo.ProductVersionMS.HiPart,      
       VerStream.FixedFileInfo.ProductVersionLS.LowPart,      
@@ -732,20 +734,20 @@ begin
     ]));   
     Result.Add(Format('FILEOS 0x%.1X', [VerStream.FixedFileInfo.FileOS])); 
     Result.Add(Format('FILETYPE 0x%.1X', [VerStream.FixedFileInfo.FileType]));
-    Result.Add('{');
+    Result.Add('BEGIN');
     Result.Add(#9'BLOCK "StringFileInfo"');
-    Result.Add(#9'{');
+    Result.Add(#9'BEGIN');
     for StringFileInfo in VerStream.StringFileInfo do
     begin
       Result.Add(Format(#9#9'BLOCK "%s"', [StringFileInfo.Name]));
-      Result.Add(#9#9'{');
+      Result.Add(#9#9'BEGIN');
       for StringKeyValue in StringFileInfo.Items do
         Result.Add(Format(#9#9#9'VALUE "%s", "%s"', [StringKeyValue.Key, StringKeyValue.Value]));
-      Result.Add(#9#9'}');
+      Result.Add(#9#9'END');
     end;
-    Result.Add(#9'}');
+    Result.Add(#9'END');
     Result.Add(#9'BLOCK "VarFileInfo"');
-    Result.Add(#9'{');
+    Result.Add(#9'BEGIN');
     for Translation in VerStream.VarFileInfo do
     begin
       TranslationItemString := Format(#9#9'VALUE "%s"', [Translation.Name]);
@@ -754,8 +756,8 @@ begin
           [TranslationItemString, TranslationItem.LangID, TranslationItem.CodePage]);
       Result.Add(TranslationItemString);
     end;
-    Result.Add(#9'}');
-    Result.Add('}');
+    Result.Add(#9'END');
+    Result.Add('END');
   finally
     VerStream.Free;
   end;
@@ -799,7 +801,6 @@ begin
   AList.Add(Format('LANGUAGE %s, %s', [ALangName, ASubName]));
 end;
 
-{$message 'Проверить на компилябельность'}
 function StringsToRC(ARes: TResource): TStringList;
 var
   Str: string;
@@ -809,7 +810,7 @@ begin
   if not IsValidRes(ARes, RT_STRING) then Exit;
   Result.Add('STRINGTABLE');
   AddLangInfo(ARes, Result);
-  Result.Add('{');
+  Result.Add('BEGIN');
   BaseID := (ARes.Owner.Id - 1) shl 4;
   Len := 0;
   ARes.Data.Position := 0;
@@ -821,7 +822,7 @@ begin
     ARes.Data.ReadBuffer(Str[1], Len shl 1);
     Result.Add(Format(#9'%d, "%s"', [BaseID + I, Str]));
   end;
-  Result.Add('}');
+  Result.Add('END');
 end;
 
 function MessageTableToString(ARes: TResource): TStringList;
@@ -844,7 +845,7 @@ begin
   Result.Add('');
   AddLangInfo(ARes, Result);
   Result.Add(ARes.Owner.DisplayName + ' MESSAGETABLE');
-  Result.Add('{');
+  Result.Add('BEGIN');
   ARes.Data.Position := 0;
   ARes.Data.ReadBuffer(Data, SizeOf(Data));
   for I := 0 to Integer(Data.NumberOfBlocks) - 1 do
@@ -865,7 +866,7 @@ begin
       Entry := PMessageResourceEntry(PByte(Entry) + Entry.Length);
     end;
   end;
-  Result.Add('}');
+  Result.Add('END');
 end;
 
 function AcceleratorsToRC(ARes: TResource): TStringList;
@@ -878,7 +879,7 @@ begin
   if not IsValidRes(ARes, RT_ACCELERATOR) then Exit;
   AddLangInfo(ARes, Result);
   Result.Add(ARes.Owner.DisplayName + ' ACCELERATORS');
-  Result.Add('{');
+  Result.Add('BEGIN');
   ARes.Data.Position := 0;
   ARes.Data.ReadBuffer(Entry, SizeOf(Entry));
   while Entry.fFlags <> FEND do
@@ -1005,7 +1006,7 @@ begin
     if ARes.Data.Position = ARes.Data.Size then Break;
     ARes.Data.ReadBuffer(Entry, SizeOf(Entry));
   end;
-  Result.Add('}');
+  Result.Add('END');
 end;
 
 function ReadResString(ARes: TResource): string;
@@ -1064,9 +1065,9 @@ begin
   // https://learn.microsoft.com/en-us/windows/win32/menurc/menuhelpid
   AddLangInfo(ARes, RCData);
   RCData.Add(ARes.Owner.DisplayName + ' MENU');
-  RCData.Add('{');
+  RCData.Add('BEGIN');
   LoadMenuItems(1);
-  RCData.Add('}');
+  RCData.Add('END');
 end;
 
 procedure MenuExTemplateToRC(ARes: TResource; RCData: TStringList);
@@ -1161,9 +1162,9 @@ begin
   ARes.Data.ReadBuffer(Header, SizeOf(Header));
   AddLangInfo(ARes, RCData);
   RCData.Add(ARes.Owner.DisplayName + ' MENUEX');
-  RCData.Add('{');
+  RCData.Add('BEGIN');
   LoadMenuItems(1);
-  RCData.Add('}');
+  RCData.Add('END');
 end;
 
 function MenuToRC(ARes: TResource): TStringList;
@@ -1305,7 +1306,7 @@ begin
       $84: ClassName := 'SCROLLBAR';
       $85: ClassName := 'COMBOBOX';
     else
-      ClassName := Format('"%s"', [szClass]);
+      ClassName := Format('%s', [szClass]);
     end;
     if nClass in [$80..$85] then
     begin
@@ -1319,7 +1320,7 @@ begin
       if Template.dwExtendedStyle <> 0 then
         ExStyleStr := ', ' + FillStyleLists(szClass, 0, Template.dwExtendedStyle);
     end;
-    RCData.Add(Format(#9'CONTROL "%s", %d, %s, %s, %d, %d, %d, %d%s', [szText, nID,
+    RCData.Add(Format(#9'CONTROL "%s", %d, "%s", %s, %d, %d, %d, %d%s', [szText, nID,
       ClassName, StyleStr, Template.x, Template.y, Template.cx, Template.cy,
       ExStyleStr]));
   end;
@@ -1351,9 +1352,9 @@ var
 begin
   RCData.Add(Format('%s DIALOG %d, %d, %d, %d', [ARes.Owner.DisplayName,
     AHeader.x, AHeader.y, AHeader.cx, AHeader.cy]));
-  RCData.Add(Format('STYLE %s', [FillStyleLists(DIALOG_TYPE, AHeader.style, 0)]));
+  RCData.Add(Format('STYLE %s', [FillStyleLists(TYPE_DIALOG, AHeader.style, 0)]));
   if AHeader.dwExtendedStyle <> 0 then
-    RCData.Add(Format('EXSTYLE %s', [FillStyleLists(DIALOG_TYPE, 0, AHeader.dwExtendedStyle)]));
+    RCData.Add(Format('EXSTYLE %s', [FillStyleLists(TYPE_DIALOG, 0, AHeader.dwExtendedStyle)]));
   DumpSzOrOrd(ARes, 'MENU', RCData);
   DumpSzOrOrd(ARes, 'CLASS', RCData);
   AStr := ReadResString(ARes);
@@ -1365,10 +1366,10 @@ begin
     AStr := ReadResString(ARes);
     RCData.Add(Format('FONT %d, "%s"', [PointSize, AStr]));
   end;
-  RCData.Add('{');
+  RCData.Add('BEGIN');
   for I := 0 to Integer(AHeader.cdit) - 1 do
     LoadControl(ARes, RCData);
-  RCData.Add('}');
+  RCData.Add('END');
 end;
 
 procedure DialogTemplateExToRC(ARes: TResource; RCData: TStringList);
@@ -1409,9 +1410,9 @@ begin
   ARes.Data.ReadBuffer(AHeader, SizeOf(AHeader));
   RCData.Add(Format('%s DIALOGEX %d, %d, %d, %d', [ARes.Owner.DisplayName,
     AHeader.x, AHeader.y, AHeader.cx, AHeader.cy]));
-  RCData.Add(Format('STYLE %s', [FillStyleLists(DIALOG_TYPE, AHeader.style, 0)]));
+  RCData.Add(Format('STYLE %s', [FillStyleLists(TYPE_DIALOG, AHeader.style, 0)]));
   if AHeader.exStyle <> 0 then
-    RCData.Add(Format('EXSTYLE %s', [FillStyleLists(DIALOG_TYPE, 0, AHeader.exStyle)]));
+    RCData.Add(Format('EXSTYLE %s', [FillStyleLists(TYPE_DIALOG, 0, AHeader.exStyle)]));
   DumpSzOrOrd(ARes, 'MENU', RCData);
   DumpSzOrOrd(ARes, 'CLASS', RCData);
   AStr := ReadResString(ARes);
@@ -1426,10 +1427,10 @@ begin
     RCData.Add(Format('FONT %d, "%s", %d, %d, %d',
       [AFont.wPointSize, AStr, AFont.wWeight, AFont.bItalic, AFont.bCharset]));
   end;
-  RCData.Add('{');
+  RCData.Add('BEGIN');
   for I := 0 to Integer(AHeader.cDlgItems) - 1 do
     LoadControl(ARes, RCData);
-  RCData.Add('}');
+  RCData.Add('END');
 end;
 
 function DialogToRC(ARes: TResource): TStringList;
@@ -1446,7 +1447,7 @@ begin
     DialogTemplateToRC(ARes, Header, Result);
 end;
 
-function DVCLALToRC(ARes: TResource): TStringList;
+function DVCLALToString(ARes: TResource): TStringList;
 var
   Sign: Int64;
   I: Integer;
@@ -1467,7 +1468,116 @@ begin
   Result.Add('- Licence invalid');
 end;
 
-function DFMToRC(ARes: TResource): TStringList;
+function PackageInfoToString(ARes: TResource): TStringList;
+const
+  LineSeparator = '=============================================================';
+
+  function AlignString(const Value: string): string;
+  begin
+    Result := Value + StringOfChar(' ', 40 - Length(Value));
+  end;
+
+var
+  M: TMemoryStream;
+  Line, AName: string;
+  I, RequiresCount, ContainsCount: Integer;
+  Flags, Hash: Byte;
+
+  procedure CheckFlag(Flag: Byte; const Description: string);
+  begin
+    if Flags and Flag <> Flag then Exit;
+    Flags := Flags and not Flag;
+    if Line = '' then
+      Line := ' ' + Description
+    else
+      Line := Line + ', ' + Description;
+  end;
+
+begin
+  Result := TStringList.Create;
+  Result.Add('PACKAGE INFO:');
+  Result.Add('');
+  M := ARes.Data;
+  case PCardinal(M.Memory)^ and pfModuleTypeMask of
+    pfExeModule: Line := 'Type: ExeModule';
+    pfPackageModule: Line := 'Type: PackageModule';
+    pfLibraryModule: Line := 'Type: LibraryModule';
+  else
+    Line := 'Type: Undefined';
+  end;
+  Result.Add(Line);
+  case PCardinal(M.Memory)^ and pfProducerMask of
+    pfV3Produced: Line := 'Producer: V3';
+    pfBCB4Produced: Line := 'Producer: BCB4';
+    pfDelphi4Produced: Line := 'Producer: Delphi4';
+  else
+    Line := 'Producer: Undefined';
+  end;
+  Result.Add(Line);
+  case PCardinal(M.Memory)^ and pfConsumerMask of
+    pfConsumerCompat: Line := 'Consumer: Compat';
+    pfConsumerDelphi: Line := 'Consumer: Delphi';
+    pfConsumerBCB: Line := 'Consumer: BCB';
+  else
+    Line := 'Consumer: Undefined';
+  end;
+  Result.Add(Line);
+  Line := 'Flags: ' +
+    IfThen(PCardinal(M.Memory)^ and pfNeverBuild = 0, 'always build, ', 'never-build, ');
+  if PCardinal(M.Memory)^ and pfDesignOnly = pfDesignOnly then
+    Line := Line + 'design-time only, ';
+  if PCardinal(M.Memory)^ and pfRunOnly = pfRunOnly then
+    Line := Line + 'run-time only, ';
+  Line := Line +
+    IfThen(PCardinal(M.Memory)^ and pfIgnoreDupUnits = 0,
+      'perform normal dup unit check', 'do not check for dup units');
+  Result.Add(Line);
+  Result.Add('');
+  M.Position := 4;
+  M.ReadBuffer(RequiresCount, 4);
+  Result.Add('Requires: ' + IntToStr(RequiresCount));
+  if RequiresCount > 0 then
+  begin
+    Result.Add('Hash:   UnitName:');
+    Result.Add(LineSeparator);
+    for I := 0 to RequiresCount - 1 do
+    begin
+      M.ReadBuffer(Hash, 1);
+      AName := string(AnsiString(PAnsiChar(M.Memory) + M.Position));
+      Line := Format('0x%.2X    %s', [Hash, AName]);
+      M.Seek(Length(AName) + 1, soCurrent);
+      Result.Add(Line);
+    end;
+    Result.Add(LineSeparator);
+  end;
+  M.ReadBuffer(ContainsCount, 4);
+  Result.Add('');
+  Result.Add('Contains: ' + IntToStr(ContainsCount));
+  if ContainsCount > 0 then
+  begin
+    Result.Add('Hash:   UnitName:                                Flags:');
+    Result.Add(LineSeparator);
+    for I := 0 to ContainsCount - 1 do
+    begin
+      M.ReadBuffer(Flags, 1);
+      M.ReadBuffer(Hash, 1);
+      AName := string(AnsiString(PAnsiChar(M.Memory) + M.Position));
+      Line := '';
+      CheckFlag(ufMainUnit, 'main unit');
+      CheckFlag(ufWeakPackageUnit, '$WEAKPACKAGEUNIT unit (dpk source)');
+      CheckFlag(ufPackageUnit, 'package unit (dpk source)');
+      CheckFlag(ufWeakUnit, '$WEAKPACKAGEUNIT unit');
+      CheckFlag(ufOrgWeakUnit, 'original containment of $WEAKPACKAGEUNIT');
+      CheckFlag(ufImplicitUnit, 'implicitly imported');
+      Line := Format('0x%.2X    %s%s', [Hash, AlignString(AName), Line]);
+      M.Seek(Length(AName) + 1, soCurrent);
+      Result.Add(Line);
+    end;
+    Result.Add(LineSeparator);
+  end;
+end;
+
+function DFMToString(ARes: TResource): TStringList;
 var
   Txt: TMemoryStream;
 begin

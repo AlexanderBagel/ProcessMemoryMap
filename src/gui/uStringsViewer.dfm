@@ -17,6 +17,7 @@ object dlgStringsViewer: TdlgStringsViewer
   Font.Style = []
   KeyPreview = True
   Position = poMainFormCenter
+  OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy

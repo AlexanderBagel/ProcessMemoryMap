@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка строк в удаленном процессе
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.47
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -62,6 +62,8 @@ type
     procedure lvStringsHeaderClick(Sender: TVTHeader;
       HitInfo: TVTHeaderHitInfo);
     procedure mnuOpenInExplorerClick(Sender: TObject);
+    procedure FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+      NewDPI: Integer);
   private
     SearchString: string;
     SearchPosition: Integer;
@@ -95,6 +97,12 @@ const
 {$R *.dfm}
 
 { TdlgStringsViewer }
+
+procedure TdlgStringsViewer.FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+  NewDPI: Integer);
+begin
+  FixVirtualStringTreeDpiBug(lvStrings);
+end;
 
 procedure TdlgStringsViewer.FormClose(Sender: TObject;
   var Action: TCloseAction);

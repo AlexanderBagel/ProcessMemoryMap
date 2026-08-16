@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.50
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -28,6 +28,8 @@ uses
   Winapi.TlHelp32,
   Winapi.CommCtrl,
   System.Classes,
+  VirtualTrees,
+  VirtualTrees.Types,
   MemoryMap.Core,
   RawScanner.Core,
   RawScanner.Image.Pe,
@@ -73,6 +75,8 @@ type
   function DpiRect(const Value: TRect; CustomDPI: Integer): TRect;
 
   function GetMemAlloc: Int64;
+
+  procedure FixVirtualStringTreeDpiBug(Value: TVirtualStringTree);
 
 implementation
 
@@ -561,6 +565,48 @@ begin
   Heap := GetHeapStatus;
   Result := Heap.Overhead + Heap.TotalAllocated;
 {$WARNINGS ON}
+end;
+
+type
+  TVTAccess = class(TBaseVirtualTree);
+
+procedure FixVirtualStringTreeDpiBug(Value: TVirtualStringTree);
+
+  function CalcSubTreeHeight(Node: PVirtualNode): Cardinal;
+  var
+    Child: PVirtualNode;
+    ShowFiltered: Boolean;
+  begin
+    ShowFiltered := toShowFilteredNodes in Value.TreeOptions.PaintOptions;
+    Result := 0;
+    if (Node = Value.RootNode) or ShowFiltered or not (vsFiltered in Node.States) then
+    begin
+      Node.SetNodeHeight(Value.DefaultNodeHeight);
+      Result := Node.NodeHeight;
+      if (Node = Value.RootNode) or (vsExpanded in Node.States) then
+      begin
+        Child := Node.FirstChild;
+        while Assigned(Child) do
+        begin
+          if not (vsDeleting in Child.States) then
+            Inc(Result, CalcSubTreeHeight(Child));
+          Child := Child.NextSibling;
+        end;
+      end;
+    end;
+    Node.TotalHeight := Result;
+  end;
+
+begin
+  Value.BeginUpdate;
+  try
+    Value.DefaultNodeHeight := MulDiv(18, TVTAccess(Value).FCurrentPPI, USER_DEFAULT_SCREEN_DPI);
+    CalcSubTreeHeight(Value.RootNode);
+  finally
+    Value.EndUpdate;
+  end;
+  TVTAccess(Value).UpdateVerticalRange;
+  TVTAccess(Value).UpdateScrollBars(True);
 end;
 
 end.

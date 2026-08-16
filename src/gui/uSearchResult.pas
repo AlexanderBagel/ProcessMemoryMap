@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для поиска данных в памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.50
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -111,6 +111,8 @@ type
     procedure acCopyLineExecute(Sender: TObject);
     procedure acSaveToFileExecute(Sender: TObject);
     procedure PageControlChange(Sender: TObject);
+    procedure FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+      NewDPI: Integer);
   protected
     function GetSelectedIndex: Integer;
     function GetActiveView: TSearchView;
@@ -151,7 +153,8 @@ const
     'Heap',
     'Thread',
     'System',
-    'Free'
+    'Free',
+    'Not None'
   );
 
 {$R *.dfm}
@@ -365,6 +368,15 @@ begin
   Result.OnGetText := OnGetText;
   Result.OnHeaderClick := OnHeaderClick;
   PageControl.ActivePage := APage;
+end;
+
+procedure TdlgSearchResult.FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+  NewDPI: Integer);
+var
+  I: Integer;
+begin
+  for I := 0 to PageControl.PageCount - 1 do
+    FixVirtualStringTreeDpiBug(PageControl.Pages[I].Controls[0] as TSearchView);
 end;
 
 procedure TdlgSearchResult.FormClose(Sender: TObject; var Action: TCloseAction);

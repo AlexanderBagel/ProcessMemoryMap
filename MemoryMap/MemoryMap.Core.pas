@@ -6,7 +6,7 @@
 //  * Purpose   : Базовый класс собирающий информацию о карте памяти процесса
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.4.39
+//  * Version   : 1.4.40
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,8 +36,8 @@ uses
   MemoryMap.DebugMapData;
 
 const
-  MemoryMapVersionInt = $01040027;
-  MemoryMapVersionStr = '1.4 (revision 39)';
+  MemoryMapVersionInt = $01040028;
+  MemoryMapVersionStr = '1.4 (revision 40)';
 
 type
   // Типы фильтров
@@ -50,7 +50,8 @@ type
     fiHeap,       // только содержащие кучу
     fiThread,     // только содержащие данные нитей
     fiSystem,     // только содержащие системные структуры
-    fiFree);      // только свободные регионы
+    fiFree,       // только свободные регионы
+    fiNotNone);   // содержащие хоть какие-то данные
 
   TModule = record
     Path: string;
@@ -180,6 +181,10 @@ type
     property OnProgress: TProgressEvent read FProgress write FProgress;
   end;
 
+  EReadRemoteMemoryException = class(Exception)
+    constructor Create(const AMessage: string; AddrVA: Pointer);
+  end;
+
   // синглтон
   function MemoryMapCore: TMemoryMap;
 
@@ -239,7 +244,7 @@ begin
     Inc(FTotalData.Total.Commited, Size);
     Inc(FTotalData.Total.Blocks);
 
-    case RegionToFilterType(R, fiNone) of
+    case RegionToFilterType(R, fiNotNone) of
       fiImage:
       begin
         Inc(FTotalData.Image.Size, R.MBI.RegionSize);
@@ -729,6 +734,15 @@ function TMemoryMap.RegionToFilterType(Value: TRegionData;
   PriorityFilter: TFilters): TFilters;
 var
   AResult: TFilters;
+
+  function IsFilterApply(CurrentFilter: TFilters): Boolean;
+  begin
+    if (PriorityFilter = fiNotNone) and (CurrentFilter <> fiNone) then
+      Result := True
+    else
+      Result := PriorityFilter = CurrentFilter;
+  end;
+
 begin
   Result := fiNone;
   case Value.RegionType of
@@ -737,26 +751,25 @@ begin
     rtSystem: Result := fiSystem;
     rtExecutableImage, rtExecutableImage64: Result := fiImage;
   end;
-  if PriorityFilter = Result then Exit;
+  if IsFilterApply(Result) then Exit;
 
   if Value.MBI.State = MEM_FREE then Result := fiFree;
-  if PriorityFilter = Result then Exit;
+  if IsFilterApply(Result) then Exit;
 
   if Value.MBI.State = MEM_COMMIT then
     case Value.MBI.Type_9 of
       MEM_IMAGE: Result := fiImage;
       MEM_MAPPED:
       begin
-        Result := fiMapped;
-        if PriorityFilter = Result then Exit;
-
         if Value.Shared then
-          Result := fiShareable;
+          Result := fiShareable
+        else
+          Result := fiMapped;
       end;
       MEM_PRIVATE: Result := fiPrivate;
     end;
 
-  if PriorityFilter = Result then Exit;
+  if IsFilterApply(Result) then Exit;
 
   if not Value.RegionVisible then
   begin
@@ -1129,7 +1142,7 @@ begin
 
   if not ReadProcessMemory(FProcess, FPebBaseAddress,
     @FPeb, SizeOf(TPEB), ReturnLength) then
-    RaiseLastOSError;
+    raise EReadRemoteMemoryException.Create('PEB', FPebBaseAddress);
 
   {$IFDEF WIN64}
   if not Process64 then
@@ -1144,7 +1157,7 @@ begin
 
     if not ReadProcessMemory(FProcess, FPebWow64BaseAddress,
       @FPebWow64, SizeOf(TWOW64_PEB), ReturnLength) then
-      RaiseLastOSError;
+      raise EReadRemoteMemoryException.Create('PebWow64', FPebWow64BaseAddress);
 
     AddNewData('LoaderData (Wow64)', Pointer(FPebWow64.LoaderData));
     AddNewData('ProcessParameters (Wow64)', Pointer(FPebWow64.ProcessParameters));
@@ -1154,11 +1167,9 @@ begin
       AddNewData('HotpatchInformation (Wow64)', Pointer(FPebWow64.HotpatchInformation));
 
     PPointerData := nil;
-    if not ReadProcessMemory(FProcess, Pointer(FPebWow64.ReadOnlyStaticServerData),
+    if ReadProcessMemory(FProcess, Pointer(FPebWow64.ReadOnlyStaticServerData),
       @PPointerData, 4, ReturnLength) then
-      RaiseLastOSError;
-
-    AddNewData('ReadOnlyStaticServerData (Wow64)', PPointerData);
+      AddNewData('ReadOnlyStaticServerData (Wow64)', PPointerData);
 
     if FPebWow64.AnsiCodePageData <> Cardinal(FPeb.AnsiCodePageData) then
       AddNewData('AnsiCodePageData (Wow64)', Pointer(FPebWow64.AnsiCodePageData));
@@ -1202,11 +1213,9 @@ begin
   AddNewData('HotpatchInformation', Pointer(FPeb.HotpatchInformation));
 
   PPointerData := nil;
-  if not ReadProcessMemory(FProcess, FPeb.ReadOnlyStaticServerData,
+  if ReadProcessMemory(FProcess, FPeb.ReadOnlyStaticServerData,
     @PPointerData, SizeOf(Pointer), ReturnLength) then
-    RaiseLastOSError;
-
-  AddNewData('ReadOnlyStaticServerData', PPointerData);
+    AddNewData('ReadOnlyStaticServerData', PPointerData);
 
   AddNewData('AnsiCodePageData', Pointer(FPeb.AnsiCodePageData));
   AddNewData('OemCodePageData', Pointer(FPeb.OemCodePageData));
@@ -1227,17 +1236,17 @@ begin
 
   AddNewData('ApiSetMap', Pointer(FPeb.ApiSetMap));
 
-  if not ReadProcessMemory(FProcess, FPeb.ProcessParameters,
+  if ReadProcessMemory(FProcess, FPeb.ProcessParameters,
     @ProcessParameters, SizeOf(RTL_USER_PROCESS_PARAMETERS), ReturnLength) then
-    RaiseLastOSError;
-  AddNewData('Process Environments', ProcessParameters.Environment);
+    AddNewData('Process Environments', ProcessParameters.Environment);
 
   if ProcessParameters.ImagePathName.Length > 0 then
   begin
     SetLength(FProcessPath, ProcessParameters.ImagePathName.Length div SizeOf(Char));
     if not ReadProcessMemory(FProcess, ProcessParameters.ImagePathName.Buffer,
       @FProcessPath[1], ProcessParameters.ImagePathName.Length, ReturnLength) then
-      RaiseLastOSError;
+      raise EReadRemoteMemoryException.Create('ProcessParameters.ImagePathName',
+        ProcessParameters.ImagePathName.Buffer);
   end
   else
     FProcessPath := '';
@@ -1527,6 +1536,14 @@ begin
     end;
   end;
 
+end;
+
+{ EReadRemoteMemoryException }
+
+constructor EReadRemoteMemoryException.Create(const AMessage: string; AddrVA: Pointer);
+begin
+  inherited CreateFmt('Error reading “%s” at address 0x%p. Code %d. %s',
+    [AMessage, AddrVA, GetLastError, SysErrorMessage(GetLastError)]);
 end;
 
 initialization

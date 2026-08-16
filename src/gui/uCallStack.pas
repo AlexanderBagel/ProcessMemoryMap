@@ -5,8 +5,8 @@
 //  * Unit Name : uCallStack.pas
 //  * Purpose   : Утилита демангла CallStack от ProcessExpplorer
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.40
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -36,6 +36,7 @@ uses
   uDumpDisplayUtils,
   uRegionProperties,
   uSettings,
+  uUtils,
 
   MemoryMap.DebugMapData,
   MemoryMap.Core,
@@ -129,6 +130,8 @@ type
       var Ghosted: Boolean; var ImageIndex: TImageIndex);
     procedure tvThreadMeasureItem(Sender: TBaseVirtualTree;
       TargetCanvas: TCanvas; Node: PVirtualNode; var NodeHeight: TDimension);
+    procedure FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+      NewDPI: Integer);
   private
     FThreads: TThreads;
     FCurrentStackData: TStringList;
@@ -672,6 +675,12 @@ begin
     tvThread.EndUpdate;
   end;
   tvThread.Selected[FirstRoot] := True;
+end;
+
+procedure TdlgCallStack.FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+  NewDPI: Integer);
+begin
+  FixVirtualStringTreeDpiBug(tvThread);
 end;
 
 procedure TdlgCallStack.FormClose(Sender: TObject;

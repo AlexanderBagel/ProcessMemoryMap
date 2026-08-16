@@ -6,7 +6,7 @@
 //  * Purpose   : Диалог для отображения списка всех известных структур
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.33
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -23,10 +23,13 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.ComCtrls, Generics.Collections, ClipBrd, System.ImageList,
-  Vcl.ImgList, Vcl.Menus,
+  Vcl.ImgList, Vcl.Menus, uBaseForm,
 
   VirtualTrees,
   VirtualTrees.Types,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.BaseTree,
+  VirtualTrees.AncestorVCL,
 
   MemoryMap.Core,
   MemoryMap.RegionData,
@@ -34,8 +37,7 @@ uses
   MemoryMap.PEImage,
 
   uRegionProperties,
-  uBaseForm, VirtualTrees.BaseAncestorVCL, VirtualTrees.BaseTree,
-  VirtualTrees.AncestorVCL;
+  uUtils;
 
 type
   TdlgKnownData = class(TBaseAppForm)
@@ -59,6 +61,8 @@ type
     procedure mnuGotoAddressClick(Sender: TObject);
     procedure pmCopyPopup(Sender: TObject);
     procedure mnuCopyAddressClick(Sender: TObject);
+    procedure FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+      NewDPI: Integer);
   private type
     PNodeData = ^TNodeData;
     TNodeData = record
@@ -104,6 +108,12 @@ function TdlgKnownData.Add(Root: PVirtualNode;
 begin
   Result := tvData.AddChild(Root, nil);
   PInteger(Result.GetData)^ := FNodeDataList.Add(Data);
+end;
+
+procedure TdlgKnownData.FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+  NewDPI: Integer);
+begin
+  FixVirtualStringTreeDpiBug(tvData);
 end;
 
 procedure TdlgKnownData.FormClose(Sender: TObject; var Action: TCloseAction);

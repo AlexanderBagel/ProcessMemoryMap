@@ -39,6 +39,8 @@ type
     lblRawVer: TLabel;
     Label1: TLabel;
     lblZipVer: TLinkLabel;
+    LinkLabel2: TLinkLabel;
+    LinkLabel5: TLinkLabel;
     procedure LinkLabel1LinkClick(Sender: TObject; const Link: string;
       LinkType: TSysLinkType);
     procedure FormCreate(Sender: TObject);

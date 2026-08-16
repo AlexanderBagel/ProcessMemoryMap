@@ -6,6 +6,7 @@ inherited dlgCallStack: TdlgCallStack
   Position = poMainFormCenter
   Visible = True
   StyleElements = [seFont, seClient, seBorder]
+  OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy

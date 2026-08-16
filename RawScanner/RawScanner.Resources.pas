@@ -6,7 +6,7 @@
 //  * Purpose   : Классы для работы с секцией ресурсов
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.29
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -34,6 +34,7 @@ uses
   {$IFDEF MSWINDOWS}
   Windows,
   {$ENDIF}
+  Math,
   Classes,
   SysUtils,
   StrUtils,
@@ -71,6 +72,8 @@ const
     ('V', 'S', '_', 'V', 'E', 'R', 'S', 'I',
      'O', 'N', '_', 'I', 'N', 'F', 'O', #0);
   VS_FFI_SIGNATURE = $FEEF04BD;
+  VS_FFI_STRUCVERSION = $10000;
+  VS_FFI_FILEFLAGSMASK = 63;
 
 type
 
@@ -420,7 +423,9 @@ type
   function GetEntryName(Id: ULONG): string;
   function GetResRoot(ARes: TResource): TResource;
   function GetResType(ARes: TResource): TResource;
+  function GetResName(ARes: TResource): TResource;
   function FindRes(AOwner: TResource; Id: Word; AName: string): TResource;
+  procedure AddResToResTree(ASrc: TResource; ADst: TResourceTree);
 
 implementation
 
@@ -469,6 +474,14 @@ begin
     Result := Result.Owner;
 end;
 
+function GetResName(ARes: TResource): TResource;
+begin
+  Result := ARes;
+  if ARes.ResType = rtRoot then Exit;
+  while Result.ResType <> rtNameDirectory do
+    Result := Result.Owner;
+end;
+
 function FindRes(AOwner: TResource; Id: Word; AName: string): TResource;
 var
   Itm: TResource;
@@ -486,6 +499,62 @@ begin
       if Itm.Name = AName then
         Exit(Itm);
   end;
+end;
+
+procedure AppendResTo(ASrc, ADst: TResource);
+var
+  R, NewRoot: TResource;
+begin
+  NewRoot := TResource.Create(ADst);
+  NewRoot.Id := ASrc.Id;
+  NewRoot.Name := ASrc.Name;
+  NewRoot.CodePage := ASrc.CodePage;
+  if ASrc.ResType = rtLanguageId then
+    NewRoot.GetDataStream.CopyFrom(ASrc.Data, 0)
+  else
+    for R in ASrc.Childs do
+      AppendResTo(R, NewRoot);
+end;
+
+procedure AddResToResTree(ASrc: TResource; ADst: TResourceTree);
+var
+  Path: TStack<TResource>;
+  PathRes, Root, NewRoot: TResource;
+begin
+  Root := ADst.Resources;
+  if ASrc.ResType = rtRoot then
+  begin
+    for PathRes in ASrc.Childs do
+      AppendResTo(PathRes, Root);
+    Exit;
+  end;
+  Path := TStack<TResource>.Create;
+  try
+    PathRes := ASrc.Owner;
+    while PathRes <> nil do
+    begin
+      if PathRes.ResType = rtRoot then
+        Break;
+      Path.Push(PathRes);
+      PathRes := PathRes.Owner;
+    end;
+    while Path.Count > 0 do
+    begin
+      PathRes := Path.Pop;
+      NewRoot := FindRes(Root, PathRes.Id, PathRes.Name);
+      if NewRoot = nil then
+      begin
+        NewRoot := TResource.Create(Root);
+        NewRoot.Id := PathRes.Id;
+        NewRoot.Name := PathRes.Name;
+        NewRoot.CodePage := PathRes.CodePage;
+      end;
+      Root := NewRoot;
+    end;
+  finally
+    Path.Free;
+  end;
+  AppendResTo(ASrc, Root);
 end;
 
 function LoadWideString(AStream: TStream; var AString: UnicodeString): Integer;
@@ -523,7 +592,10 @@ function AlignReadStream(AStream: TStream): Integer;
 begin
   Result := 3 and (4 - (AStream.Position and 3));
   if Result <> 0 then
+  begin
+    Result := Min(AStream.Size - AStream.Position, Result);
     AStream.Seek(Result, soCurrent);
+  end;
 end;
 
 procedure AlignWriteStream(AStream: TStream);

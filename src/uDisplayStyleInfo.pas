@@ -6,7 +6,7 @@
 //  * Purpose   : Вспомогательные функции и массивы для определения стилей окна
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -21,8 +21,6 @@
 //	Freeware
 
 unit uDisplayStyleInfo;
-
-{$message 'проверить все стили по MSDN'}
 
 interface
 
@@ -50,7 +48,88 @@ type
 const
   NO_DATA = DWORD(-1);
   DTS_SHORTDATECENTURYFORMAT = $C;
-  DIALOG_TYPE = '#32770';
+  TYPE_DIALOG = '#32770';
+  TYPE_BUTTON = 'BUTTON';
+  TYPE_COMBOBOX = 'COMBOBOX';
+  TYPE_EDIT = 'EDIT';
+  TYPE_LISTBOX = 'LISTBOX';
+  TYPE_RICHEDIT = 'RICHEDIT';
+  TYPE_RichEdit20A = 'RichEdit20A';
+  TYPE_RichEdit20W = 'RichEdit20W';
+  TYPE_SCROLLBAR = 'SCROLLBAR';
+  TYPE_STATIC = 'STATIC';
+  TYPE_SysAnimate32 = 'SysAnimate32';
+  TYPE_ComboBoxEx32 = 'ComboBoxEx32';
+  TYPE_ComboLBox = 'ComboLBox';
+  TYPE_SysDateTimePick32 = 'SysDateTimePick32';
+  TYPE_DragList = 'DragList';
+  TYPE_SysHeader32 = 'SysHeader32';
+  TYPE_SysListView32 = 'SysListView32';
+  TYPE_SysMonthCal32 = 'SysMonthCal32';
+  TYPE_SysPager = 'SysPager';
+  TYPE_msctls_progress32 = 'msctls_progress32';
+  TYPE_RebarWindow32 = 'RebarWindow32';
+  TYPE_msctls_statusbar32 = 'msctls_statusbar32';
+  TYPE_SysTabControl32 = 'SysTabControl32';
+  TYPE_ToolbarWindow32 = 'ToolbarWindow32';
+  TYPE_tooltips_class32 = 'tooltips_class32';
+  TYPE_msctls_trackbar32 = 'msctls_trackbar32';
+  TYPE_SysTreeView32 = 'SysTreeView32';
+  TYPE_msctls_updown32 = 'msctls_updown32';
+  TYPE_IPAddress = 'IPAddress';
+  TYPE_SysLink = 'SysLink';
+
+  DS_USEPIXELS = $8000;
+  SS_REALSIZECONTROL = $40;
+  SS_EDITCONTROL = $2000;
+
+  // https://doxygen.reactos.org/d9/d71/undocuser_8h_source.html
+  ES_COMBO = $200; // Parent is a combobox
+  LBS_COMBOBOX = $8000;
+
+  // kd> dt win32k!tagWND
+  // +0x01c ExStyle          : Uint4B
+  WS_EX_FLAG_MAKEVISIBLEWHENUNGHOSTED = 1 shl 11; //    +0x01c bMakeVisibleWhenUnghosted : Pos 11, 1 Bit
+  WS_EX_FLAG_UISTATEACTIVE = 1 shl 26;            //    +0x01c bUIStateActive   : Pos 26, 1 Bit
+  WS_EX_FLAG_COMPOSITEDCOMPOSITING = 1 shl 28;    //    +0x01c bWS_EX_COMPOSITEDCompositing : Pos 28, 1 Bit
+  WS_EX_FLAG_REDIRECTED = 1 shl 29;               //    +0x01c bRedirected      : Pos 29, 1 Bit
+  WS_EX_FLAG_UISTATEKBDACCELHIDDEN = 1 shl 30;    //    +0x01c bUIStateKbdAccelHidden : Pos 30, 1 Bit
+  WS_EX_FLAG_UISTATEFOCUSRECTHIDDEN = $80000000;  //    +0x01c bUIStateFocusRectHidden : Pos 31, 1 Bit
+
+  { // это похоже DWM флаги
+   +0x0ac ExStyle2         : Uint4B
+   +0x0ac bClipboardListener : Pos 0, 1 Bit
+   +0x0ac bLayeredInvalidate : Pos 1, 1 Bit
+   +0x0ac bRedirectedForPrint : Pos 2, 1 Bit
+   +0x0ac bLinked          : Pos 3, 1 Bit
+   +0x0ac bLayeredForDWM   : Pos 4, 1 Bit
+   +0x0ac bLayeredLimbo    : Pos 5, 1 Bit
+   +0x0ac bHIGHDPI_UNAWARE_Unused : Pos 6, 1 Bit
+   +0x0ac bVerticallyMaximizedLeft : Pos 7, 1 Bit
+   +0x0ac bVerticallyMaximizedRight : Pos 8, 1 Bit
+   +0x0ac bHasOverlay      : Pos 9, 1 Bit
+   +0x0ac bConsoleWindow   : Pos 10, 1 Bit
+   +0x0ac bChildNoActivate : Pos 11, 1 Bit
+  }
+
+  // WinSDK
+
+  DS_SHELLFONT = DS_SETFONT or DS_FIXEDSYS;
+  BS_PUSHBOX = $A;
+  BS_TYPEMASK = $F;
+
+  // Windows 8+
+  WS_EX_NOREDIRECTIONBITMAP = $00200000;
+
+  // RichEdit 3.0/4.1/8.0
+  ENM_PARAGRAPHEXPANDED = $00000020;
+  ENM_PAGECHANGE        = $00000040;
+  ENM_CLIPFORMAT        = $00000080;
+  ENM_LOWFIRTF          = $08000000;
+  ENM_STARTCOMPOSITION  = $10000000;
+  ENM_ENDCOMPOSITION    = $20000000;
+  ENM_GROUPTYPINGCHANGE = $40000000;
+  ENM_HIDELINKTOOLTIP   = $80000000;
 
   WindowStyles: array[0..22] of TStyleLookupEx = (
     (style: WS_OVERLAPPEDWINDOW; name: 'WS_OVERLAPPEDWINDOW'; cmp_mask: 0; depends: NO_DATA; excludes: WS_POPUP or WS_CHILD),
@@ -78,7 +157,8 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  DialogStyles: array[0..14] of TStyleLookupEx = (
+  DialogStyles: array[0..16] of TStyleLookupEx = (
+    (style: DS_SHELLFONT; name: 'DS_SHELLFONT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: DS_ABSALIGN; name: 'DS_ABSALIGN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: DS_SYSMODAL; name: 'DS_SYSMODAL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: DS_LOCALEDIT; name: 'DS_LOCALEDIT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -93,21 +173,23 @@ const
     (style: DS_CENTER; name: 'DS_CENTER'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: DS_CENTERMOUSE; name: 'DS_CENTERMOUSE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: DS_CONTEXTHELP; name: 'DS_CONTEXTHELP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: DS_USEPIXELS; name: 'DS_USEPIXELS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  ButtonStyles: array[0..26] of TStyleLookupEx = (
+  ButtonStyles: array[0..27] of TStyleLookupEx = (
     (style: BS_PUSHBUTTON; name: 'BS_PUSHBUTTON'; cmp_mask: 0; depends: NO_DATA; excludes: BS_DEFPUSHBUTTON or BS_CHECKBOX or BS_AUTOCHECKBOX or BS_RADIOBUTTON or BS_GROUPBOX or BS_AUTORADIOBUTTON),
-    (style: BS_DEFPUSHBUTTON; name: 'BS_DEFPUSHBUTTON'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_CHECKBOX; name: 'BS_CHECKBOX'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_AUTOCHECKBOX; name: 'BS_AUTOCHECKBOX'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_RADIOBUTTON; name: 'BS_RADIOBUTTON'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_3STATE; name: 'BS_3STATE'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_AUTO3STATE; name: 'BS_AUTO3STATE'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_GROUPBOX; name: 'BS_GROUPBOX'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_USERBUTTON; name: 'BS_USERBUTTON'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_AUTORADIOBUTTON; name: 'BS_AUTORADIOBUTTON'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
-    (style: BS_OWNERDRAW; name: 'BS_OWNERDRAW'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
+    (style: BS_DEFPUSHBUTTON; name: 'BS_DEFPUSHBUTTON'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_CHECKBOX; name: 'BS_CHECKBOX'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_AUTOCHECKBOX; name: 'BS_AUTOCHECKBOX'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_RADIOBUTTON; name: 'BS_RADIOBUTTON'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_3STATE; name: 'BS_3STATE'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_AUTO3STATE; name: 'BS_AUTO3STATE'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_GROUPBOX; name: 'BS_GROUPBOX'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_USERBUTTON; name: 'BS_USERBUTTON'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_AUTORADIOBUTTON; name: 'BS_AUTORADIOBUTTON'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_PUSHBOX; name: 'BS_PUSHBOX'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: BS_OWNERDRAW; name: 'BS_OWNERDRAW'; cmp_mask: BS_TYPEMASK; depends: NO_DATA; excludes: 0),
     (style: BS_LEFTTEXT; name: 'BS_LEFTTEXT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: BS_TEXT; name: 'BS_TEXT'; cmp_mask: 0; depends: NO_DATA; excludes: BS_ICON or BS_BITMAP or BS_AUTOCHECKBOX or BS_AUTORADIOBUTTON or BS_CHECKBOX or BS_RADIOBUTTON),
     (style: BS_ICON; name: 'BS_ICON'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -126,7 +208,7 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  EditStyles: array[0..14] of TStyleLookupEx = (
+  EditStyles: array[0..15] of TStyleLookupEx = (
     (style: ES_LEFT; name: 'ES_LEFT'; cmp_mask: 0; depends: NO_DATA; excludes: ES_CENTER or ES_RIGHT),
     (style: ES_CENTER; name: 'ES_CENTER'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_RIGHT; name: 'ES_RIGHT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -137,6 +219,7 @@ const
     (style: ES_AUTOVSCROLL; name: 'ES_AUTOVSCROLL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_AUTOHSCROLL; name: 'ES_AUTOHSCROLL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_NOHIDESEL; name: 'ES_NOHIDESEL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ES_COMBO; name: 'ES_COMBO'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_OEMCONVERT; name: 'ES_OEMCONVERT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_READONLY; name: 'ES_READONLY'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_WANTRETURN; name: 'ES_WANTRETURN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -144,7 +227,7 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  RichedStyles: array[0..16] of TStyleLookupEx = (
+  RichedStyles: array[0..19] of TStyleLookupEx = (
     (style: ES_LEFT; name: 'ES_LEFT'; cmp_mask: 0; depends: NO_DATA; excludes: ES_CENTER or ES_RIGHT),
     (style: ES_CENTER; name: 'ES_CENTER'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_RIGHT; name: 'ES_RIGHT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -161,6 +244,9 @@ const
     (style: ES_DISABLENOSCROLL; name: 'ES_DISABLENOSCROLL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_SELECTIONBAR; name: 'ES_SELECTIONBAR'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ES_NOOLEDRAGDROP; name: 'ES_NOOLEDRAGDROP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ES_SELFIME; name: 'ES_SELFIME'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ES_NOIME; name: 'ES_NOIME'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ES_VERTICAL; name: 'ES_VERTICAL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
@@ -181,7 +267,7 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  ListBoxStyles: array[0..15] of TStyleLookupEx = (
+  ListBoxStyles: array[0..16] of TStyleLookupEx = (
     (style: LBS_NOTIFY; name: 'LBS_NOTIFY'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LBS_SORT; name: 'LBS_SORT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LBS_NOREDRAW; name: 'LBS_NOREDRAW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -197,6 +283,7 @@ const
     (style: LBS_DISABLENOSCROLL; name: 'LBS_DISABLENOSCROLL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LBS_NODATA; name: 'LBS_NODATA'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LBS_NOSEL; name: 'LBS_NOSEL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LBS_COMBOBOX; name: 'LBS_COMBOBOX'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
@@ -214,33 +301,34 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  StaticStyles: array[0..30] of TStyleLookupEx = (
-    (style: SS_LEFT; name: 'SS_LEFT'; cmp_mask: $1F; depends: NO_DATA; excludes: SS_CENTER or SS_RIGHT),
-    (style: SS_CENTER; name: 'SS_CENTER'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_RIGHT; name: 'SS_RIGHT'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_ICON; name: 'SS_ICON'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_BLACKRECT; name: 'SS_BLACKRECT'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_GRAYRECT; name: 'SS_GRAYRECT'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_WHITERECT; name: 'SS_WHITERECT'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_BLACKFRAME; name: 'SS_BLACKFRAME'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_GRAYFRAME; name: 'SS_GRAYFRAME'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_WHITEFRAME; name: 'SS_WHITEFRAME'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_USERITEM; name: 'SS_USERITEM'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_SIMPLE; name: 'SS_SIMPLE'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_LEFTNOWORDWRAP; name: 'SS_LEFTNOWORDWRAP'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_OWNERDRAW; name: 'SS_OWNERDRAW'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_BITMAP; name: 'SS_BITMAP'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_ENHMETAFILE; name: 'SS_ENHMETAFILE'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_ETCHEDHORZ; name: 'SS_ETCHEDHORZ'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_ETCHEDVERT; name: 'SS_ETCHEDVERT'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_ETCHEDFRAME; name: 'SS_ETCHEDFRAME'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
-    (style: SS_TYPEMASK; name: 'SS_TYPEMASK'; cmp_mask: $1F; depends: NO_DATA; excludes: 0),
+  StaticStyles: array[0..31] of TStyleLookupEx = (
+    (style: SS_LEFT; name: 'SS_LEFT'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: SS_CENTER or SS_RIGHT),
+    (style: SS_CENTER; name: 'SS_CENTER'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_RIGHT; name: 'SS_RIGHT'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_ICON; name: 'SS_ICON'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_BLACKRECT; name: 'SS_BLACKRECT'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_GRAYRECT; name: 'SS_GRAYRECT'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_WHITERECT; name: 'SS_WHITERECT'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_BLACKFRAME; name: 'SS_BLACKFRAME'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_GRAYFRAME; name: 'SS_GRAYFRAME'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_WHITEFRAME; name: 'SS_WHITEFRAME'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_USERITEM; name: 'SS_USERITEM'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_SIMPLE; name: 'SS_SIMPLE'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_LEFTNOWORDWRAP; name: 'SS_LEFTNOWORDWRAP'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_OWNERDRAW; name: 'SS_OWNERDRAW'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_BITMAP; name: 'SS_BITMAP'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_ENHMETAFILE; name: 'SS_ENHMETAFILE'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_ETCHEDHORZ; name: 'SS_ETCHEDHORZ'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_ETCHEDVERT; name: 'SS_ETCHEDVERT'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_ETCHEDFRAME; name: 'SS_ETCHEDFRAME'; cmp_mask: SS_TYPEMASK; depends: NO_DATA; excludes: 0),
+    (style: SS_REALSIZECONTROL; name: 'SS_REALSIZECONTROL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_NOPREFIX; name: 'SS_NOPREFIX'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_NOTIFY; name: 'SS_NOTIFY'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_CENTERIMAGE; name: 'SS_CENTERIMAGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_RIGHTJUST; name: 'SS_RIGHTJUST'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_REALSIZEIMAGE; name: 'SS_REALSIZEIMAGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_SUNKEN; name: 'SS_SUNKEN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: SS_EDITCONTROL; name: 'SS_EDITCONTROL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_ENDELLIPSIS; name: 'SS_ENDELLIPSIS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_PATHELLIPSIS; name: 'SS_PATHELLIPSIS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: SS_WORDELLIPSIS; name: 'SS_WORDELLIPSIS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -248,7 +336,10 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  CommCtrlList: array[0..8] of TStyleLookupEx = (
+  CommCtrlList: array[0..11] of TStyleLookupEx = (
+    (style: CCS_LEFT; name: 'CCS_LEFT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: CCS_RIGHT; name: 'CCS_RIGHT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: CCS_NOMOVEX; name: 'CCS_RIGHT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: CCS_TOP; name: 'CCS_TOP'; cmp_mask: $3; depends: NO_DATA; excludes: 0),
     (style: CCS_NOMOVEY; name: 'CCS_NOMOVEY'; cmp_mask: $3; depends: NO_DATA; excludes: 0),
     (style: CCS_BOTTOM; name: 'CCS_BOTTOM'; cmp_mask: $3; depends: NO_DATA; excludes: 0),
@@ -260,14 +351,18 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  HeaderStyles: array[0..7] of TStyleLookupEx = (
+  HeaderStyles: array[0..11] of TStyleLookupEx = (
     (style: HDS_HORZ; name: 'HDS_HORZ'; cmp_mask: 0; depends: NO_DATA; excludes: 16),
     (style: HDS_BUTTONS; name: 'HDS_BUTTONS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: HDS_HOTTRACK; name: 'HDS_HOTTRACK'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: HDS_HIDDEN; name: 'HDS_HIDDEN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: HDS_DRAGDROP; name: 'HDS_DRAGDROP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: HDS_FULLDRAG; name: 'HDS_FULLDRAG'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
-    (style: HDS_HIDDEN; name: 'HDS_HIDDEN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: HDS_FILTERBAR; name: 'HDS_FILTERBAR'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: HDS_FLAT; name: 'HDS_FLAT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: HDS_CHECKBOXES; name: 'HDS_CHECKBOXES'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: HDS_NOSIZING; name: 'HDS_NOSIZING'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: HDS_OVERFLOW; name: 'HDS_OVERFLOW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
@@ -286,7 +381,7 @@ const
     (style: LVS_EDITLABELS; name: 'LVS_EDITLABELS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LVS_OWNERDATA; name: 'LVS_OWNERDATA'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LVS_NOSCROLL; name: 'LVS_NOSCROLL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
-    (style: LVS_ALIGNTOP; name: 'LVS_ALIGNTOP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_ALIGNTOP; name: 'LVS_ALIGNTOP'; cmp_mask: LVS_ALIGNMASK; depends: NO_DATA; excludes: 0),
     (style: LVS_ALIGNLEFT; name: 'LVS_ALIGNLEFT'; cmp_mask: LVS_ALIGNMASK; depends: NO_DATA; excludes: 0),
     (style: LVS_OWNERDRAWFIXED; name: 'LVS_OWNERDRAWFIXED'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LVS_NOCOLUMNHEADER; name: 'LVS_NOCOLUMNHEADER'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -294,7 +389,17 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  ToolbarStyles: array[0..8] of TStyleLookupEx = (
+  ToolbarStyles: array[0..18] of TStyleLookupEx = (
+    (style: BTNS_CHECKGROUP; name: 'BTNS_CHECKGROUP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_BUTTON; name: 'BTNS_BUTTON'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_SEP; name: 'BTNS_SEP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_CHECK; name: 'BTNS_CHECK'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_GROUP; name: 'BTNS_GROUP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_DROPDOWN; name: 'BTNS_DROPDOWN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_AUTOSIZE; name: 'BTNS_AUTOSIZE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_NOPREFIX; name: 'BTNS_NOPREFIX'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_SHOWTEXT; name: 'BTNS_SHOWTEXT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: BTNS_WHOLEDROPDOWN; name: 'BTNS_WHOLEDROPDOWN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TBSTYLE_TOOLTIPS; name: 'TBSTYLE_TOOLTIPS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TBSTYLE_WRAPABLE; name: 'TBSTYLE_WRAPABLE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TBSTYLE_ALTDRAG; name: 'TBSTYLE_ALTDRAG'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -318,8 +423,8 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  TrackbarStyles: array[0..14] of TStyleLookupEx = (
-    (style: TBS_AUTOTICKS; name: 'TBS_AUTOTICKS'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
+  TrackbarStyles: array[0..17] of TStyleLookupEx = (
+    (style: TBS_AUTOTICKS; name: 'TBS_AUTOTICKS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TBS_VERT; name: 'TBS_VERT'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
     (style: TBS_HORZ; name: 'TBS_HORZ'; cmp_mask: $F; depends: NO_DATA; excludes: TBS_VERT),
     (style: TBS_TOP; name: 'TBS_TOP'; cmp_mask: $F; depends: NO_DATA; excludes: 0),
@@ -333,6 +438,9 @@ const
     (style: TBS_NOTHUMB; name: 'TBS_NOTHUMB'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TBS_TOOLTIPS; name: 'TBS_TOOLTIPS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TBS_REVERSED; name: 'TBS_REVERSED'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: TBS_DOWNISLEFT; name: 'TBS_DOWNISLEFT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: TBS_NOTIFYBEFOREMOVE; name: 'TBS_NOTIFYBEFOREMOVE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: TBS_TRANSPARENTBKGND; name: 'TBS_TRANSPARENTBKGND'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
@@ -356,12 +464,14 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  ToolTipStyles: array[0..5] of TStyleLookupEx = (
+  ToolTipStyles: array[0..7] of TStyleLookupEx = (
     (style: TTS_ALWAYSTIP; name: 'TTS_ALWAYSTIP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TTS_NOPREFIX; name: 'TTS_NOPREFIX'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TTS_NOANIMATE; name: 'TTS_NOANIMATE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TTS_NOFADE; name: 'TTS_NOFADE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TTS_BALLOON; name: 'TTS_BALLOON'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: TTS_CLOSE; name: 'TTS_CLOSE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: TTS_USEVISUALSTYLE; name: 'TTS_USEVISUALSTYLE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
@@ -384,9 +494,11 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  ProgressStyles: array[0..2] of TStyleLookupEx = (
+  ProgressStyles: array[0..4] of TStyleLookupEx = (
     (style: PBS_SMOOTH; name: 'PBS_SMOOTH'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: PBS_VERTICAL; name: 'PBS_VERTICAL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: PBS_MARQUEE; name: 'PBS_MARQUEE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: PBS_SMOOTHREVERSE; name: 'PBS_SMOOTHREVERSE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
@@ -422,12 +534,15 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  MonthCalStyles: array[0..5] of TStyleLookupEx = (
+  MonthCalStyles: array[0..8] of TStyleLookupEx = (
     (style: MCS_DAYSTATE; name: 'MCS_DAYSTATE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: MCS_MULTISELECT; name: 'MCS_MULTISELECT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: MCS_WEEKNUMBERS; name: 'MCS_WEEKNUMBERS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: MCS_NOTODAYCIRCLE; name: 'MCS_NOTODAYCIRCLE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: MCS_NOTODAY; name: 'MCS_NOTODAY'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: MCS_NOTRAILINGDATES; name: 'MCS_NOTRAILINGDATES'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: MCS_SHORTDAYSOFWEEK; name: 'MCS_SHORTDAYSOFWEEK'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: MCS_NOSELCHANGEONNAV; name: 'MCS_NOSELCHANGEONNAV'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
@@ -452,7 +567,7 @@ const
   );
 
   // тут дефолтные
-  StyleExList: array[0..23] of TStyleLookupEx = (
+  StyleExList: array[0..33] of TStyleLookupEx = (
     (style: WS_EX_PALETTEWINDOW; name: 'WS_EX_PALETTEWINDOW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_OVERLAPPEDWINDOW; name: 'WS_EX_OVERLAPPEDWINDOW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_DLGMODALFRAME; name: 'WS_EX_DLGMODALFRAME'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -465,25 +580,31 @@ const
     (style: WS_EX_WINDOWEDGE; name: 'WS_EX_WINDOWEDGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_CLIENTEDGE; name: 'WS_EX_CLIENTEDGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_CONTEXTHELP; name: 'WS_EX_CONTEXTHELP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
-//    (style: WS_EX_LEFT; name: 'WS_EX_LEFT'; cmp_mask: 0; depends: NO_DATA; excludes: WS_EX_RIGHT),
+    (style: WS_EX_FLAG_MAKEVISIBLEWHENUNGHOSTED; name: 'WS_EX_FLAG_MAKEVISIBLEWHENUNGHOSTED'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: WS_EX_LEFT; name: 'WS_EX_LEFT'; cmp_mask: 0; depends: NO_DATA; excludes: WS_EX_RIGHT),
     (style: WS_EX_RIGHT; name: 'WS_EX_RIGHT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
-//    (style: WS_EX_LTRREADING; name: 'WS_EX_LTRREADING'; cmp_mask: 0; depends: NO_DATA; excludes: WS_EX_RTLREADING),
+    (style: WS_EX_LTRREADING; name: 'WS_EX_LTRREADING'; cmp_mask: 0; depends: NO_DATA; excludes: WS_EX_RTLREADING),
     (style: WS_EX_RTLREADING; name: 'WS_EX_RTLREADING'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_LEFTSCROLLBAR; name: 'WS_EX_LEFTSCROLLBAR'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
-//    (style: WS_EX_RIGHTSCROLLBAR; name: 'WS_EX_RIGHTSCROLLBAR'; cmp_mask: 0; depends: NO_DATA; excludes: WS_EX_LEFTSCROLLBAR),
+    (style: WS_EX_RIGHTSCROLLBAR; name: 'WS_EX_RIGHTSCROLLBAR'; cmp_mask: 0; depends: NO_DATA; excludes: WS_EX_LEFTSCROLLBAR),
     (style: WS_EX_CONTROLPARENT; name: 'WS_EX_CONTROLPARENT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_STATICEDGE; name: 'WS_EX_STATICEDGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_APPWINDOW; name: 'WS_EX_APPWINDOW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_LAYERED; name: 'WS_EX_LAYERED'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_NOINHERITLAYOUT; name: 'WS_EX_NOINHERITLAYOUT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: WS_EX_NOREDIRECTIONBITMAP; name: 'WS_EX_NOREDIRECTIONBITMAP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_LAYOUTRTL; name: 'WS_EX_LAYOUTRTL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_COMPOSITED; name: 'WS_EX_COMPOSITED'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: WS_EX_FLAG_UISTATEACTIVE; name: 'WS_EX_FLAG_UISTATEACTIVE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_NOACTIVATE; name: 'WS_EX_NOACTIVATE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: WS_EX_FLAG_COMPOSITEDCOMPOSITING; name: 'WS_EX_FLAG_COMPOSITEDCOMPOSITING'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: WS_EX_FLAG_REDIRECTED; name: 'WS_EX_FLAG_REDIRECTED'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: WS_EX_FLAG_UISTATEKBDACCELHIDDEN; name: 'WS_EX_FLAG_UISTATEKBDACCELHIDDEN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: WS_EX_FLAG_UISTATEFOCUSRECTHIDDEN; name: 'WS_EX_FLAG_UISTATEFOCUSRECTHIDDEN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-
-  ListViewExStyles: array[0..15] of TStyleLookupEx = (
+  ListViewExStyles: array[0..30] of TStyleLookupEx = (
     (style: LVS_EX_GRIDLINES; name: 'LVS_EX_GRIDLINES'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LVS_EX_SUBITEMIMAGES; name: 'LVS_EX_SUBITEMIMAGES'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LVS_EX_CHECKBOXES; name: 'LVS_EX_CHECKBOXES'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -499,15 +620,31 @@ const
     (style: LVS_EX_UNDERLINECOLD; name: 'LVS_EX_UNDERLINECOLD'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LVS_EX_MULTIWORKAREAS; name: 'LVS_EX_MULTIWORKAREAS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: LVS_EX_LABELTIP; name: 'LVS_EX_LABELTIP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_BORDERSELECT; name: 'LVS_EX_BORDERSELECT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_DOUBLEBUFFER; name: 'LVS_EX_DOUBLEBUFFER'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_HIDELABELS; name: 'LVS_EX_HIDELABELS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_SINGLEROW; name: 'LVS_EX_SINGLEROW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_SNAPTOGRID; name: 'LVS_EX_SNAPTOGRID'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_SIMPLESELECT; name: 'LVS_EX_SIMPLESELECT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_JUSTIFYCOLUMNS; name: 'LVS_EX_JUSTIFYCOLUMNS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_TRANSPARENTBKGND; name: 'LVS_EX_TRANSPARENTBKGND'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_TRANSPARENTSHADOWTEXT; name: 'LVS_EX_TRANSPARENTSHADOWTEXT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_AUTOAUTOARRANGE; name: 'LVS_EX_AUTOAUTOARRANGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_HEADERINALLVIEWS; name: 'LVS_EX_HEADERINALLVIEWS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_AUTOCHECKSELECT; name: 'LVS_EX_AUTOCHECKSELECT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_AUTOSIZECOLUMNS; name: 'LVS_EX_AUTOSIZECOLUMNS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_COLUMNSNAPPOINTS; name: 'LVS_EX_COLUMNSNAPPOINTS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: LVS_EX_COLUMNOVERFLOW; name: 'LVS_EX_COLUMNOVERFLOW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  ComboBoxExStyles: array[0..5] of TStyleLookupEx = (
+  ComboBoxExStyles: array[0..6] of TStyleLookupEx = (
     (style: CBES_EX_NOEDITIMAGE; name: 'CBES_EX_NOEDITIMAGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: CBES_EX_NOEDITIMAGEINDENT; name: 'CBES_EX_NOEDITIMAGEINDENT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: CBES_EX_PATHWORDBREAKPROC; name: 'CBES_EX_PATHWORDBREAKPROC'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: CBES_EX_NOSIZELIMIT; name: 'CBES_EX_NOSIZELIMIT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: CBES_EX_CASESENSITIVE; name: 'CBES_EX_CASESENSITIVE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: CBES_EX_TEXTENDELLIPSIS; name: 'CBES_EX_TEXTENDELLIPSIS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
@@ -517,18 +654,26 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  ToolBarExStyles: array[0..3] of TStyleLookupEx = (
+  ToolBarExStyles: array[0..6] of TStyleLookupEx = (
     (style: TBSTYLE_EX_DRAWDDARROWS; name: 'TBSTYLE_EX_DRAWDDARROWS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: TBSTYLE_EX_MULTICOLUMN; name: 'TBSTYLE_EX_MULTICOLUMN'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: TBSTYLE_EX_VERTICAL; name: 'TBSTYLE_EX_VERTICAL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TBSTYLE_EX_MIXEDBUTTONS; name: 'TBSTYLE_EX_MIXEDBUTTONS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: TBSTYLE_EX_HIDECLIPPEDBUTTONS; name: 'TBSTYLE_EX_HIDECLIPPEDBUTTONS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: TBSTYLE_EX_DOUBLEBUFFER; name: 'TBSTYLE_EX_DOUBLEBUFFER'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  RichedEventMask: array[0..17] of TStyleLookupEx = (
+  RichedEventMask: array[0..25] of TStyleLookupEx = (
     (style: ENM_NONE; name: 'ENM_NONE'; cmp_mask: 0; depends: NO_DATA; excludes: NO_DATA),
     (style: ENM_CHANGE; name: 'ENM_CHANGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_UPDATE; name: 'ENM_UPDATE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_SCROLL; name: 'ENM_SCROLL'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_SCROLLEVENTS; name: 'ENM_SCROLLEVENTS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_DRAGDROPDONE; name: 'ENM_DRAGDROPDONE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_PARAGRAPHEXPANDED; name: 'ENM_PARAGRAPHEXPANDED'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_PAGECHANGE; name: 'ENM_PAGECHANGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_CLIPFORMAT; name: 'ENM_CLIPFORMAT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_KEYEVENTS; name: 'ENM_KEYEVENTS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_MOUSEEVENTS; name: 'ENM_MOUSEEVENTS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_REQUESTRESIZE; name: 'ENM_REQUESTRESIZE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -536,65 +681,78 @@ const
     (style: ENM_DROPFILES; name: 'ENM_DROPFILES'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_PROTECTED; name: 'ENM_PROTECTED'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_CORRECTTEXT; name: 'ENM_CORRECTTEXT'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
-    (style: ENM_SCROLLEVENTS; name: 'ENM_SCROLLEVENTS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
-    (style: ENM_DRAGDROPDONE; name: 'ENM_DRAGDROPDONE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_IMECHANGE; name: 'ENM_IMECHANGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_LANGCHANGE; name: 'ENM_LANGCHANGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_OBJECTPOSITIONS; name: 'ENM_OBJECTPOSITIONS'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: ENM_LINK; name: 'ENM_LINK'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_LOWFIRTF; name: 'ENM_LOWFIRTF'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_STARTCOMPOSITION; name: 'ENM_STARTCOMPOSITION'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_ENDCOMPOSITION; name: 'ENM_ENDCOMPOSITION'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_GROUPTYPINGCHANGE; name: 'ENM_GROUPTYPINGCHANGE'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
+    (style: ENM_HIDELINKTOOLTIP; name: 'ENM_HIDELINKTOOLTIP'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
   // Таблицы поиска классов
-  StandardControls: array[0..27] of TClassStyleLookup = (
-    (szClassName: DIALOG_TYPE; stylelist: @DialogStyles),
-    (szClassName: 'BUTTON'; stylelist: @ButtonStyles),
-    (szClassName: 'COMBOBOX'; stylelist: @ComboStyles),
-    (szClassName: 'EDIT'; stylelist: @EditStyles),
-    (szClassName: 'LISTBOX'; stylelist: @ListBoxStyles),
-    (szClassName: 'RICHEDIT'; stylelist: @RichedStyles),
-    (szClassName: 'RichEdit20A'; stylelist: @RichedStyles),
-    (szClassName: 'RichEdit20W'; stylelist: @RichedStyles),
-    (szClassName: 'SCROLLBAR'; stylelist: @ScrollbarStyles),
-    (szClassName: 'STATIC'; stylelist: @StaticStyles),
-    (szClassName: 'SysAnimate32'; stylelist: @AnimateStyles),
-    (szClassName: 'ComboBoxEx32'; stylelist: @ComboStyles),
-    (szClassName: 'SysDateTimePick32'; stylelist: @DateTimeStyles),
-    (szClassName: 'DragList'; stylelist: @ListBoxStyles),
-    (szClassName: 'SysHeader32'; stylelist: @HeaderStyles),
-    (szClassName: 'SysListView32'; stylelist: @ListViewStyles),
-    (szClassName: 'SysMonthCal32'; stylelist: @MonthCalStyles),
-    (szClassName: 'SysPager'; stylelist: @PagerStyles),
-    (szClassName: 'msctls_progress32'; stylelist: @ProgressStyles),
-    (szClassName: 'RebarWindow32'; stylelist: @RebarStyles),
-    (szClassName: 'msctls_statusbar32'; stylelist: @StatusBarStyles),
-    (szClassName: 'SysTabControl32'; stylelist: @TabStyles),
-    (szClassName: 'ToolbarWindow32'; stylelist: @ToolbarStyles),
-    (szClassName: 'tooltips_class32'; stylelist: @ToolTipStyles),
-    (szClassName: 'msctls_trackbar32'; stylelist: @TrackbarStyles),
-    (szClassName: 'SysTreeView32'; stylelist: @TreeViewStyles),
-    (szClassName: 'msctls_updown32'; stylelist: @UpDownStyles),
+  StandardControls: array[0..28] of TClassStyleLookup = (
+    (szClassName: TYPE_DIALOG; stylelist: @DialogStyles),
+    (szClassName: TYPE_BUTTON; stylelist: @ButtonStyles),
+    (szClassName: TYPE_COMBOBOX; stylelist: @ComboStyles),
+    (szClassName: TYPE_EDIT; stylelist: @EditStyles),
+    (szClassName: TYPE_LISTBOX; stylelist: @ListBoxStyles),
+    (szClassName: TYPE_ComboLBox; stylelist: @ListBoxStyles),
+    (szClassName: TYPE_RICHEDIT; stylelist: @RichedStyles),
+    (szClassName: TYPE_RichEdit20A; stylelist: @RichedStyles),
+    (szClassName: TYPE_RichEdit20W; stylelist: @RichedStyles),
+    (szClassName: TYPE_SCROLLBAR; stylelist: @ScrollbarStyles),
+    (szClassName: TYPE_STATIC; stylelist: @StaticStyles),
+    (szClassName: TYPE_SysAnimate32; stylelist: @AnimateStyles),
+    (szClassName: TYPE_ComboBoxEx32; stylelist: @ComboStyles),
+    (szClassName: TYPE_SysDateTimePick32; stylelist: @DateTimeStyles),
+    (szClassName: TYPE_DragList; stylelist: @ListBoxStyles),
+    (szClassName: TYPE_SysHeader32; stylelist: @HeaderStyles),
+    (szClassName: TYPE_SysListView32; stylelist: @ListViewStyles),
+    (szClassName: TYPE_SysMonthCal32; stylelist: @MonthCalStyles),
+    (szClassName: TYPE_SysPager; stylelist: @PagerStyles),
+    (szClassName: TYPE_msctls_progress32; stylelist: @ProgressStyles),
+    (szClassName: TYPE_RebarWindow32; stylelist: @RebarStyles),
+    (szClassName: TYPE_msctls_statusbar32; stylelist: @StatusBarStyles),
+    (szClassName: TYPE_SysTabControl32; stylelist: @TabStyles),
+    (szClassName: TYPE_ToolbarWindow32; stylelist: @ToolbarStyles),
+    (szClassName: TYPE_tooltips_class32; stylelist: @ToolTipStyles),
+    (szClassName: TYPE_msctls_trackbar32; stylelist: @TrackbarStyles),
+    (szClassName: TYPE_SysTreeView32; stylelist: @TreeViewStyles),
+    (szClassName: TYPE_msctls_updown32; stylelist: @UpDownStyles),
     (szClassName: nil; stylelist: nil)
   );
 
   CustomControls: array[0..4] of TClassStyleLookup = (
-    (szClassName: 'msctls_statusbar32'; stylelist: @CommCtrlList),
-    (szClassName: 'RebarWindow32'; stylelist: @CommCtrlList),
-    (szClassName: 'ToolbarWindow32'; stylelist: @CommCtrlList),
-    (szClassName: 'SysHeader32'; stylelist: @CommCtrlList),
+    (szClassName: TYPE_msctls_statusbar32; stylelist: @CommCtrlList),
+    (szClassName: TYPE_RebarWindow32; stylelist: @CommCtrlList),
+    (szClassName: TYPE_ToolbarWindow32; stylelist: @CommCtrlList),
+    (szClassName: TYPE_SysHeader32; stylelist: @CommCtrlList),
     (szClassName: nil; stylelist: nil)
   );
 
   ExtendedControls: array[0..7] of TClassStyleLookup = (
-    (szClassName: 'SysTabControl32'; stylelist: @TabCtrlExStyles),
-    (szClassName: 'ToolbarWindow32'; stylelist: @ToolBarExStyles),
-    (szClassName: 'ComboBoxEx32'; stylelist: @ComboBoxExStyles),
-    (szClassName: 'SysListView32'; stylelist: @ListViewExStyles),
-    (szClassName: 'RICHEDIT'; stylelist: @RichedEventMask),
-    (szClassName: 'RichEdit20A'; stylelist: @RichedEventMask),
-    (szClassName: 'RichEdit20W'; stylelist: @RichedEventMask),
+    (szClassName: TYPE_SysTabControl32; stylelist: @TabCtrlExStyles),
+    (szClassName: TYPE_ToolbarWindow32; stylelist: @ToolBarExStyles),
+    (szClassName: TYPE_ComboBoxEx32; stylelist: @ComboBoxExStyles),
+    (szClassName: TYPE_SysListView32; stylelist: @ListViewExStyles),
+    (szClassName: TYPE_RICHEDIT; stylelist: @RichedEventMask),
+    (szClassName: TYPE_RichEdit20A; stylelist: @RichedEventMask),
+    (szClassName: TYPE_RichEdit20W; stylelist: @RichedEventMask),
     (szClassName: nil; stylelist: nil)
   );
+
+  function FindStyleList(ClassStyleLookup: PClassStyleLookup;
+    const szClassName: string): PStyleLookupEx;
+
+type
+  TStyleAppendCallback = reference to procedure(pStyleLookup: PStyleLookupEx);
+
+  function EnumStyleCallback(StyleList: PStyleLookupEx; dwStyle: DWORD;
+    ACallback: TStyleAppendCallback): DWORD;
 
   function FillStyleLists(const szClassName: string;
     dwStyle, dwExtendedStyle: DWORD): string;
@@ -620,7 +778,8 @@ end;
 //  dwStyle    - style for the target window
 //
 
-function EnumStyles(StyleList: PStyleLookupEx; dwStyle: DWORD; var StyleStr: string): DWORD;
+function EnumStyleCallback(StyleList: PStyleLookupEx; dwStyle: DWORD;
+  ACallback: TStyleAppendCallback): DWORD;
 var
   fAddIt: Boolean;
   dwOrig: DWORD;
@@ -673,7 +832,7 @@ begin
     begin
       // We've added this style, so remove it to stop it appearing again
       dwStyle := dwStyle and not StyleList^.style;
-      StyleStr := StyleStr + StyleList^.name + ' ';
+      ACallback(StyleList);
     end;
 
     Inc(StyleList);
@@ -682,6 +841,19 @@ begin
 	// return the style. This will be zero if we decoded all the bits
 	// that were set, or non-zero if there are still bits left
   Result := dwStyle;
+end;
+
+function EnumStyles(StyleList: PStyleLookupEx; dwStyle: DWORD; var StyleStr: string): DWORD;
+var
+  S: string;
+begin
+  S := '';
+  Result := EnumStyleCallback(StyleList, dwStyle, procedure(pStyleLookup: PStyleLookupEx)
+  begin
+    if pStyleLookup^.style <> 0 then
+      S := S + pStyleLookup^.name + ' ';
+  end);
+  StyleStr := S;
 end;
 
 function FillStyleLists(const szClassName: string;

@@ -8,7 +8,7 @@ object dlgAbout: TdlgAbout
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'About Process Memory Map'
-  ClientHeight = 377
+  ClientHeight = 463
   ClientWidth = 756
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -4709,14 +4709,16 @@ object dlgAbout: TdlgAbout
   end
   object Label3: TLabel
     Left = 84
-    Top = 339
-    Width = 327
+    Top = 425
+    Width = 593
     Height = 21
     Margins.Left = 5
     Margins.Top = 5
     Margins.Right = 5
     Margins.Bottom = 5
-    Caption = 'Portions based on code by Mark Russinovich'
+    Caption = 
+      'Portions based on code by Mark Russinovich (VMMap) and J Brown (' +
+      'WinSpy++)'
   end
   object lblMMVer: TLabel
     Left = 84
@@ -4731,7 +4733,7 @@ object dlgAbout: TdlgAbout
   end
   object lblRawVer: TLabel
     Left = 84
-    Top = 176
+    Top = 178
     Width = 166
     Height = 21
     Margins.Left = 5
@@ -4742,7 +4744,7 @@ object dlgAbout: TdlgAbout
   end
   object Label1: TLabel
     Left = 84
-    Top = 245
+    Top = 293
     Width = 79
     Height = 21
     Margins.Left = 5
@@ -4783,7 +4785,7 @@ object dlgAbout: TdlgAbout
   end
   object LinkLabel4: TLinkLabel
     Left = 84
-    Top = 273
+    Top = 324
     Width = 627
     Height = 29
     Margins.Left = 5
@@ -4800,7 +4802,7 @@ object dlgAbout: TdlgAbout
   end
   object lblDistorm: TLinkLabel
     Left = 84
-    Top = 302
+    Top = 355
     Width = 283
     Height = 29
     Margins.Left = 5
@@ -4832,7 +4834,7 @@ object dlgAbout: TdlgAbout
   end
   object lblZipVer: TLinkLabel
     Left = 84
-    Top = 204
+    Top = 209
     Width = 256
     Height = 29
     Margins.Left = 5
@@ -4843,6 +4845,38 @@ object dlgAbout: TdlgAbout
       'FWZip Compression Library: <a href="https://github.com/Alexander' +
       'Bagel/FWZip">???</a>'
     TabOrder = 5
+    UseVisualStyle = True
+    OnLinkClick = LinkLabel1LinkClick
+  end
+  object LinkLabel2: TLinkLabel
+    Left = 85
+    Top = 240
+    Width = 249
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    Caption = 
+      'HexView Project: <a href="https://github.com/AlexanderBagel/FWHe' +
+      'xView">version 2.0.16</a>'
+    TabOrder = 6
+    UseVisualStyle = True
+    OnLinkClick = LinkLabel1LinkClick
+  end
+  object LinkLabel5: TLinkLabel
+    Left = 84
+    Top = 386
+    Width = 313
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    Caption = 
+      '2d graphic library: <a href="https://github.com/AngusJohnson/Ima' +
+      'ge32">Image32 version 4.9</a>'
+    TabOrder = 7
     UseVisualStyle = True
     OnLinkClick = LinkLabel1LinkClick
   end

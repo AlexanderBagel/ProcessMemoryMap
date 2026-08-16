@@ -6,7 +6,7 @@
 //  * Purpose   : Быстрый анализ типа ресурса по его содержимому.
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.29
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -24,6 +24,7 @@ uses
   Classes,
   SysUtils,
   StrUtils,
+  Math,
   RawScanner.Resources;
 
 const
@@ -72,6 +73,7 @@ type
     Count: Word;
   end;
 
+  PIconFileDirEntry = ^TIconFileDirEntry;
   TIconFileDirEntry = packed record
     Width: Byte;
     Height: Byte;
@@ -167,13 +169,16 @@ type
     // MessageTable - только частично, так как там не хранится строковое имя констант
     brtMessageTable,
     // Вся поддерживаемая графика
-    brtCursorGroup, brtCursor, brtCursorDib, brtAniCursor,
-    brtIconGroup, brtIcon, brtIconDib, brtAniIcon,
+    brtCursorGroup, brtCursor, brtCursorDib,
+    brtIconGroup, brtIcon, brtIconDib,
     brtBitmap, brtBitmapDib, brtPng, brtJpg, brtGif, brtMetaFile, brtTiff,
+    brtSvgUtf8,
+    // RIFF контейнеры с анимацией
+    brtAvi, brtAniCursor, brtAniIcon,
     // Все поддерживаемые форматы строк
     brtStrUtf8, brtStrUtf16, brtStrUtf16Be, brtStrAnsi,
-    // Специальные типы ресурсов формат которых известен
-    brtDVCLAL, brtDFM);
+    // Специальные типы Delphi ресурсов формат которых известен
+    brtDVCLAL, brtPackageInfo, brtDFM);
 
   function GetBinaryResType(ARes: TResource): TBinaryResType;
 
@@ -297,14 +302,24 @@ end;
 function CheckUtf16(AStream: TMemoryStream): TBinaryResType;
 var
   P, EndP: PByte;
+  ZeroFound: Boolean;
 begin
   Result := brtUnknown;
   if AStream.Size and 1 = 1 then Exit;
   P := AStream.Memory;
   EndP := P + AStream.Size;
+  ZeroFound := False;
   while P < EndP do
   begin
-    if not IsValidUTF16CodePoint(PWord(P)^) then Exit;
+    if PWord(P)^ = 0 then
+      ZeroFound := True
+    else
+    begin
+      if not IsValidUTF16CodePoint(PWord(P)^) then Exit;
+      // Нули в середине текста принимать не будем
+      // а вот в конце текста в принципе можно
+      if ZeroFound then Exit;
+    end;
     Inc(P, 2);
   end;
   Result := brtStrUtf16;
@@ -313,14 +328,22 @@ end;
 function CheckUtf16BE(AStream: TMemoryStream): TBinaryResType;
 var
   P, EndP: PByte;
+  ZeroFound: Boolean;
 begin
   Result := brtUnknown;
   if AStream.Size and 1 = 1 then Exit;
   P := AStream.Memory;
   EndP := P + AStream.Size;
+  ZeroFound := False;
   while P < EndP do
   begin
-    if not IsValidUTF16CodePoint((P^ shl 8) or (PWord(P)^ shr 8)) then Exit;
+    if PWord(P)^ = 0 then
+      ZeroFound := True
+    else
+    begin
+      if not IsValidUTF16CodePoint((P^ shl 8) or (PWord(P)^ shr 8)) then Exit;
+      if ZeroFound then Exit;
+    end;
     Inc(P, 2);
   end;
   Result := brtStrUtf16Be;
@@ -343,6 +366,7 @@ end;
 
 function CheckStringStream(AStream: TMemoryStream): TBinaryResType;
 begin
+  if AStream.Size < 9 then Exit(brtUnknown);
   Result := CheckBOM(AStream);
   if Result <> brtUnknown then Exit;
   Result := CheckUtf8(AStream);
@@ -352,6 +376,89 @@ begin
   Result := CheckUtf16BE(AStream);
   if Result <> brtUnknown then Exit;
   Result := CheckAnsi(AStream);
+end;
+
+function CheckSVGStream(AStream: TMemoryStream; InResType: TBinaryResType): TBinaryResType;
+var
+  P: PByte;
+  I, Size: Integer;
+
+  function IsSvgTagAt(APos: Integer): Boolean;
+  const
+    Tag: array[1..3] of Byte = (Ord('s'), Ord('v'), Ord('g'));
+  var
+    J: Integer;
+    B: Byte;
+  begin
+    Result := False;
+    for J := 1 to 3 do
+    begin
+      B := P[APos + J];
+      if (B >= Ord('A')) and (B <= Ord('Z')) then
+        B := B or $20; // быстрый lowercase для ASCII-букв
+      if B <> Tag[J] then
+        Exit;
+    end;
+    // после "svg" должен идти пробел, '>' или '/', иначе это "<svgfoo..."
+    if APos + 4 < Size then
+    begin
+      B := P[APos + 4];
+      Result := (B = Ord('>')) or (B = Ord('/')) or (B <= Ord(' '));
+    end
+    else
+      Result := True;
+  end;
+
+begin
+  Result := InResType;
+
+  if not Assigned(AStream) or (AStream.Size < 5) then
+    Exit;
+
+  P := AStream.Memory;
+  Size := Min(AStream.Size, 4096);
+
+  // пропускаем UTF-8 BOM
+  I := 0;
+  if (P[0] = $EF) and (P[1] = $BB) and (P[2] = $BF) then
+    I := 3;
+
+  while I <= Size - 4 do
+  begin
+    if (P[I] = Ord('<')) and IsSvgTagAt(I) then
+      Exit(brtSvgUtf8);
+    Inc(I);
+  end;
+end;
+
+function ReadFourCC(Stream: TMemoryStream; Offset: Int64): string;
+var
+  Buf: array[0..3] of AnsiChar;
+begin
+  Result := '';
+  if Stream.Size < Offset + 4 then Exit;
+  Move(PByte(Stream.Memory)[Offset], Buf[0], 4);
+  SetString(Result, Buf, 4);
+end;
+
+function CheckRiffType(AStream: TMemoryStream): TBinaryResType;
+var
+  RiffTag, FormType: string;
+begin
+  Result := brtUnknown;
+  if AStream.Size < 12 then
+    Exit;
+
+  RiffTag  := ReadFourCC(AStream, 0);
+  FormType := ReadFourCC(AStream, 8);
+
+  if RiffTag <> 'RIFF' then
+    Exit;
+
+  case IndexText(FormType, ['AVI ', 'ACON']) of
+    0: Result := brtAvi;
+    1: Result := brtAniCursor;
+  end;
 end;
 
 function AL1(const P): UInt32;
@@ -440,6 +547,7 @@ var
   Emh: TEnhMetaHeader;
   Wmf: TMetafileHeader;
   ResId: ULONG;
+  ResName: TResource;
 begin
   Result := brtUnknown;
   if ARes.Data = nil then Exit;
@@ -450,7 +558,6 @@ begin
   begin
     if (ci.Reserved = 0) and (ci.Count > 0) then
     begin
-      {$message 'не протестировано!!!'}
       if ARes.Data.Read(Ico, SizeOf(Ico)) = SizeOf(Ico) then
         if Ico.ImageOffset = SizeOf(ci) + SizeOf(Ico) * ci.Count then
         begin
@@ -502,11 +609,15 @@ begin
     Exit(brtDFM);
 
   ARes.Data.Position := 0;
-  Result := CheckDVCLAL(ARes.Data);
-  if Result <> brtUnknown then Exit;
+  Result := CheckStringStream(ARes.Data);
+  if Result <> brtUnknown then
+  begin
+    Result := CheckSVGStream(ARes.Data, Result);
+    Exit;
+  end;
 
   ARes.Data.Position := 0;
-  Result := CheckStringStream(ARes.Data);
+  Result := CheckRiffType(ARes.Data);
   if Result <> brtUnknown then Exit;
 
   case ResId of
@@ -523,6 +634,21 @@ begin
     ULONG(RT_CURSOR): Result := brtCursorDib;
     ULONG(RT_GROUP_ICON): Result := brtIconGroup;
     ULONG(RT_GROUP_CURSOR): Result := brtCursorGroup;
+    ULONG(RT_RCDATA):
+    begin
+      ResName := GetResName(ARes);
+      if ResName = nil then Exit;
+
+      if ResName.DisplayName = 'DVCLAL' then
+      begin
+        ARes.Data.Position := 0;
+        Result := CheckDVCLAL(ARes.Data);
+        if Result <> brtUnknown then Exit;
+      end;
+
+      if ResName.DisplayName = 'PACKAGEINFO' then
+        Result := brtPackageInfo;
+    end;
   end;
 end;
 

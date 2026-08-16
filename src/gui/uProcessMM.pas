@@ -6,7 +6,7 @@
 //  * Purpose   : Главная форма проекта
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.51
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -168,6 +168,8 @@ type
     gbPages: TGroupBox;
     acShowResources: TAction;
     mnuResources: TMenuItem;
+    acShowWindows: TAction;
+    ShowWindows1: TMenuItem;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -234,13 +236,15 @@ type
     procedure acSearchResultUpdate(Sender: TObject);
     procedure acSearchResultExecute(Sender: TObject);
     procedure acShowResourcesExecute(Sender: TObject);
+    procedure acShowWindowsExecute(Sender: TObject);
+    procedure FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+      NewDPI: Integer);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
     NodeDataArrayLength: Integer;
     NodeDataArray: array of TNodeData;
     SearchString: string;
     SearchPosition: Integer;
-    IPCServerMMFName: string;
     {$IFDEF WIN32}
     IPCServer: TIPCServer;
     {$ENDIF}
@@ -291,6 +295,7 @@ uses
   uCallStack,
   uSearchResult,
   uResources,
+  uWindows,
   ScaledCtrls,
   Shell.TaskBarListProgress;
 
@@ -843,6 +848,17 @@ begin
   dlgResources.ShowResources;
 end;
 
+procedure TdlgProcessMM.acShowWindowsExecute(Sender: TObject);
+begin
+  if dlgWindows <> nil then
+  begin
+    dlgWindows.BringToFront;
+    Exit;
+  end;
+  dlgWindows := TdlgWindows.Create(Application);
+  dlgWindows.ShowProcessWindows;
+end;
+
 procedure TdlgProcessMM.acStringsExecute(Sender: TObject);
 begin
   if dlgStringsViewer <> nil then
@@ -1066,6 +1082,13 @@ begin
   {$ENDIF}
 end;
 
+procedure TdlgProcessMM.FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
+  NewDPI: Integer);
+begin
+  FixVirtualStringTreeDpiBug(lvSummary);
+  FixVirtualStringTreeDpiBug(stMemoryMap);
+end;
+
 procedure TdlgProcessMM.FormCreate(Sender: TObject);
 begin
   {$IFDEF DEBUG}
@@ -1080,9 +1103,7 @@ begin
   end
   else
     AddShieldIconToMenu;
-  {$IFDEF WIN64}
-  IPCServerMMFName := ParamStr(1);
-  {$ELSE}
+  {$IFDEF WIN32}
   IPCServer := TIPCServer.Create;
   {$ENDIF}
 
@@ -1330,7 +1351,7 @@ procedure TdlgProcessMM.OnGetWow64Heaps(Value: THeap);
 var
   M: TMemoryStream;
 begin
-  M := GetWin32MemoryMap(MemoryMapCore.PID, IPCServerMMFName);
+  M := GetWin32MemoryMap(MemoryMapCore.PID);
   try
     if M.Size > 0 then
       LoadHeaps(Value, M);

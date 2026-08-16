@@ -16,6 +16,7 @@ object dlgSearchResult: TdlgSearchResult
   Font.Style = []
   KeyPreview = True
   Position = poScreenCenter
+  OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnClose = FormClose
   OnKeyPress = FormKeyPress
   PixelsPerInch = 144

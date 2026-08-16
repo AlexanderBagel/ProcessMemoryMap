@@ -5,8 +5,8 @@
 //  * Unit Name : MemoryMap.Heaps.pas
 //  * Purpose   : Класс собирает данные о кучах процесса
 //  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.3.25
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.4.40
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -222,7 +222,9 @@ begin
               Exit;
         end;
 
-        dwAddr := DWORD(pHeapEntry^.u.s2.FirstBlock) +
+        if pHeapEntry = nil then Continue;
+
+        dwAddr := NativeUInt(pHeapEntry^.u.s2.FirstBlock) +
           pHeapInformation^.EntryOverhead;
         dwLastSize := 0;
 
@@ -235,7 +237,7 @@ begin
           begin
             // Если блок отмечен флагом RTL_HEAP_SEGMENT,
             // то рассчитываем новый адрес на основе EntryOverhead
-            dwAddr := DWORD(pHeapEntry^.u.s2.FirstBlock) +
+            dwAddr := NativeUInt(pHeapEntry^.u.s2.FirstBlock) +
               pHeapInformation^.EntryOverhead;
             Inc(pHeapEntry);
             Inc(A);

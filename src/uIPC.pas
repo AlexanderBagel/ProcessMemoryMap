@@ -6,7 +6,7 @@
 //  * Purpose   : Модуль для обмена данными о кучах между процессами
 //  * Author    : Александр (Rouse_) Багель
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.48
+//  * Version   : 1.7.53
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
@@ -28,6 +28,7 @@ uses
 
 const
   WM_GETMEMORYMAP = WM_USER + 123;
+  WM_EXECUTEX86_GETWNDPROCLIST = WM_USER + 124;
 
 type
   PRemoteData = ^TRemoteData;
@@ -59,10 +60,20 @@ type
     property WndHandle: THandle read FIPCServerParams.WndHandle;
   end;
 
-  function GetWin32MemoryMap(PID: DWORD; const MMFName: string): TMemoryStream;
+  function GetWin32MemoryMap(PID: DWORD): TMemoryStream;
+  function GetWin32WndProcList(PID: DWORD): Boolean;
   procedure LoadHeaps(Value: THeap; AStream: TStream);
 
 implementation
+
+uses
+  uWindows;
+
+const
+  DefIPCServerName = 'Process_Memory_Map_MMF';
+
+var
+  IPCServerMMFName: string = '';
 
 procedure SaveHeaps(Value: THeap; AStream: TStream);
 var
@@ -100,7 +111,7 @@ begin
   Randomize;
   // Директива SINGLE_INSTANCE не дает запускать 32 битному приложению 64 битный аналог
   // Сугубо для отладки
-  FMMFName := 'Process_Memory_Map_MMF';
+  FMMFName := DefIPCServerName;
   {$IFNDEF SINGLE_INSTANCE}
   FMMFName := FMMFName + IntToHex(Random(MaxInt), 1);
   {$ENDIF}
@@ -174,10 +185,16 @@ begin
       CloseHandle(Process);
     end;
   end;
+  if (Message.Msg = WM_EXECUTEX86_GETWNDPROCLIST) and
+    (Message.WParam = 0) then
+  begin
+    Message.Result := ExecuteX86GetWndProcList(Message.LParam);
+    Exit;
+  end;
   inherited;
 end;
 
-function GetWin32MemoryMap(PID: DWORD; const MMFName: string): TMemoryStream;
+function GetWin32MemoryMap(PID: DWORD): TMemoryStream;
 var
   RemoteDataAddr: DWORD;
   RemoteData: TRemoteData;
@@ -189,8 +206,9 @@ var
   lpNumberOfBytesRead: SIZE_T;
 begin
   Result := TMemoryStream.Create;
+  if IPCServerMMFName = '' then Exit;
   IPCServerParams.WndHandle := 0;
-  MMFHandle := OpenFileMapping(FILE_MAP_READ, False, PChar(MMFName));
+  MMFHandle := OpenFileMapping(FILE_MAP_READ, False, PChar(IPCServerMMFName));
   if MMFHandle = 0 then Exit;
   try
     Data := MapViewOfFile(MMFHandle, FILE_MAP_READ, 0, 0, 0);
@@ -217,14 +235,59 @@ begin
   try
     if not ReadProcessMemory(Process, Pointer(RemoteDataAddr), @RemoteData,
       SizeOf(TRemoteData), lpNumberOfBytesRead) then Exit;
-    SetLength(MemoryMapData, RemoteData.Size);
-    if not ReadProcessMemory(Process, Pointer(RemoteData.Address),
-      @MemoryMapData[0], RemoteData.Size, lpNumberOfBytesRead) then Exit;
-    Result.WriteBuffer(MemoryMapData[0], RemoteData.Size);
+    if RemoteData.Size > 0 then
+    begin
+      SetLength(MemoryMapData, RemoteData.Size);
+      if not ReadProcessMemory(Process, Pointer(RemoteData.Address),
+        @MemoryMapData[0], RemoteData.Size, lpNumberOfBytesRead) then Exit;
+      Result.WriteBuffer(MemoryMapData[0], RemoteData.Size);
+    end;
     Result.Position := 0;
   finally
     CloseHandle(Process);
   end;
 end;
+
+function GetWin32WndProcList(PID: DWORD): Boolean;
+var
+  MMFHandle: THandle;
+  Data: Pointer;
+  IPCServerParams: TIPCServerParams;
+begin
+  Result := False;
+  if IPCServerMMFName = '' then Exit;  
+  IPCServerParams.WndHandle := 0;
+  MMFHandle := OpenFileMapping(FILE_MAP_READ, False, PChar(IPCServerMMFName));
+  if MMFHandle = 0 then Exit;
+  try
+    Data := MapViewOfFile(MMFHandle, FILE_MAP_READ, 0, 0, 0);
+    if Data = nil then Exit;
+    try
+      try
+        IPCServerParams := PIPCServerParams(Data)^;
+      except
+        // Другое приложение файл создало, но еще ничего туда не записало..
+        on EAccessViolation do ;
+      end;
+    finally
+      UnmapViewOfFile(Data);
+    end;
+  finally
+    CloseHandle(MMFHandle);
+  end;
+  if IPCServerParams.WndHandle = 0 then Exit;
+  Result := SendMessage(IPCServerParams.WndHandle,
+    WM_EXECUTEX86_GETWNDPROCLIST, 0, PID) = NO_ERROR;
+end;
+
+initialization
+
+  {$IFDEF WIN64}
+    {$IFDEF SINGLE_INSTANCE}
+    IPCServerMMFName := DefIPCServerName;
+    {$ELSE}
+    IPCServerMMFName := ParamStr(1);
+    {$ENDIF}
+  {$ENDIF}
 
 end.
