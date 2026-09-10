@@ -1,6 +1,8 @@
 ﻿Process Memory Map
 ================
 
+[![Boosty](https://img.shields.io/badge/Boosty-Support-orange?logo=boosty)](https://boosty.to/processmemorymap)
+
 Утилита предназначена для отображения карты памяти процесса.
 
 ![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/1.png?raw=true "Внешний вид")
@@ -148,3 +150,9 @@
 ![12](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/img/17.png?raw=true "Resources")
 
 Ну и много много чего еще интересного.
+
+### Поддержать проект
+
+Если проект оказался полезен, вы можете поддержать его развитие:
+
+[Boosty](https://boosty.to/processmemorymap)
