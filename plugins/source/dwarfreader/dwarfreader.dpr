@@ -1,17 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : dwarfreader.dpr
-//  * Purpose   : Утилита статического анализа PE/ELF файлов и вывода DWARF информации
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
-//  * Version   : 1.1
+//  * Purpose   : A utility for static analysis of PE/ELF files
+//  *           : and output of DWARF information
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -62,7 +79,7 @@ begin
   SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN or FOREGROUND_RED);
   Writeln('------------------------------------------------------------------------------');
   Writeln('                              PMM plugin - DWARF Reader' );
-  Writeln('                         ( C ) 2024 Alexander (Rouse_) Bagel' );
+  Writeln('                         ( C ) 2026 Alexander (Rouse_) Bagel' );
   Writeln('------------------------------------------------------------------------------');
   SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN or
     FOREGROUND_RED or FOREGROUND_BLUE);

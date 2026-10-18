@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : pmm_rich.dpr
 //  * Purpose   : Демонстрационный плагин для отображения Rich заголовков
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.1
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -26,7 +42,47 @@ uses
 
 {$R *.res}
 
+
 {
+  The general purpose of a plugin for RMM is to generate descriptions for the addresses known to the plugin.
+  On startup, the plugin must return a Plugin structure, through which the host will be
+  given the plugin's parameters and the addresses of the gates the host will work through.
+  There are five of them in total:
+
+  1. Gate.Open - this function is called when the host opens a process.
+     It receives a doubly linked list of the opened process's modules and its PID.
+     When this function is called, the plugin must initialize its data.
+
+  2. Gate.Close - the host has closed the process; the plugin may free all allocated data.
+
+  3. Gate.DescriptorCount - the host requests the number of descriptors known to the plugin.
+     All data exchange takes place via descriptors, which are
+     a Descriptor structure with two fields:
+     AddrVA - the address described by the descriptor;
+     Handle - a unique identifier known to the plugin, which the host
+     will use to request extended information when processing the address.
+     In this demo plugin, the Handle value is
+     an index into the list of addresses known to the plugin, which are built from decoded
+     and parsed Rich tables.
+
+  4. Gate.GetDescriptor - the host requests a descriptor by index.
+
+  5. Gate.GetDescriptorData - the host requests extended information for a descriptor.
+     This extended information is what the host actually displays.
+     The information is returned as a DescriptorData structure consisting
+     of one mandatory field, Caption, which is always used
+     (both when displaying information about structures, tables, etc. in Raw mode,
+     and when displaying information in disassembler mode), and three optional fields,
+     used for displaying structure / table fields (not used in disassembler mode),
+     namely:
+     NameSpace - specifies the name of the structure or table being described;
+     Description - an arbitrary comment;
+     Size - the size of the data described by the descriptor.
+}
+
+{
+  [RU]
+
   Общая задача плагина для РММ - генерация описаний для известных плагину адресов.
   При старте плагин должен вернуть структуру TPlugin в которой хосту будут
   переданы параметры плагина и адреса гейтов, через которые будет работать хост.
@@ -64,13 +120,16 @@ uses
 }
 
 const
-  // уникальный UID плагина по которому он будет детектироваться без учета версий
+
+  // Unique plugin UID used to detect the plugin regardless of version
+  // [ru] уникальный UID плагина по которому он будет детектироваться без учета версий
+
   PluginUID = $72696368; // "rich"
   PluginName = 'Rich Signarure Parser (Delphi demo plugin)';
   PluginAuthor = 'Alexander (Rouse_) Bagel';
   PluginHomePage =
     'https://github.com/AlexanderBagel/ProcessMemoryMap/tree/master/plugins/source/delphi/pmm_rich/';
-  PluginDesсription = 'The plugin decodes the Rich structure in an executable file ' +
+  PluginDescription = 'The plugin decodes the Rich structure in an executable file ' +
     '(after the DOS-header) and displays information about known fields.';
 
 var
@@ -176,7 +235,7 @@ begin
   Result.PluginName := @PluginName[1];
   Result.PluginAuthor := @PluginAuthor[1];
   Result.PluginHomePage := @PluginHomePage[1];
-  Result.PluginDesсription := @PluginDesсription[1];
+  Result.PluginDescription := @PluginDescription[1];
 end;
 
 exports

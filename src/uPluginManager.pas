@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uPluginManager.pas
-//  * Purpose   : Менеджер плагинов
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.39
+//  * Purpose   : Plugin manager
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -212,9 +228,15 @@ begin
       if Assigned(InitProc) then
       begin
         PluginData := InitProc;
-        // проверка инициализации UID по которому будут отключаться плагины
+
+        // check that the UID used for disabling plugins is initialized
+        // [ru] проверка инициализации UID по которому будут отключаться плагины
+
         if PluginData.PluginUID = 0 then Continue;
-        // проверка инициализации обязательных функций
+
+        // verify that required functions are initialized
+        // [ru] проверка инициализации обязательных функций
+
         if not (
           Assigned(PluginData.Gate.Open) and
           Assigned(PluginData.Gate.DescriptorCount) and
@@ -225,7 +247,7 @@ begin
         Inst.Name := PluginData.PluginName;
         Inst.Author := PluginData.PluginAuthor;
         Inst.Page := PluginData.PluginHomePage;
-        Inst.Description := PluginData.PluginDesсription;
+        Inst.Description := PluginData.PluginDescription;
         Inst.Gate := PluginData.Gate;
         FIndex.Add(Inst.Handle, FList.Add(Inst));
       end;
@@ -245,7 +267,10 @@ var
     pCurrModule, pPrevModule: PProcessModule;
   begin
     Size := 0;
-    // вычисление требуемого размера (+2 под нулевой юникодный чар)
+
+    // Compute required size (+2 for the wide null terminator)
+    // [ru] вычисление требуемого размера (+2 под нулевой юникодный чар)
+
     for I := 0 to MemoryMapCore.Modules.Count - 1 do
       Inc(Size, SizeOf(TProcessModule) +
         Length(MemoryMapCore.Modules[I].Path) shl 1 + 2);

@@ -86,7 +86,7 @@ object dlgExportList: TdlgExportList
         Position = 3
         Spacing = 5
         Text = 'Function'
-        Width = 446
+        Width = 450
       end>
   end
   object pmCopy: TPopupMenu
@@ -204,6 +204,20 @@ object dlgExportList: TdlgExportList
         Tag = 10
         AutoCheck = True
         Caption = 'DWARF DATA'
+        Checked = True
+        OnClick = mnuShowDWARFDATAClick
+      end
+      object mnuShowPdbFunc: TMenuItem
+        Tag = 11
+        AutoCheck = True
+        Caption = 'PDB FUNC'
+        Checked = True
+        OnClick = mnuShowDWARFDATAClick
+      end
+      object mnuShowPdbData: TMenuItem
+        Tag = 12
+        AutoCheck = True
+        Caption = 'PDB DATA'
         Checked = True
         OnClick = mnuShowDWARFDATAClick
       end

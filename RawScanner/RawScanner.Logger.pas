@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Logger.pas
-//  * Purpose   : Общий логер для всех модулей RawScanner
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Purpose   : A common logger for all RawScanner modules
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -25,19 +41,17 @@ uses
   SysUtils;
 
 type
-  // Типы логов
   TLogType = (ltNotify, ltInfo, ltWarning, ltError, ltFatal);
 
-  // Уровни лога
   TLogLevel = (
-    llCore,       // уведомления от базового класса
-    llContext,    // уведомления от загрузчика контекста активации
-    llPE,         // уведомления от загрузчика PE файлов
-    llLoader,     // уведомления от загрузчика таблицы лоадера
-    llApiSet,     // уведомления от парсера ApiSet таблицы
-    llDisasm,     // уведомления от модуля дизасемблирования
-    llWow64,      // уведомления от Wow64 хелпера
-    llAnalizer    // уведомления от анализатора
+    llCore,
+    llContext,
+    llPE,
+    llLoader,
+    llApiSet,
+    llDisasm,
+    llWow64,
+    llAnalizer
   );
 
   TOnLogEvent = reference to procedure(ALevel: TLogLevel; AType: TLogType;

@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uAbout.pas
-//  * Purpose   : Диалог "О программе"
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2025.
-//  * Version   : 1.5.46
+//  * Purpose   : "About the Program" Dialog Box
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -22,7 +38,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.ExtCtrls, Vcl.StdCtrls, Winapi.ShellAPI;
+  Vcl.ExtCtrls, Vcl.StdCtrls, Winapi.ShellAPI, System.StrUtils;
 
 type
   TdlgAbout = class(TForm)
@@ -39,7 +55,7 @@ type
     lblRawVer: TLabel;
     Label1: TLabel;
     lblZipVer: TLinkLabel;
-    LinkLabel2: TLinkLabel;
+    lblHexView: TLinkLabel;
     LinkLabel5: TLinkLabel;
     procedure LinkLabel1LinkClick(Sender: TObject; const Link: string;
       LinkType: TSysLinkType);
@@ -59,50 +75,24 @@ uses
   MemoryMap.Core,
   RawScanner.Core,
   FWZipConsts,
-  distorm;
+  distorm,
+  FWHexView,
+  uUtils;
 
 {$R *.dfm}
 
 procedure TdlgAbout.FormCreate(Sender: TObject);
-const
-  VFF_PRERELEASE = 2;
 var
+  Info: TVersionInfo;
   dwVer: DWORD;
-  VerInfoSize, Dummy: DWORD;
-  PVerBbuff, PFixed: Pointer;
-  FixLength: UINT;
-  VerLoaded: Boolean;
-  BetaMark: string;
 begin
-  VerInfoSize := GetFileVersionInfoSize(PChar(ParamStr(0)), Dummy);
-  VerLoaded := False;
-  if VerInfoSize > 0 then
+  if GetVersionInfo(Info) then
   begin
-    GetMem(PVerBbuff, VerInfoSize);
-    try
-      if GetFileVersionInfo(PChar(ParamStr(0)), 0, VerInfoSize, PVerBbuff) then
-      begin
-        if VerQueryValue(PVerBbuff, '\', PFixed, FixLength) then
-        begin
-          if PVSFixedFileInfo(PFixed)^.dwFileFlags and VFF_PRERELEASE <> 0 then
-            BetaMark := ' (Beta)'
-          else
-            BetaMark := '';
-          lblPMMVer.Caption := Format('Process Memory Map: %d.%d.%d.%d%s', [
-            PVSFixedFileInfo(PFixed)^.dwFileVersionMS shr 16,
-            PVSFixedFileInfo(PFixed)^.dwFileVersionMS and $FFFF,
-            PVSFixedFileInfo(PFixed)^.dwFileVersionLS shr 16,
-            PVSFixedFileInfo(PFixed)^.dwFileVersionLS and $FFFF,
-            BetaMark]);
-          VerLoaded := True;
-        end;
-      end;
-    finally
-      FreeMem(PVerBbuff);
-    end;
-  end;
-
-  if not VerLoaded then
+    with Info do
+      lblPMMVer.Caption := Format('Process Memory Map: %d.%d.%d.%d%s', [
+        Major, Minor, Release, Build, IfThen(Beta, ' (Beta)', '')]);
+  end
+  else
     lblPMMVer.Caption := 'Process Memory Map ' + MemoryMapVersionStr;
 
   dwVer := get_distorm_version;
@@ -126,6 +116,12 @@ begin
   lblZipVer.Caption := Format(
     'Compression Library: <a href="https://github.com/AlexanderBagel/FWZip">' +
     'FWZip version %d.%d.%d</a>',
+    [dwVer shr 24, Byte(dwVer shr 16), Word(dwVer)]);
+
+  dwVer := FWHexViewVersionInt;
+  lblHexView.Caption := Format(
+    'HexView Project: <a href="https://github.com/AlexanderBagel/FWHexView">' +
+    'FWHexView version %d.%d.%d</a>',
     [dwVer shr 24, Byte(dwVer shr 16), Word(dwVer)]);
 end;
 

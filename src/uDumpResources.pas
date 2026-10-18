@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uDumpResources.pas
-//  * Purpose   : Вспомогательные функции для работы с ресурсами
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Helper functions for working with resources
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -84,8 +100,8 @@ type
 
   PMessageResourceEntry = ^TMessageResourceEntry;
   TMessageResourceEntry = packed record
-    Length: Word; // полный размер TMessageResourceEntry вместе с данными
-    Flags: Word;  // 0 или MESSAGE_RESOURCE_UNICODE
+    Length: Word; // full size of TMessageResourceEntry, including its data
+    Flags: Word;  // 0 or MESSAGE_RESOURCE_UNICODE
     Text: {array [Length - 4] of} Byte
   end;
 
@@ -925,12 +941,12 @@ begin
         $5D: Line := 'VK_APPS';
         $5F: Line := 'VK_SLEEP';
         $60..$69: Line := Format('VK_NUMPAD%d', [Entry.wAnsi - $60]);
-        $6A: Line := 'VK_MULTIPLY';  // * на цифровой клавиатуре
-        $6B: Line := 'VK_ADD';       // + на цифровой клавиатуре
+        $6A: Line := 'VK_MULTIPLY';  // * on the numeric keypad
+        $6B: Line := 'VK_ADD';       // + on the numeric keypad
         $6C: Line := 'VK_SEPARATOR';
-        $6D: Line := 'VK_SUBTRACT';  // - на цифровой клавиатуре
-        $6E: Line := 'VK_DECIMAL';   // . на цифровой клавиатуре
-        $6F: Line := 'VK_DIVIDE';    // / на цифровой клавиатуре
+        $6D: Line := 'VK_SUBTRACT';  // - on the numeric keypad
+        $6E: Line := 'VK_DECIMAL';   // . on the numeric keypad
+        $6F: Line := 'VK_DIVIDE';    // / on the numeric keypad
         $70..$87: Line := Format('VK_F%d', [Entry.wAnsi - $6F]); // F1-F24
         $90: Line := 'VK_NUMLOCK';
         $91: Line := 'VK_SCROLL';

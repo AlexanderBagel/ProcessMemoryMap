@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : MemoryMap
+//  * Project   : Process Memory Map
 //  * Unit Name : MemoryMap.Threads.pas
-//  * Purpose   : Класс собирает данные о потоках процесса.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : The class collects data about process threads
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.4.38
+//  * Version   : 1.4.41
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -324,9 +340,14 @@ var
 begin
   ZeroMemory(@ThreadShackEntry, SizeOf(TThreadStackEntry));
 
-  // ThreadContext должен быть выравнен, поэтому используем VirtualAlloc
-  // которая автоматически выделит память выровненую по началу страницы
+  // ThreadContext must be page-aligned, so we use VirtualAlloc
+  // which automatically allocates memory aligned to the start of a page
+  // otherwise, we'll get ERROR_NOACCESS (998)
+
+  // [ru] ThreadContext должен быть выравнен, поэтому используем VirtualAlloc
+  // которая автоматически выделит память выравненную  по началу страницы
   // в противном случае получим ERROR_NOACCESS (998)
+
   ThreadContext := VirtualAlloc(nil, SizeOf(TContext), MEM_COMMIT, PAGE_READWRITE);
   try
     ThreadContext^.ContextFlags := CONTEXT_FULL;
@@ -407,9 +428,14 @@ var
 begin
   ZeroMemory(@ThreadShackEntry, SizeOf(TThreadStackEntry));
 
-  // ThreadContext должен быть выравнен, поэтому используем VirtualAlloc
-  // которая автоматически выделит память выровненую по началу страницы
+  // ThreadContext must be page-aligned, so we use VirtualAlloc
+  // which automatically allocates memory aligned to the start of a page
+  // otherwise, we'll get ERROR_NOACCESS (998)
+
+  // [ru] ThreadContext должен быть выравнен, поэтому используем VirtualAlloc
+  // которая автоматически выделит память выравненную  по началу страницы
   // в противном случае получим ERROR_NOACCESS (998)
+
   ThreadContext := VirtualAlloc(nil, SizeOf(TWow64Context), MEM_COMMIT, PAGE_READWRITE);
   try
     ThreadContext^.ContextFlags := CONTEXT_FULL;
@@ -520,7 +546,6 @@ begin
   Wow64 := False;
   {$ENDIF}
 
-  // Делаем снимок нитей в системе
   hSnap := CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, PID);
   if hSnap <> INVALID_HANDLE_VALUE then
   try
@@ -529,46 +554,71 @@ begin
     repeat
       if ThreadEntry.th32OwnerProcessID <> PID then Continue;
 
-      // Открываем нить
       hThread := OpenThread(THREAD_GET_CONTEXT or
         THREAD_SUSPEND_RESUME or THREAD_QUERY_INFORMATION,
         False, ThreadEntry.th32ThreadID);
       if hThread <> 0 then
       try
-        // Получаем адрес ThreadProc()
+
+        // Get the address of ThreadProc()
+        // [ru] Получаем адрес ThreadProc()
+
         if NtQueryInformationThread(hThread, ThreadQuerySetWin32StartAddress,
           @ThreadStartAddress, SizeOf(ThreadStartAddress), nil) = STATUS_SUCCESS then
           Add(hProcess, tiThreadProc, ThreadStartAddress, ThreadEntry.th32ThreadID, False);
-        // Получаем информацию по нити
+
+        // Retrieve information about the thread
+        // [ru] Получаем информацию по нити
+
         if NtQueryInformationThread(hThread, ThreadBasicInformation, @TBI,
           SizeOf(TThreadBasicInformation), nil) = STATUS_SUCCESS then
         begin
-          // Читаем из удаленного адресного пространства
+
+          // Reading from remote address space
+          // TIB (Thread Information Block) of an open thread
+
+          // [ru] Читаем из удаленного адресного пространства
           // TIB (Thread Information Block) открытой нити
+
           if not ReadProcessMemory(hProcess,
             TBI.TebBaseAddress, @TIB, SizeOf(NT_TIB),
             lpNumberOfBytesRead) then Exit;
 
-          // Добавляем в массив адрес стэка
+          // Add the stack parameters to the array
+          // [ru] Добавляем в массив параметры стэка
+
           Add(hProcess, tiStackBase, TIB.StackBase, ThreadEntry.th32ThreadID, False);
           Add(hProcess, tiStackLimit, TIB.StackLimit, ThreadEntry.th32ThreadID, False);
           Add(hProcess, tiTEB, TIB.Self, ThreadEntry.th32ThreadID, False);
 
-          // Адрес структуры OleTlsData хранящей информацию по OLE32 данным
-          // находится по фиксированному оффсету $1758
+          // The address of the OleTlsData structure,
+          // which stores information about OLE32 data,
+          // is located at a fixed offset of $1758
+
+          // [ru] Адрес структуры OleTlsData хранящей информацию по OLE32 данным
+          // находится по фиксированному офсету $1758
+
           if ReadProcessMemory(hProcess,
             Pointer(PByte(TBI.TebBaseAddress) + $1758), @pOleTlsData, 8,
             lpNumberOfBytesRead) and Assigned(pOleTlsData) then
             Add(hProcess, tiOleTlsData, pOleTlsData, ThreadEntry.th32ThreadID, False);
         end;
-        // Получаем стэк нити
+
+        // Get the thread's call stack
+        // [ru] Получаем стэк вызовов нити
+
         GetThreadCallStack(hProcess, hThread, ThreadEntry.th32ThreadID);
 
         {$IFDEF WIN64}
-        // то-же самое только для Wow64 нити
+
+        // the same thing, but for Wow64 threads
+        // [ru] то-же самое только для Wow64 нити
+
         if not IsWow64(hProcess) then Continue;
 
-        // в 64 битном TEB поле TIB.ExceptionList указывает на начало Wow64TEB
+        // In the 64-bit TEB, the TIB.ExceptionList field points to the beginning of Wow64TEB
+        // [ru] в 64 битном TEB поле TIB.ExceptionList указывает на начало Wow64TEB
+
         if not ReadProcessMemory(hProcess,
           TIB.ExceptionList, @WOW64_NT_TIB, SizeOf(TWOW64_NT_TIB),
           lpNumberOfBytesRead) then Exit;
@@ -578,24 +628,35 @@ begin
         TIB.StackBase := Pointer(WOW64_NT_TIB.StackBase);
         TIB.Self := Pointer(WOW64_NT_TIB.Self);
 
-        // Добавляем в массив адрес стэка
+        // Add the stack parameters to the array
+        // [ru] Добавляем в массив параметры стэка
+
         Add(hProcess, tiStackBase, TIB.StackBase, ThreadEntry.th32ThreadID, True);
         Add(hProcess, tiStackLimit, TIB.StackLimit, ThreadEntry.th32ThreadID, True);
         Add(hProcess, tiTEB, TIB.Self, ThreadEntry.th32ThreadID, True);
 
-        // Адрес структуры OleTlsData хранящей информацию по OLE32 данным
-        // находится по фиксированному оффсету $F80
+        // The address of the OleTlsData structure,
+        // which stores information about OLE32 data,
+        // is located at a fixed offset of $F80
+
+        // [ru] Адрес структуры OleTlsData хранящей информацию по OLE32 данным
+        // находится по фиксированному офсету $F80
+
         pOleTlsData := nil;
         if ReadProcessMemory(hProcess,
           Pointer(PByte(TIB.Self) + $F80), @pOleTlsData, 4,
           lpNumberOfBytesRead) and Assigned(pOleTlsData) then
           Add(hProcess, tiOleTlsData, pOleTlsData, ThreadEntry.th32ThreadID, True);
 
-        // Получаем стэк нити
+        // Get the Wow64 thread call stack
+        // [ru] Получаем стэк вызовов Wow64 нити
+
         GetWow64ThreadCallStack32(hProcess, hThread, ThreadEntry.th32ThreadID);
         {$ENDIF}
 
-        // Получаем список SEH фреймов
+        // Get a list of SEH frames
+        // [ru] Получаем список SEH фреймов
+
         GetThreadSEHFrames(hProcess, TIB.ExceptionList,
           ThreadEntry.th32ThreadID, Wow64);
       finally

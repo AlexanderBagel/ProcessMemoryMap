@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uFindData.pas
-//  * Purpose   : Диалог для поиска данных в памяти процесса
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Dialog for searching data in process memory
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.50
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -710,7 +726,7 @@ begin
       MakeMaskPattern(Format('4?89??{%X}', [UIntBuf]));
       // MOV [RIP+rel32], imm32
       MakeMaskPattern(Format('4?C7??{%X}', [UIntBuf]));
-      // MOV r32, [addr32] - любой регистр
+      // MOV r32, [addr32] - any register
       MakeMaskPattern(Format('8B?5[%X]', [UIntBuf]));
       // MOV [addr32], r32
       MakeMaskPattern(Format('89?5[%X]', [UIntBuf]));
@@ -776,6 +792,16 @@ var
   ProcessLock: TProcessLockHandleList;
   ReadCondition: TReadCondition;
 begin
+  {$MESSAGE 'ПЕРЕДЕЛАТЬ ПОИСК!!!'}
+
+  {
+  во первых нужен нормальный прогресс, для этого нужно собрать список страниц
+  в которых будет идти поиск и отображать прогресс по размеру обработаной страницы
+  а не по текущему адресу страницы.
+  во вторых вынести поиск в потоки, а то поиск референса на строку
+  прямо пипец как медленно идет
+  }
+
   if not MakeSearchBuff then Exit;
   ProcessLock := nil;
   if Settings.SuspendProcess then

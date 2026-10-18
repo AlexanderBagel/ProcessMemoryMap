@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uPatchDetect.pas
-//  * Purpose   : Диалог для работы со сканером перехваченых функций
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Hooked Function Scanner
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.50
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -65,7 +81,6 @@ type
     N2: TMenuItem;
     Restore1: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -79,14 +94,11 @@ type
     FCodeError, FImportError, FDelayedImportError, FExportError: Integer;
     FFilter: TFilter;
     FPatchList: TPatchList;
-    // обработчики событий анализатора
     procedure ProcessCodeHook(const Data: TCodeHookData);
     procedure ProcessTableHook(const Data: THookData);
-    // и глобального логера
     procedure OnLog(ALevel: TLogLevel; AType: TLogType;
       const FuncName, Description: string);
   private
-    // вспомогательные функции
     function CheckHookHandler(var chd: TCalculateHookData): Boolean;
     function DumpExternalAddr(chd: TCalculateHookData): Boolean;
     function InitCalculateHookData: TCalculateHookData; overload;
@@ -96,7 +108,6 @@ type
       Inst: TInstruction; var ShortJmp: Boolean): string;
     procedure ReleaseCalculateHookData(const Value: TCalculateHookData);
   private
-    // форматирование
     FLastIsEmptyLine: Boolean;
     procedure AddTableHeader(RawOffset: DWORD; chd: TCalculateHookData);
     procedure Add(const Value: string;
@@ -250,11 +261,6 @@ procedure TdlgPatches.FormDestroy(Sender: TObject);
 begin
   FPatchList.Free;
   FFilter.Free;
-end;
-
-procedure TdlgPatches.FormKeyPress(Sender: TObject; var Key: Char);
-begin
-  if Key = #27 then Close;
 end;
 
 function MakeAnalizedStr(const Value: string;
@@ -468,8 +474,8 @@ procedure TdlgPatches.OnLog(ALevel: TLogLevel; AType: TLogType; const FuncName,
   end;
 
 begin
-  if ALevel = llContext then Exit; // контекст пока не закончен
-  if ALevel = llApiSet then Exit; // данные по аписету не нужны
+  if ALevel = llContext then Exit;
+  if ALevel = llApiSet then Exit;
   if (ALevel = llAnalizer) and (AType = ltNotify) then Exit;
   if AType <> ltNotify then
     EmptyLine;
@@ -551,7 +557,9 @@ begin
     Disasm.Free;
   end;
 
-  // если не смогли дизассемблировать один из буферов (или оба) выводим как есть
+  // if we were unable to disassemble one of the buffers (or both), we output them as is
+  // [ru] если не смогли дизассемблировать один из буферов (или оба) выводим как есть
+
   if (RawCount = 0) or (RemoteCount = 0) then
   begin
     Inc(FCodeError);
@@ -576,16 +584,19 @@ begin
     Exit;
   end;
 
-  // исключаем все лишнее что не отностся к патченым данным
 
-  // 1. определяем минимальный размер дизассемблированого блока
+  // remove everything that is not related to the patched data
+  // [ru] исключаем все лишнее что не отностся к патченым данным
+
   MaxAddr := RawDecodedInst[RawCount - 1].AddrVa +
     RawDecodedInst[RawCount - 1].OpcodesLen;
   MaxAddr := Min(MaxAddr, RemoteDecodedInst[RemoteCount - 1].AddrVa +
     RemoteDecodedInst[RemoteCount - 1].OpcodesLen);
   Dec(MaxAddr, Data.AddrVA);
 
-  // 2. находим с какой позиции пошли расхождения
+  // find the position where the discrepancies began
+  // [ru] поиск позиции с которой пошли расхождения
+
   for I := MaxAddr - 1 downto 0 do
   begin
     if TByteArray(Data.Raw)[I] <> TByteArray(Data.Remote)[I] then
@@ -595,17 +606,23 @@ begin
     end;
   end;
 
-  // 3. если расхождений не обнаружилось - восстанавливаем максимальный адрес
+  // if no discrepancies are found, restore the maximum address
+  // [ru] если расхождения не найдены - восстанавливаем максимальный адрес
+
   if MaxAddr <= DefaultBuffSize then
     Inc(MaxAddr, Data.AddrVA - 1);
 
-  // 4. убираем все лишние блоки который выходят за максимальный адрес
+  // remove all extra blocks that extend beyond the maximum address
+  // [ru] убираем все лишние блоки который выходят за максимальный адрес
+
   while (RemoteCount > 0) and (RemoteDecodedInst[RemoteCount - 1].AddrVa > MaxAddr) do
     Dec(RemoteCount);
   while (RawCount > 0) and (RawDecodedInst[RawCount - 1].AddrVa > MaxAddr) do
     Dec(RawCount);
 
-  // теперь идет проверка совпадают ли декодированиые буферы?
+  // check: do the disassembled buffers match?
+  // [ru] проверка: совпадают ли дизассемблированные буферы?
+
   Modified := RawCount <> RemoteCount;
   if not Modified then
     for I := 0 to RawCount - 1 do
@@ -621,7 +638,9 @@ begin
 
   if not Modified then Exit;
 
-  // если не совпали, нужно определить - подпадает ли под фильтр?
+  // f they don't match, you need to determine whether it meets the filter criteria
+  // [ru] если не совпали, нужно определить, подпадает ли под фильтр
+
   chd := InitCalculateHookData(Data);
   try
     Cursor := Data.AddrVA;
@@ -654,25 +673,35 @@ begin
         begin
           RemoteOut := GetOutString(RemoteDecodedInst[RemoteIndex]);
 
-          // проверка, работаем ли мы с измененной инструкцией?
+          // check to see if we're following the revised instructions.
+          // [ru] проверка, работаем ли мы с измененной инструкцией?
+
           Modified :=
             RawDecodedInst[RawIndex - 1] <> RemoteDecodedInst[RemoteIndex];
 
-          // вывод подсказки куда осуществляется переход
+          // display a hint indicating where the link leads
+          // [ru] вывод подсказки куда осуществляется переход
+
           if Modified and (RemoteDecodedInst[RemoteIndex].JmpAddrVa <> 0) then
           begin
             HintString :=
               GetHintString(chd, RemoteDecodedInst[RemoteIndex], ShortJmp);
 
-            // если определен модуль перехода, проверяем фильтр
+            // if the transition module is specified, check the filter
+            // [ru] если определен модуль перехода, проверяем фильтр
+
             if CheckHookHandler(chd) then
               Exit;
 
-            // добавляем подсказку
+            // add a hint
+            // [ru] добавляем подсказку
+
             if not HintString.IsEmpty then
               RemoteOut := RemoteOut + HintString;
 
-            // и запоминаем возможный адрес перехода для последующей обработки
+            // and we store the potential link address for further processing
+            // [ru] и запоминаем возможный адрес перехода для последующей обработки
+
             if ShortJmp or HintString.IsEmpty then
               ExternalJmps.Add(RemoteDecodedInst[RemoteIndex].JmpAddrVa);
           end;
@@ -689,7 +718,9 @@ begin
         if not Modified then
           Continue;
 
-        // если патч посредине инструкции - выделяем это отдельно
+        // if the patch is in the middle of the instructions, highlight it separately.
+        // [ru] если патч посредине инструкции - выделяем это отдельно
+
         if (RawIndex > 1) and (chd.DumpStrings.Count = 3) then
         begin
           chd.DumpStrings.Add(IntToHex(RawDecodedInst[0].AddrVa, 16) +

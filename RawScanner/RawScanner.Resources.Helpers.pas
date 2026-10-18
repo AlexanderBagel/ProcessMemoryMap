@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Resources.Helpers.pas
-//  * Purpose   : Быстрый анализ типа ресурса по его содержимому.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Quick analysis of the resource type based on its contents.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.29
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -164,25 +180,45 @@ type
 
 type
   TBinaryResType = (brtUnknown,
-    // ресурсы которые можно декодировать обратно в текстовое RC представление
+
+    // Resources that can be decoded back into a original RC representation
+    // [ru] ресурсы которые можно декодировать обратно в текстовое RC представление
+
     brtVersion, brtStringTable, brtAccelerator, brtMenu, brtDialog, brtFont, brtFontDir,
-    // MessageTable - только частично, так как там не хранится строковое имя констант
+
+    // MessageTable — only partially, since it does not store the string names of the constants
+    // [ru] MessageTable - только частично, так как там не хранится строковое имя констант
+
     brtMessageTable,
-    // Вся поддерживаемая графика
+
+    // All supported graphics.
+    // [ru] Вся поддерживаемая графика
+
     brtCursorGroup, brtCursor, brtCursorDib,
     brtIconGroup, brtIcon, brtIconDib,
     brtBitmap, brtBitmapDib, brtPng, brtJpg, brtGif, brtMetaFile, brtTiff,
     brtSvgUtf8,
-    // RIFF контейнеры с анимацией
+
+    // RIFF containers with animation
+    // [ru] RIFF контейнеры с анимацией
+
     brtAvi, brtAniCursor, brtAniIcon,
-    // Все поддерживаемые форматы строк
+
+    // All supported string formats
+    // [ru] Все поддерживаемые форматы строк
+
     brtStrUtf8, brtStrUtf16, brtStrUtf16Be, brtStrAnsi,
-    // Специальные типы Delphi ресурсов формат которых известен
+
+
+    // [ru] Специальные типы Delphi ресурсов формат которых известен
+
     brtDVCLAL, brtPackageInfo, brtDFM);
 
   function GetBinaryResType(ARes: TResource): TBinaryResType;
 
-  // Для дампа, дабы не дублировать
+  // For the dump, to avoid duplication
+  // [ru] Для дампа, дабы не дублировать
+
   function GDAL(ALR: Pointer): UInt32;
 
 implementation
@@ -228,18 +264,26 @@ begin
 
     if TailCount > 0 then
     begin
-      // просто проверяем что вся последовательность байт
+
+      // just check that the entire byte sequence
+      // contains 10xxxxxx as the high bits (i.e., UTF8-tail)
+
+      // [ru] просто проверяем что вся последовательность байт
       // содержат старшими битами 10xxxxxx (т.е. UTF8-tail)
+
       if P^ and $C0 <> $80 then Exit;
       Inc(P);
       Dec(TailCount);
       Continue;
     end;
 
-    // UTF8-1 = %x00-7F (ASCII символы)
+    // UTF8-1 = %x00-7F (ASCII)
     if P^ < $7F then
     begin
-      // гарантировано не валидные для однобайтного ASCII символы
+
+      // guaranteed to be invalid for single-byte ASCII characters
+      // [ru] гарантировано не валидные для однобайтного ASCII символы
+
       if P^ in [0..8, 11, 12, 14..31] then Exit;
       Inc(P);
       Continue;
@@ -271,7 +315,9 @@ begin
       Continue;
     end;
 
-    // если байт не попадает ни в один из диапазонов, это не UTF8
+    // if a byte does not fall into any of the ranges, it is not UTF8
+    // [ru] если байт не попадает ни в один из диапазонов, это не UTF8
+
     Exit;
 
   end;
@@ -285,14 +331,14 @@ begin
     $0009,
     $000A,
     $000D,
-    $0020..$007E, // английский
-    $00A0..$024F, // часть латиницы немецкий, французский и т.п.(ä,ö,é,à,ñ,ą,ę)
-    $0300..$036F, // польский чешский диактрики
-    $0370..$03FF, // греческий
-    $0400..$04FF, // кирилица
-    $2000..$206F, // типографика
-    $20A0..$20CF, // валюты
-    $2100..$23FF: // вспомогательные типа №, ℅ и др.
+    $0020..$007E, // english
+    $00A0..$024F, // part of latin — german, french, etc. (ä,ö,é,à,ñ,ą,ę)
+    $0300..$036F, // polish, czech diacritics.
+    $0370..$03FF, // greek
+    $0400..$04FF, // cyrillic
+    $2000..$206F, // typography
+    $20A0..$20CF, // currencies
+    $2100..$23FF: // auxiliary like №, ℅ etc.
       Result := True;
   else
     Result := False;
@@ -316,8 +362,13 @@ begin
     else
     begin
       if not IsValidUTF16CodePoint(PWord(P)^) then Exit;
-      // Нули в середине текста принимать не будем
-      // а вот в конце текста в принципе можно
+
+      // We will not accept nulls in the middle of the text,
+      // but at the end of the text, in principle, they are acceptable
+
+      // [ru] Нули в середине текста принимать не будем,
+      // а вот в конце текста, в принципе, можно
+
       if ZeroFound then Exit;
     end;
     Inc(P, 2);
@@ -395,11 +446,12 @@ var
     begin
       B := P[APos + J];
       if (B >= Ord('A')) and (B <= Ord('Z')) then
-        B := B or $20; // быстрый lowercase для ASCII-букв
+        B := B or $20; // fast lowercase for ASCII letters
       if B <> Tag[J] then
         Exit;
     end;
-    // после "svg" должен идти пробел, '>' или '/', иначе это "<svgfoo..."
+
+    // after "svg" there must be a space, '>' or '/', otherwise it is "<svgfoo..."
     if APos + 4 < Size then
     begin
       B := P[APos + 4];
@@ -418,7 +470,7 @@ begin
   P := AStream.Memory;
   Size := Min(AStream.Size, 4096);
 
-  // пропускаем UTF-8 BOM
+  // skip the UTF-8 BOM
   I := 0;
   if (P[0] = $EF) and (P[1] = $BB) and (P[2] = $BF) then
     I := 3;
@@ -511,7 +563,10 @@ function CheckDVCLAL(AStream: TMemoryStream): TBinaryResType;
 begin
   Result := brtUnknown;
   if AStream.Size <> 16 then Exit;
-  // Ноль это валидное значение для энтерпрайза, поэтому ошибкой будет единица
+
+  // Zero is a valid value for the enterprise, so one will be treated as an error.
+  // [ru] Ноль это валидное значение для энтерпрайза, поэтому ошибкой будет единица
+
   if GDAL(AStream.Memory) <> 1 then
     Exit(brtDVCLAL);
 end;

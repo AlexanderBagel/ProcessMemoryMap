@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uRegionProperties.pas
-//  * Purpose   : Диалог для отображения данных по переданному адресу
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2024.
-//  * Version   : 1.5.44
+//  * Purpose   : Dialog for displaying data at a specified address
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -62,7 +78,6 @@ type
     tmrAutoRefresh: TTimer;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuCopyClick(Sender: TObject);
-    procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure mnuRefreshClick(Sender: TObject);
     procedure mnuShowAsDisassemblyClick(Sender: TObject);
     procedure mnuGotoAddressClick(Sender: TObject);
@@ -190,11 +205,6 @@ end;
 procedure TdlgRegionProps.FormDestroy(Sender: TObject);
 begin
   DropActivePtr;
-end;
-
-procedure TdlgRegionProps.FormKeyPress(Sender: TObject; var Key: Char);
-begin
-  if Key = #27 then Close;
 end;
 
 function TdlgRegionProps.GetSelectedAddr: ULONG_PTR;
@@ -500,7 +510,9 @@ begin
         Exit;
       end;
 
-      // вывод информации с которой начинается регион (описана непосредственно в Region)
+      // output the info the region begins with (described directly in Region)
+      // [ru] вывод информации с которой начинается регион (описана непосредственно в Region)
+
       if MemoryMapCore.GetRegionIndex(Value, Index) then
       begin
         ARegion := MemoryMapCore.GetRegionAtUnfilteredIndex(Index);
@@ -509,7 +521,9 @@ begin
             Exit;
       end;
 
-      // вывод информации которая является частью региона (находится в Region.Contains)
+      // output the info that is part of the region (located in Region.Contains)
+      // [ru] вывод информации которая является частью региона (находится в Region.Contains)
+
       if MemoryMapCore.GetRegionIndex(GetPageAddr, Index) then
       begin
         ARegion := MemoryMapCore.GetRegionAtUnfilteredIndex(Index);

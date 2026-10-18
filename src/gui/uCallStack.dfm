@@ -2,17 +2,16 @@ inherited dlgCallStack: TdlgCallStack
   Caption = 'Process Memory Map - CallStack'
   ClientHeight = 548
   ClientWidth = 1065
-  KeyPreview = True
-  Position = poMainFormCenter
   Visible = True
   StyleElements = [seFont, seClient, seBorder]
   OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  OnKeyPress = FormKeyPress
   ExplicitWidth = 1087
   ExplicitHeight = 604
+  PixelsPerInch = 144
+  TextHeight = 23
   object Splitter: TSplitter
     Left = 233
     Top = 0

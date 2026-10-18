@@ -1,21 +1,37 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uWindows.pas
-//  * Purpose   : Форма для отображения окон процесса
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Form for displaying process windows
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
-// Частично основано на базе кода:
+// Partially based on code from:
 //  https://github.com/strobejb/winspy/
 //  Copyright (c) 2002 by J Brown
 //	Freeware
@@ -120,7 +136,6 @@ type
     btnOpenUserData: TSpeedButton;
     memWndBytes: TMemo;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure tvWindowsChange(Sender: TObject; Node: TTreeNode);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -131,7 +146,7 @@ type
     procedure CopySelected1Click(Sender: TObject);
     procedure SelectAll1Click(Sender: TObject);
   private
-    FBuff: array [0..MAX_PATH] of Char; // + 1 для терминирующего
+    FBuff: array [0..MAX_PATH] of Char; // + 1 for the terminating (null)
     FBuffLen: DWORD;
     FWndIndex: Integer;
     FWndList: TList<UInt64>;
@@ -165,19 +180,37 @@ type
   end;
 
   {
-    Windows запрещает напрямую получать у окна значение его WndProc, DlgProc
-    и Instance, поэтому реализованы две функции:
+    Windows does not allow directly retrieving the WndProc, DlgProc and
+    Instance values of a window belonging to another process, so two
+    functions are implemented:
     1. ExecuteX64GetWndProcList
-    Она инжектит в удаленный процесс небольшой ShellCode (задача которого
-    получить эти данные) и запускает нить с этим шеллкодом.
-    Парамерты окон, по которым необходимо получить информацию хранятся в
-    именованом MemoryMapFile в который также пишутся резульаты работы шеллкода.
+       It injects a small piece of shellcode (whose task is to obtain this
+       data) into the remote process and starts a thread running that shellcode.
+       The parameters of the windows to query are stored in a named
+       memory-mapped file, which is also used to write the shellcode's results.
     2. ExecuteX86GetWndProcList
-    Делает тоже самое что и первая функция, но она выполняется в 32 битном
-    экземпляре ProcessMemoryMap которому параметры настройки шеллкода передаются
-    через второй именованный MemoryMapFile. Сам вызов осуществляется через
-    общий механизм IPC
+       Does the same as the first function, but runs in a 32-bit instance of
+       ProcessMemoryMap, to which the shellcode configuration parameters are
+       passed via a second named memory-mapped file. The call itself is made
+       through the common IPC mechanism.
   }
+
+  { [ru]
+    Windows запрещает напрямую получать у окна другого процесса значения его
+    WndProc, DlgProc и Instance, поэтому реализованы две функции:
+    1. ExecuteX64GetWndProcList
+       Она инжектит в удалённый процесс небольшой ShellCode (задача которого
+       получить эти данные) и запускает нить с этим шеллкодом.
+       Параметры окон, по которым необходимо получить информацию, хранятся
+       в именованном файле, отображаемом в память (memory-mapped file),
+       в который также пишутся результаты работы шеллкода.
+    2. ExecuteX86GetWndProcList
+       Делает то же самое, что и первая функция, но выполняется в 32-битном
+       экземпляре ProcessMemoryMap, которому параметры настройки шеллкода
+       передаются через второй именованный memory-mapped file.
+       Сам вызов осуществляется через общий механизм IPC.
+  }
+
   function ExecuteX86GetWndProcList(PID: DWORD): LRESULT;
 
 var
@@ -945,7 +978,7 @@ begin
   Data := GetClassLong(AHandle, GCW_ATOM);
   edClassAtom.Text := IntToHex(Data, 4);
   Data := GetClassLong(AHandle, GCL_WNDPROC);
-  edClassProc.Text := AddrVAToStr(Data, btnOpenClassProc);
+  edClassProc.Text := Format('%s%s', [AddrVAToStr(Data, btnOpenClassProc), GetModule(Data)]);
   Data := GetClassLong(AHandle, GCL_HMODULE);
   edClassModule.Text := Format('%s%s', [AddrVAToStr(Data, btOpenClassInst), GetModule(Data)]);
 end;
@@ -1068,14 +1101,16 @@ begin
   end
   else
   begin
-    edWndProc.Text := AddrVAToStr(FWndData[FWndIndex].WndProc, btnOpenWndProc);
+    edWndProc.Text := Format('%s%s', [AddrVAToStr(FWndData[FWndIndex].WndProc, btnOpenWndProc),
+      GetModule(FWndData[FWndIndex].WndProc)]);
     if FWndData[FWndIndex].DlgProc = FWndData[FWndIndex].RealDlgProc then
-      edDlgProc.Text := AddrVAToStr(FWndData[FWndIndex].DlgProc, btnOpenDlgProc)
+      edDlgProc.Text := Format('%s%s', [AddrVAToStr(FWndData[FWndIndex].DlgProc, btnOpenDlgProc),
+        GetModule(FWndData[FWndIndex].DlgProc)])
     else
       edDlgProc.Text :=
         AddrVAToStr(FWndData[FWndIndex].DlgProc, btnOpenDlgProc) +
         ' -> ' +
-        AddrVAToStr(FWndData[FWndIndex].RealDlgProc);
+        Format('%s%s', [AddrVAToStr(FWndData[FWndIndex].RealDlgProc), GetModule(FWndData[FWndIndex].RealDlgProc)]);
     edInstHandle.Text := Format('%s%s', [
       AddrVAToStr(FWndData[FWndIndex].Instance, btnOpenInst), GetModule(FWndData[FWndIndex].Instance)]);
   end;
@@ -1355,12 +1390,6 @@ begin
   FWndExStyles.Free;
 end;
 
-procedure TdlgWindows.FormKeyPress(Sender: TObject; var Key: Char);
-begin
-  if Key = #27 then
-    Close;
-end;
-
 function TdlgWindows.GetExecutableDlgProc(hProc: THandle; AddrVA: UInt64): UInt64;
 
   function IsExecutable(PtrVA: Pointer): Boolean;
@@ -1385,10 +1414,17 @@ begin
   if Result = 0 then Exit;
   dwSize := IfThen(MemoryMapCore.Process64, 8, 4);
   CheckCount := 0;
-  // проверка на COM+ окно
+
+  // check for a COM+ window
+  // if DlgProc returned a value pointing to a non-executable region,
+  // it is most likely the chain: this -> vptr -> vtable[0] -> code,
+  // and it needs to be resolved
+
+  // [ru] проверка на COM+ окно
   // если DlgProc вернул значение в неисполняемую область,
   // то скорее всего это связка: this -> vptr -> vtable[0] -> code
   // и её нужно раскрутить
+
   while CheckAddr(Result) and (CheckCount < 3) do
   begin
     if IsExecutable(Pointer(Result)) then
@@ -1413,7 +1449,12 @@ var
   Idx: Integer;
   RegionData: TRegionData;
 begin
-  if not MemoryMapCore.GetRegionIndex(Pointer(ModuleInst), Idx) then Exit('');
+  if not MemoryMapCore.GetRegionIndex(Pointer(ModuleInst), Idx) then
+  begin
+    Dec(Idx);
+    if Idx < 0 then
+      Exit('');
+  end;
   RegionData := MemoryMapCore.GetRegionAtUnfilteredIndex(Idx);
   if RegionData.Details <> '' then
     Result := ' - ' + ExtractFileName(RegionData.Details)
@@ -1646,13 +1687,22 @@ begin
       pCurrent := PUInt64(pMapView);
       for I := 0 to FWndList.Count - 1 do
       begin
-        // для оконной процедуры
+
+        // for the window procedure
+        // [ru] для оконной процедуры
+
         pCurrent^ := FWndList[I];
         Inc(pCurrent);
-        // для диалоговой процедуры
+
+        // for the dialog procedure
+        // [ru] для диалоговой процедуры
+
         pCurrent^ := FWndList[I];
         Inc(pCurrent);
-        // для инстанса модуля
+
+        // for the module instance
+        // [ru] для инстанса модуля
+
         pCurrent^ := FWndList[I];
         Inc(pCurrent);
       end;

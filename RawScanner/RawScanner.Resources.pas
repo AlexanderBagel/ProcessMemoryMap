@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Resources.pas
-//  * Purpose   : Классы для работы с секцией ресурсов
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Classes for working with the resource section.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.29
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -770,7 +786,7 @@ begin
     Stream.Position := FSection.AddressRaw + (AEntry.Name and not IMAGE_RESOURCE_NAME_IS_STRING);
     Stream.ReadBuffer(EntryNameLength, SizeOf(Word));
     SetLength(EntryName, EntryNameLength);
-    Stream.ReadBuffer(EntryName[1], EntryNameLength * SizeOf(Char));
+    Stream.ReadBuffer(EntryName[1], EntryNameLength * SizeOf(WideChar));
     EntryId := 0;
   end
   else

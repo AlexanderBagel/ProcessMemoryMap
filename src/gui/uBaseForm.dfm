@@ -14,6 +14,9 @@ object BaseAppForm: TBaseAppForm
   Font.Height = -17
   Font.Name = 'Segoe UI'
   Font.Style = []
+  KeyPreview = True
+  Position = poMainFormCenter
+  OnKeyPress = FormKeyPress
   PixelsPerInch = 144
   TextHeight = 23
 end

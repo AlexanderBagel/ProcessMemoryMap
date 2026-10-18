@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uStringsViewer.pas
-//  * Purpose   : Диалог для отображения списка строк в удаленном процессе
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Dialog for displaying a list of strings in a remote process
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -68,6 +84,7 @@ type
     SearchString: string;
     SearchPosition: Integer;
     List: TList<TInt64IntRec>;
+    FLockClose: Boolean;
     procedure ReloadWithStrings;
     procedure InitStrings;
     function Search(const Value: string): Boolean;
@@ -107,8 +124,13 @@ end;
 procedure TdlgStringsViewer.FormClose(Sender: TObject;
   var Action: TCloseAction);
 begin
-  Action := caFree;
-  dlgStringsViewer := nil;
+  if FLockClose then
+    Action := caNone
+  else
+  begin
+    Action := caFree;
+    dlgStringsViewer := nil;
+  end;
 end;
 
 procedure TdlgStringsViewer.FormCreate(Sender: TObject);
@@ -171,7 +193,14 @@ end;
 procedure TdlgStringsViewer.FormShow(Sender: TObject);
 begin
   if not Settings.LoadStrings then
-    ReloadWithStrings;
+  begin
+    FLockClose := True;
+    try
+      ReloadWithStrings;
+    finally
+      FLockClose := False;
+    end;
+  end;
   InitStrings;
 end;
 

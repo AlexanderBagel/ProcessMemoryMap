@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Utils.pas
-//  * Purpose   : Набор утилитарных методов общих для модулей RawScanner.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : A set of utility methods common to the RawScanner modules.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -50,6 +66,7 @@ var
     var lpBuffer: TMemoryBasicInformation64; dwLength: NativeUInt): DWORD;
   function GetMappedModule(ProcessHandle: THandle; AddrVa: ULONG_PTR64): string;
   function UnDecorateSymbolName(const Value: string): string;
+  function UnDecorateSymbolName2(const Value: string): string;
 
 type
   TBinaryImageType = (bitUnknown, bitPe, bitElf, bitCoff, bitRes);
@@ -65,7 +82,10 @@ type
     ReturnLength: PULONG64): NTSTATUS; stdcall;
 
 var
-  // 64 битная NtQueryVirtualMemory инициализируется из RawScanner.Core
+
+  // The 64-bit NtQueryVirtualMemory is initialized from RawScanner.Core
+  // [ru] 64-битная NtQueryVirtualMemory инициализируется из RawScanner.Core
+
   NtQueryVirtualMemory64: TNtQueryVirtualMemory64;
 
 procedure InitNtQueryVirtualMemory64(Value: Pointer);
@@ -130,20 +150,34 @@ function InternalNtQueryVirtualMemory64(hProcess: THandle;
 var
   AlignedBuff: Pointer;
 begin
-  // Буфер для данных (MemoryInformation) должен быть выровнен
+
+  // The data buffer (MemoryInformation) must be aligned
+  // to an 8-byte boundary, otherwise, an error will be returned
+  // STATUS_DATATYPE_MISALIGNMENT
+
+  // [ru] Буфер для данных (MemoryInformation) должен быть выровнен
   // по 8-байтной границе, в противном случае вернется ошибка
   // STATUS_DATATYPE_MISALIGNMENT
+
   AlignedBuff := VirtualAlloc(nil,
     MemoryInformationLength, MEM_COMMIT, PAGE_READWRITE);
   try
     Result := NtQueryVirtualMemory64(hProcess, BaseAddress,
       MemoryInformationClass, AlignedBuff, MemoryInformationLength,
       ReturnLength);
-    // анализировать результат тут не нужно, т.к. например вызов
-    // MemoryWorkingSetList вернет STATUS_INFO_LENGTH_MISMATCH не заполнив
+
+    // There is no need to analyze the result here, since, for example, a call to
+    // MemoryWorkingSetList will return STATUS_INFO_LENGTH_MISMATCH without filling
+    // the uReturnLength field, but the data on the required size will be placed
+    // into the passed AlignedBuff buffer, and it must be returned to the calling code
+    // as-is. The calling code will handle the analysis of the result itself
+
+    // [ru] Анализировать результат тут не нужно, т.к., например, вызов
+    // MemoryWorkingSetList вернет STATUS_INFO_LENGTH_MISMATCH, не заполнив
     // поле uReturnLength, но данные о необходимом размере будут помещены
-    // в переданый буфер AlignedBuff, и их нужно вернуть вызывающему коду
+    // в переданный буфер AlignedBuff, и их нужно вернуть вызывающему коду
     // как есть. Анализ результата уже будет обрабатывать он сам
+
     Move(AlignedBuff^, MemoryInformation^, MemoryInformationLength);
   finally
     VirtualFree(AlignedBuff, MemoryInformationLength, MEM_RELEASE);
@@ -177,15 +211,21 @@ var
 begin
   {$IFDEF WIN32}
 
-  // если мы в чистой 32 битной ОС то просто производим 32 битный вызов
-  // с перекидыванием результата в массив с 64 битными адресами
+  // If we're running on a pure 32-bit OS, we simply make a 32-bit call
+  // and store the result in an array with 64-bit addresses
+
+  // [ru] Если мы в чистой 32-битной ОС, то просто производим 32-битный вызов
+  // с перекидыванием результата в массив с 64-битными адресами
+
   if not Wow64Support.Use64AddrMode then
   begin
     Result := QueryWorkingSet32(hProcess, pv, cb);
     Exit;
   end;
 
-  // в противном случае нам нужен полный WorkSet с 64 битными страницами
+  // Otherwise, we need a full WorkSet with 64-bit pages
+  // [ru] В противном случае нам нужен полный WorkSet с 64-битными страницами
+
   if Assigned(NtQueryVirtualMemory64) then
   begin
     Status := InternalNtQueryVirtualMemory64(
@@ -222,28 +262,48 @@ var
 begin
 {$IFDEF WIN32}
 
-  // из диапазона пользовательских адресов путь к отмапленому файлу можно
-  // получить вызовом штатной АПИ
+  // From the range of user addresses, the path to the mapped file can be
+  // obtained by calling the standard API
+
+  // [ru] Из диапазона пользовательских адресов путь к отмапленному файлу можно
+  // получить вызовом штатной API
+
   if lpv < MM_HIGHEST_USER_ADDRESS then
   begin
     Result := GetMappedFileName(hProcess, Pointer(lpv), lpFilename, nSize);
     Exit;
   end;
 
-  // но по старшим адресам это можно сделать
-  // только вызовом 64-битной NtQueryVirtualMemory проэмулировав реализацию
+  // But for higher-order addresses, this can be done
+  // only by calling the 64-bit NtQueryVirtualMemory and emulating the implementation
+  // of GetMappedFileName
+
+  // [ru] Но по старшим адресам это можно сделать
+  // только вызовом 64-битной NtQueryVirtualMemory, проэмулировав реализацию
   // GetMappedFileName
+
   Result := 0;
   if Assigned(NtQueryVirtualMemory64) then
   begin
-    // чтобы не захламлять стек под локальную структуру TMappedFileName
+
+    // To avoid cluttering the stack with the local TMappedFileName structure,
+    // we'll allocate memory for it right away
+
+    // [ru] Чтобы не захламлять стек под локальную структуру TMappedFileName,
     // сразу выделим под неё память
+
     MappedFileName := VirtualAlloc(nil,
       SizeOf(TMappedFileName), MEM_COMMIT, PAGE_READWRITE);
     try
-      // после чего промежуточный вызов InternalNtQueryVirtualMemory64
+
+      // After that, the intermediate call to InternalNtQueryVirtualMemory64
+      // will no longer be needed, since the buffer for the return result
+      // will already be aligned to an 8-byte boundary
+
+      // [ru] После чего промежуточный вызов InternalNtQueryVirtualMemory64
       // будет не нужен, т.к. буфер для возвращаемого результата
-      // уже будет выравнен по 8-байтной границе
+      // уже будет выровнен по 8-байтной границе
+
       Status := NtQueryVirtualMemory64(hProcess, lpv,
         MemoryMappedFilenameInformation, MappedFileName,
         SizeOf(TMappedFileName), @ReturnLength);
@@ -293,7 +353,13 @@ begin
   begin
     Result := VirtualQueryEx(hProcess, Pointer(lpAddress),
       MBI, SizeOf(TMemoryBasicInformation));
-    // если вызов успешен, перекидываем данные из 32 битной структуры в 64
+
+    // If the call is successful, we transfer the data from the 32-bit structure
+    // to the 64-bit structure
+
+    // [ru] Если вызов успешен, перекидываем данные из 32-битной структуры
+    // в 64-битную
+
     if Result = SizeOf(TMemoryBasicInformation) then
     begin
       Result := SizeOf(TMemoryBasicInformation64);
@@ -343,11 +409,27 @@ var
   Index, Index2: Integer;
   TmpDecName, UnDecName: AnsiString;
 begin
-  // аналог функции SymUnDNameInternal используемой символами
+
+  // an equivalent of the SymUnDNameInternal function used by symbols
+  // [ru] аналог функции SymUnDNameInternal, используемой символами
+
   Result := Value;
   if Result = EmptyStr then Exit;
   if (Result[1] = '?') or Result.StartsWith('.?') or Result.StartsWith('..?') then
   begin
+    if Result.StartsWith('??_C@') then
+    begin
+      Result := 'string';
+      Index := PosEx('@', Value, 6);
+      Index2 := PosEx('@', Value, Index + 1);
+      if Index2 > 6 then
+      begin
+        if Index2 = Length(Value) then
+          Index2 := Index;
+        Result := Format('string: "%s"', [Copy(Value, Index2 + 1, Length(Value) - Index2 - 1)]);
+      end;
+      Exit;
+    end;
     Index := Pos('?', Value);
     TmpDecName := AnsiString(PChar(@Value[Index]));
     SetLength(UnDecName, BuffLen);
@@ -365,6 +447,42 @@ begin
     Index := Index2 + 1;
   if Index > 1 then
     Result := Copy(Value, Index, Length(Value));
+end;
+
+function UnDecorateSymbolName2(const Value: string): string;
+const
+  BuffLen = 4096;
+var
+  Index, Index2: Integer;
+  TmpDecName, UnDecName: AnsiString;
+begin
+
+  // A separate option for removing name decoration
+  // for the debug information stored in PDB files
+
+  // [ru] Отдельный вариант снятия декорации для отладочной информации,
+  // находящейся в PDB файлах
+
+  Result := Value;
+  if Result = EmptyStr then Exit;
+  if Result.StartsWith('??_C@') then
+  begin
+    Result := 'string';
+    Index := PosEx('@', Value, 6);
+    Index2 := PosEx('@', Value, Index + 1);
+    if Index2 > 6 then
+    begin
+      if Index2 = Length(Value) then
+        Index2 := Index;
+      Result := Format('string: "%s"', [Copy(Value, Index2 + 1, Length(Value) - Index2 - 1)]);
+    end;
+    Exit;
+  end;
+  TmpDecName := AnsiString(PChar(@Value[1]));
+  SetLength(UnDecName, BuffLen);
+  SetLength(UnDecName, ImageHlp.UnDecorateSymbolName(@TmpDecName[1],
+    @UnDecName[1], BuffLen, UNDNAME_NAME_ONLY));
+  Result := string(UnDecName);
 end;
 
 function GetBinaryImageType(AStream: TStream): TBinaryImageType;

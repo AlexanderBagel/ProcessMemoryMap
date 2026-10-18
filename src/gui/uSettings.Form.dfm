@@ -7,7 +7,7 @@ object dlgSettings: TdlgSettings
   Margins.Bottom = 5
   BorderStyle = bsDialog
   Caption = 'Process Memory Map - Settings'
-  ClientHeight = 548
+  ClientHeight = 578
   ClientWidth = 668
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -21,7 +21,7 @@ object dlgSettings: TdlgSettings
   TextHeight = 21
   object Button1: TButton
     Left = 543
-    Top = 500
+    Top = 524
     Width = 113
     Height = 37
     Margins.Left = 5
@@ -35,7 +35,7 @@ object dlgSettings: TdlgSettings
   end
   object btnOk: TButton
     Left = 422
-    Top = 500
+    Top = 524
     Width = 112
     Height = 37
     Margins.Left = 5
@@ -48,7 +48,7 @@ object dlgSettings: TdlgSettings
   end
   object btnReset: TButton
     Left = 12
-    Top = 498
+    Top = 522
     Width = 113
     Height = 38
     Margins.Left = 5
@@ -60,10 +60,10 @@ object dlgSettings: TdlgSettings
     OnClick = btnResetClick
   end
   object tvNavigate: TTreeView
-    Left = 12
-    Top = 12
+    Left = 11
+    Top = 10
     Width = 182
-    Height = 477
+    Height = 502
     Margins.Left = 5
     Margins.Top = 5
     Margins.Right = 5
@@ -77,20 +77,21 @@ object dlgSettings: TdlgSettings
     TabOrder = 3
     OnClick = tvNavigateClick
     Items.NodeData = {
-      070400000009540054007200650065004E006F00640065002D00000000000000
+      070500000009540054007200650065004E006F00640065002D00000000000000
       00000000FFFFFFFFFFFFFFFF000000000000000000000000000107470065006E
       006500720061006C000000330000000000000000000000FFFFFFFFFFFFFFFF00
       000000000000000000000000010A44006500620075006700200049006E006600
       6F000000350000000000000000000000FFFFFFFFFFFFFFFF0000000000000000
       0000000000010B52006100770020005300630061006E006E006500720000002B
       0000000000000000000000FFFFFFFFFFFFFFFF00000000000000000000000000
-      010643006F006C006F0072007300}
+      010643006F006C006F00720073000000290000000000000000000000FFFFFFFF
+      FFFFFFFF000000000000000000000000000105500072006F0078007900}
   end
   object pcSettings: TPageControl
     Left = 203
     Top = 12
     Width = 459
-    Height = 479
+    Height = 502
     Margins.Left = 5
     Margins.Top = 5
     Margins.Right = 5
@@ -275,6 +276,18 @@ object dlgSettings: TdlgSettings
         TabOrder = 10
         Value = 50
       end
+      object cbCheckUpdates: TCheckBox
+        Left = 5
+        Top = 404
+        Width = 272
+        Height = 26
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Caption = 'Check for updates on startup'
+        TabOrder = 11
+      end
     end
     object TabSheet2: TTabSheet
       Margins.Left = 5
@@ -283,18 +296,7 @@ object dlgSettings: TdlgSettings
       Margins.Bottom = 5
       Caption = 'TabSheet2'
       ImageIndex = 1
-      object Label10: TLabel
-        Left = 5
-        Top = 195
-        Width = 163
-        Height = 21
-        Margins.Left = 5
-        Margins.Top = 5
-        Margins.Right = 5
-        Margins.Bottom = 5
-        Caption = 'String minimal length:'
-      end
-      object Label12: TLabel
+      object lblSearchDistance: TLabel
         Left = 5
         Top = 44
         Width = 157
@@ -305,7 +307,7 @@ object dlgSettings: TdlgSettings
         Margins.Bottom = 5
         Caption = 'Line search distance:'
       end
-      object Label13: TLabel
+      object lblSearchDirection: TLabel
         Left = 5
         Top = 86
         Width = 159
@@ -316,10 +318,21 @@ object dlgSettings: TdlgSettings
         Margins.Bottom = 5
         Caption = 'Line search direction:'
       end
+      object Label16: TLabel
+        Left = 5
+        Top = 263
+        Width = 150
+        Height = 21
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Caption = 'SymSrv parameters:'
+      end
       object cbLoadLineSymbols: TCheckBox
         Left = 5
         Top = 5
-        Width = 417
+        Width = 428
         Height = 25
         Margins.Left = 5
         Margins.Top = 5
@@ -327,6 +340,7 @@ object dlgSettings: TdlgSettings
         Margins.Bottom = 5
         Caption = 'Load Line Information from MAP/DWARF (if present)'
         TabOrder = 0
+        OnClick = cbUsePDBSymbolsClick
       end
       object cbDemangleNames: TCheckBox
         Left = 5
@@ -342,35 +356,9 @@ object dlgSettings: TdlgSettings
         State = cbChecked
         TabOrder = 1
       end
-      object cbLoadStrings: TCheckBox
-        Left = 5
-        Top = 156
-        Width = 285
-        Height = 26
-        Margins.Left = 5
-        Margins.Top = 5
-        Margins.Right = 5
-        Margins.Bottom = 5
-        Caption = 'Load Strings from PE Images'
-        TabOrder = 2
-      end
-      object seStringLength: TSpinEdit
-        Left = 165
-        Top = 191
-        Width = 90
-        Height = 29
-        Margins.Left = 5
-        Margins.Top = 5
-        Margins.Right = 5
-        Margins.Bottom = 5
-        MaxValue = 255
-        MinValue = 1
-        TabOrder = 3
-        Value = 4
-      end
       object cbShowAligns: TCheckBox
         Left = 5
-        Top = 233
+        Top = 157
         Width = 261
         Height = 25
         Margins.Left = 5
@@ -378,38 +366,75 @@ object dlgSettings: TdlgSettings
         Margins.Right = 5
         Margins.Bottom = 5
         Caption = 'Show Aligns in Disassembler'
-        TabOrder = 4
+        TabOrder = 2
       end
       object seLineLimit: TSpinEdit
         Left = 165
         Top = 39
         Width = 90
-        Height = 29
+        Height = 32
         Margins.Left = 5
         Margins.Top = 5
         Margins.Right = 5
         Margins.Bottom = 5
         MaxValue = 1024
         MinValue = 1
-        TabOrder = 5
+        TabOrder = 3
         Value = 42
       end
       object cbLineDirection: TComboBox
         Left = 165
         Top = 81
         Width = 218
-        Height = 21
+        Height = 29
         Margins.Left = 5
         Margins.Top = 5
         Margins.Right = 5
         Margins.Bottom = 5
         Style = csDropDownList
         ItemIndex = 0
-        TabOrder = 6
+        TabOrder = 4
         Text = 'Down (return address)'
         Items.Strings = (
           'Down (return address)'
           'Up (call address)')
+      end
+      object memSymSrv: TMemo
+        Left = 5
+        Top = 294
+        Width = 428
+        Height = 85
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        ScrollBars = ssVertical
+        TabOrder = 5
+      end
+      object cbUsePDBSymbols: TCheckBox
+        Left = 5
+        Top = 192
+        Width = 428
+        Height = 25
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Caption = 'Load PDB debug information (if present)'
+        TabOrder = 6
+        OnClick = cbUsePDBSymbolsClick
+      end
+      object cbDownloadSym: TCheckBox
+        Left = 5
+        Top = 227
+        Width = 428
+        Height = 26
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Caption = 'Download PDB from Sym Server'
+        TabOrder = 7
       end
     end
     object TabSheet3: TTabSheet
@@ -430,11 +455,22 @@ object dlgSettings: TdlgSettings
         Margins.Bottom = 5
         Caption = 'Scanner update mode:'
       end
+      object Label10: TLabel
+        Left = 5
+        Top = 111
+        Width = 163
+        Height = 21
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Caption = 'String minimal length:'
+      end
       object cbScannerMode: TComboBox
         Left = 177
         Top = 5
         Width = 138
-        Height = 21
+        Height = 29
         Margins.Left = 5
         Margins.Top = 5
         Margins.Right = 5
@@ -464,6 +500,32 @@ object dlgSettings: TdlgSettings
         ParentShowHint = False
         ShowHint = True
         TabOrder = 1
+      end
+      object seStringLength: TSpinEdit
+        Left = 165
+        Top = 107
+        Width = 90
+        Height = 32
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        MaxValue = 255
+        MinValue = 1
+        TabOrder = 2
+        Value = 4
+      end
+      object cbLoadStrings: TCheckBox
+        Left = 5
+        Top = 72
+        Width = 285
+        Height = 26
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Caption = 'Load Strings from PE Images'
+        TabOrder = 3
       end
     end
     object TabSheet4: TTabSheet
@@ -711,6 +773,156 @@ object dlgSettings: TdlgSettings
           TabOrder = 7
           OnClick = pnImage0Click
         end
+      end
+    end
+    object TabSheet5: TTabSheet
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
+      Caption = 'TabSheet5'
+      ImageIndex = 4
+      object lblProxyAuth: TLabel
+        Left = 5
+        Top = 111
+        Width = 151
+        Height = 21
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Caption = 'Authentication type:'
+      end
+      object cbProxy: TComboBox
+        Left = 5
+        Top = 5
+        Width = 321
+        Height = 29
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Style = csDropDownList
+        ItemIndex = 0
+        TabOrder = 0
+        Text = 'No proxy server'
+        OnChange = cbUsePDBSymbolsClick
+        Items.Strings = (
+          'No proxy server'
+          'Use system proxy settings'
+          'Use manual configuration')
+      end
+      object edProxyAddr: TLabeledEdit
+        Left = 5
+        Top = 72
+        Width = 321
+        Height = 29
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        EditLabel.Width = 200
+        EditLabel.Height = 21
+        EditLabel.Margins.Left = 5
+        EditLabel.Margins.Top = 5
+        EditLabel.Margins.Right = 5
+        EditLabel.Margins.Bottom = 5
+        EditLabel.Caption = 'Proxy server address or IP:'
+        TabOrder = 1
+        Text = ''
+      end
+      object edProxyPort: TLabeledEdit
+        Left = 336
+        Top = 72
+        Width = 98
+        Height = 29
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        EditLabel.Width = 36
+        EditLabel.Height = 21
+        EditLabel.Margins.Left = 5
+        EditLabel.Margins.Top = 5
+        EditLabel.Margins.Right = 5
+        EditLabel.Margins.Bottom = 5
+        EditLabel.Caption = 'Port:'
+        NumbersOnly = True
+        TabOrder = 2
+        Text = '0'
+      end
+      object cbProxyAuth: TComboBox
+        Left = 5
+        Top = 142
+        Width = 218
+        Height = 29
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Style = csDropDownList
+        ItemIndex = 0
+        TabOrder = 3
+        Text = 'No authentication'
+        OnChange = cbUsePDBSymbolsClick
+        Items.Strings = (
+          'No authentication'
+          'Auto'
+          'Basic'
+          'Negotiate'
+          'NTLM')
+      end
+      object edProxyUser: TLabeledEdit
+        Left = 5
+        Top = 204
+        Width = 230
+        Height = 29
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        EditLabel.Width = 81
+        EditLabel.Height = 21
+        EditLabel.Margins.Left = 5
+        EditLabel.Margins.Top = 5
+        EditLabel.Margins.Right = 5
+        EditLabel.Margins.Bottom = 5
+        EditLabel.Caption = 'Username:'
+        TabOrder = 4
+        Text = ''
+      end
+      object edProxyPassword: TLabeledEdit
+        Left = 245
+        Top = 204
+        Width = 188
+        Height = 29
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        EditLabel.Width = 77
+        EditLabel.Height = 21
+        EditLabel.Margins.Left = 5
+        EditLabel.Margins.Top = 5
+        EditLabel.Margins.Right = 5
+        EditLabel.Margins.Bottom = 5
+        EditLabel.Caption = 'Password:'
+        PasswordChar = '*'
+        TabOrder = 5
+        Text = ''
+      end
+      object btnTestProxy: TButton
+        Left = 276
+        Top = 243
+        Width = 157
+        Height = 38
+        Margins.Left = 5
+        Margins.Top = 5
+        Margins.Right = 5
+        Margins.Bottom = 5
+        Caption = 'Test Connection'
+        TabOrder = 6
+        OnClick = btnTestProxyClick
       end
     end
   end

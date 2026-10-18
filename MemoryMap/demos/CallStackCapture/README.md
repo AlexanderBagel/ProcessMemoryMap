@@ -1,8 +1,10 @@
+**English** | [Русский](README.RU.md)
+
 Call Stack Capture
 ===================
 
-Демонстрация работы с классами TSymbols и TDebugMap на примере снятия стека вызовов текущего приложения.
+A demonstration of working with the TSymbols and TDebugMap classes, using the capture of the current application's call stack as an example.
 
-### Примерный результат работы:
+### Example output:
 
 ![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/MemoryMap/demos/CallStackCapture/img/callstackcapture.png?raw=true)

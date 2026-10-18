@@ -1,22 +1,24 @@
+**English** | [Русский](README.RU.md)
+
 Show Delphi/Lazarus Unit Init Order
 ================
 
-Демонстрация работы с классами TDebugMap, TRawPEImage, TRawScannerSymbolStorage и TDisassembler.
-Демо-пример реализует вывод списка используемых модулей в порядке их инициализации, включая вызовы классовых конструкторов/деструкторов.
+A demonstration of working with the TDebugMap, TRawPEImage, TRawScannerSymbolStorage and TDisassembler classes.
+The demo outputs the list of used units in the order of their initialization, including calls to class constructors/destructors.
 
-### Внешний вид:
+### Appearance:
 
-![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/CommonDemo/ShowInitOrder/img/1.png?raw=true "Внешний вид")
+![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/CommonDemo/ShowInitOrder/img/1.png?raw=true "Appearance")
 
-### Принцип работы
+### How it works
 
-В отладочной информации Delphi, конкретно в МАР файле отсутствует информация об адресе таблицы инициализации модулей, поэтому реализована функция LoadDelphiUnitInitOrder,
-в которой дизассемблируется точка входа в приложение и производится поиск вызова функции "@InitExe" или "SysInit.@InitExe".
-Данной функции на вход передается адрес заголовка таблицы инициализации, получив который производится парсинг таблицы.
+Delphi debug information, specifically the MAP file, does not contain the address of the unit initialization table, so the LoadDelphiUnitInitOrder function is implemented.
+It disassembles the application entry point and searches for a call to the "@InitExe" or "SysInit.@InitExe" function.
+That function receives the address of the initialization table header as its input; once it is obtained, the table is parsed.
 
-В версии для Lazarus (функция LoadLazarusUnitInitOrder), адрес таблицы инициализации изначально присутствует в отладочных COFF символах под именем "INITFINAL".
-Но, в отличии от Delphi, данная таблица инициализации не содержит вызовов классовых конструкторов/деструкторов. 
-Они распологаются в функции инициализации того модуля, где обьявлен класс. Поэтому для определения вызовов классов конструкторов приозводится дизассемблирование
-каждой процедуры инициализации/финализации с целью поиска таких вызовов.
-Пока что разбор происходит только на основании COFF информации и в результат могут ошибочно попадать вызовы обычных конструкторов/деструкторов классов.
-Как только будет подключен полный пакет DWARF информации, ошибочные вызовы должны быть исключены.
+In the Lazarus version (the LoadLazarusUnitInitOrder function), the address of the initialization table is available from the start in the COFF debug symbols under the name "INITFINAL".
+However, unlike Delphi, this initialization table does not contain calls to class constructors/destructors.
+They are located in the initialization function of the unit where the class is declared. Therefore, to detect class constructor calls, each
+initialization/finalization procedure is disassembled in order to search for such calls.
+For now, the analysis is based only on COFF information, and calls to ordinary class constructors/destructors may end up in the result by mistake.
+Once the full DWARF information package is connected, such erroneous calls should be excluded.

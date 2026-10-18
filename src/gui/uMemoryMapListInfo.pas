@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uMemoryMapListInfo.pas
-//  * Purpose   : Сканирование памяти процесса на основе адресов и контрольных сумм
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Process memory scanning based on addresses and checksums
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.47
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -135,7 +151,9 @@ begin
   FuncDataList := TDictionary<ULONG_PTR, string>.Create;
   try
 
-    // создаем список адресов по 4096 байт куда входит хотябы одна функция
+    // create a list of addresses, each 4096 bytes long, that contain at least one function.
+    // [ru] создаем список адресов по 4096 байт куда входит хотябы одна функция
+
     for var I := 0 to DebugMap.Items.Count - 1 do
     begin
       with DebugMap.Items.List[I] do
@@ -166,7 +184,9 @@ begin
             while Enumerator.MoveNext do
             begin
 
-              // рассчитываем контрольную сумму каждого блока
+              // calculate the checksum for each block
+              // [ru] рассчитываем контрольную сумму каждого блока
+
               Size := 4096;
               SetLength(RawBuff, Size);
               if not ReadProcessData(Process, Pointer(Enumerator.Current), @RawBuff[0],
@@ -176,8 +196,12 @@ begin
 
               CRC := CRC32(RawBuff);
 
-              // помещаем в MML описание блока, какие функции в него входят
-              // адрес и контрольную сумму блока
+              // Add a description of the block to the MML,
+              // specifying which functions it contains, the block's address and checksum
+
+              // [ru] помещаем в MML описание блока,
+              // какие функции в него входят, адрес и контрольную сумму блока
+
               FuncDataList.TryGetValue(Enumerator.Current, RegionData);
               MML.Add(RegionData);
               MML.Add('addr: ' + IntToHex(Enumerator.Current, AddrSize) +
@@ -217,7 +241,9 @@ begin
     FuncDataList.Free;
   end;
 
-  // если файл сгенерировался успешно то открываем его с настройками по умолчанию
+  // if the file was generated successfully, open it using the default settings.
+  // [ru] если файл сгенерировался успешно то открываем его с настройками по умолчанию
+
   if FileExists(MMLPath) then
   begin
     ScanSettings.MMLFile := MMLPath;

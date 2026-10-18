@@ -2,8 +2,8 @@
 //
 //  ****************************************************************************
 //  * Unit Name : UnitInitOrderTracer
-//  * Purpose   : Реализация вывода списка используемых модулей в порядке инициализации
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Implementation of listing the loaded modules in initialization order
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Version   : 1.01
 //  ****************************************************************************
 //
@@ -18,10 +18,16 @@ uses
   Generics.Collections;
 
 type
-  // типы списка
+  // list types
+  // [ru] типы списка
+
   TOrderListType = (
-    oltDelphi,                 // старые варианты Delphi
-    oltDelphiWithNamespaces,   // новые версии дельфи (нэймспейсы, класс конструкторы)
+    oltDelphi,                 // old Delphi versions
+                               // [ru] старые варианты Delphi
+
+    oltDelphiWithNamespaces,   // new Delphi versions (namespaces, class constructors)
+                               // [ru] новые версии дельфи (нэймспейсы, класс конструкторы)
+
     oltLazarus                 // Lazarus + FPC
     );
 
@@ -29,9 +35,16 @@ type
     UnitName: string;
     InitializarionVA,
     FinalizationVA: UInt64;
-    FpcClass: Boolean;         // флаг что запись получена в результате
-                               // дизассемблирования обработчика инициализации
-                               // или финализации FPC модуля
+
+    // flag that the record was obtained as a result
+    // of disassembling the initialization
+    // or finalization handler of an FPC unit
+
+    // [ru] флаг, что запись получена в результате
+    // дизассемблирования обработчика инициализации
+    // или финализации FPC-модуля
+
+    FpcClass: Boolean;
   end;
 
   TUnitInitOrderList = TList<TUnitData>;
@@ -101,8 +114,13 @@ var
       UnitData: TUnitData;
     begin
       UnitData.UnitName := GetDescriptionAtAddrVA(Inst.JmpAddrVa, False);
-      // добавляем только вызовы классовых конструкторов/деструкторов
+
+      // we add only calls of class constructors/destructors
+      // their names always contain a dot!
+
+      // [ru] добавляем только вызовы классовых конструкторов/деструкторов
       // у них в имени обязательно будет точка!
+
       if Pos('.', UnitData.UnitName) = 0 then Exit;
       UnitData.FpcClass := True;
       if Init then
@@ -122,18 +140,28 @@ var
     if AddrVA = 0 then Exit;    
     DisAsm := TDisassembler.Create(0, AddrVA, 4096, APEImage.Image64);
     try
-      // становимся на RAW адрес функции инициализации/финализации
+
+      // we move to the RAW address of the initialization/finalization function
+      // [ru] становимся на RAW адрес функции инициализации/финализации
+
       Inc(ABuff, APEImage.VaToRaw(AddrVA));
-      // дизассемблируем
+
+      // we disassemble
+      // [ru] дизассемблируем
+
       Inst := DisAsm.DecodeBuff(ABuff, dmUntilRet, True);
     finally
       DisAsm.Free;
     end;
 
-    // и ищем все первичные CALL-ы в которых буду вызовы классовых конструкторов
+    // and we look for all primary CALLs in which there will be class constructor calls
+    // [ru] и ищем все первичные CALL-ы, в которых будут вызовы классовых конструкторов
+
     FirstCallFound := False;
 
-    // в функциях инициализации вызовы классовых конструкторов идут самыми первыми
+    // in initialization functions the class constructor calls come very first
+    // [ru] в функциях инициализации вызовы классовых конструкторов идут самыми первыми
+
     if Init then
     begin
       for I := 0 to Length(Inst) - 1 do
@@ -151,7 +179,9 @@ var
       end;
     end;
 
-    // а в финализации самыми последними
+    // and in finalization they come very last
+    // [ru] а в финализации самыми последними
+
     for I := Length(Inst) - 1 downto 0 do
     begin
       case Inst[I].InstType of
@@ -170,8 +200,11 @@ var
 
 var
   I, Index: Integer;
-  InitTableHeaderVA,    // адрес заголовка таблицы инициализации
-  InitTableLen: UInt64; // количество записей инициализации
+  InitTableHeaderVA,    // address of the initialization table header
+                        // [ru] адрес заголовка таблицы инициализации
+
+  InitTableLen: UInt64; // number of initialization records
+                        // [ru] количество записей инициализации
   M: TMemoryStream;
   UnitData: TUnitData;
 begin
@@ -179,7 +212,9 @@ begin
   if Index < 0 then
     raise Exception.Create('INITFINAL not found.');
 
-  // обязательная подготовка таблицы символов
+  // mandatory preparation of the symbol table
+  // [ru] обязательная подготовка таблицы символов
+
   SymbolStorage.PrepareForWork;
 
   M := TMemoryStream.Create;
@@ -187,25 +222,40 @@ begin
     M.LoadFromFile(APEImage.ImagePath);
     P := M.Memory;
 
-    // COFF сразу знает об адресе таблицы инициализации,
+    // COFF immediately knows the address of the initialization table,
+    // so we can move to it without unnecessary effort
+
+    // [ru] COFF сразу знает об адресе таблицы инициализации,
     // поэтому можем встать на неё без лишних телодвижений
+
     InitTableHeaderVA := APEImage.CoffDebugInfo.CoffStrings[Index].FuncAddrVA;
     Inc(P, APEImage.VaToRaw(InitTableHeaderVA));
 
-    // в заголовке просто два счетчика
+    // the header simply contains two counters
+    // with the number of record pairs
+
+    // [ru] в заголовке просто два счетчика
     // с количеством пар записей
+
     InitTableLen := ReadChunk;
-    // и количеством обработанных, в образе инициализировано нулем, поэтому пропускаем
+
+    // and the number of processed ones, initialized with zero in the image, so we skip it
+    // [ru] и количеством обработанных, в образе инициализировано нулем, поэтому пропускаем
+
     ReadChunk;
 
-    // ну и осталось только загрузить сами записи
+    // and now all that is left is to load the records themselves
+    // [ru] ну и осталось только загрузить сами записи
+
     for I := 0 to InitTableLen - 1 do
     begin
       UnitData.FpcClass := False;
       UnitData.InitializarionVA := ReadChunk;
       UnitData.FinalizationVA := ReadChunk;
 
-      // в таблице спокойно могут быть пустые записи, такие просто пропускаем
+      // the table may well contain empty records, we just skip them
+      // [ru] в таблице спокойно могут быть пустые записи, такие просто пропускаем
+
       if (UnitData.InitializarionVA = 0) and (UnitData.FinalizationVA = 0) then
         Continue;
 
@@ -233,19 +283,33 @@ begin
   Result := 0;
   DisAsm := TDisassembler.Create(0, APEImage.EntryPoint, 4096, APEImage.Image64);
   try
-    // становимся на RAW адрес точки входа
+
+    // we move to the RAW address of the entry point
+    // [ru] становимся на RAW адрес точки входа
+
     P := ABuff;
     Inc(P, APEImage.VaToRaw(APEImage.EntryPoint));
-    // дизассемблируем точку входа
+
+    // we disassemble the entry point
+    // [ru] дизассемблируем точку входа
+
     Inst := DisAsm.DecodeBuff(P, dmUntilRet, True);
-    // и ищем CALL по адресу определенного ранее InitExe
+
+    // and we look for a CALL to the address of InitExe determined earlier
+    // [ru] и ищем CALL по адресу определенного ранее InitExe
+
     for I := 0 to Length(Inst) - 1 do
       if (Inst[I].InstType = itCall) and
         ( (Inst[I].JmpAddrVa = InitAddrVA) or    // call xxx
           (Inst[I].RipAddrVA = InitAddrVA)) then // call [rip+xxx]
       begin
-        // если нашли - то предыдущая инструкция будет
+
+        // if we found it - then the previous instruction will
+        // contain the address of the initialization table header
+
+        // [ru] если нашли - то предыдущая инструкция будет
         // содержать адрес заголовка таблицы инициализации
+
         Result := Inst[I - 1].RipAddrVA;
         if Result = 0 then
           Result := Inst[I - 1].JmpAddrVa;
@@ -277,33 +341,52 @@ var
 
 var
   DebugMap: TDebugMap;
-  InitExeVA,            // адрес функции инициализации приложения
-  InitTableHeaderVA,    // адрес заголовка таблицы инициализации
-  InitTableVA,          // адрес таблицы цинициализации
-  InitTableLen: UInt64; // размер таблицы
+  InitExeVA,            // address of the application initialization function
+                        // [ru] адрес функции инициализации приложения
+
+  InitTableHeaderVA,    // address of the initialization table header
+                        // [ru] адрес заголовка таблицы инициализации
+
+  InitTableVA,          // address of the initialization table
+                        // [ru] адрес таблицы инициализации
+
+  InitTableLen: UInt64; // table size
+                        // [ru] размер таблицы
   M: TMemoryStream;
   I: Integer;
   UnitData: TUnitData;
 begin
   DebugMap := TDebugMap.Create;
   try
-    // загружаем отладочкую и ищем адрес InitExe
+
+    // we load the debug information and look for the address of InitExe,
+    // which is responsible for module initialization
+
+    // [ru] загружаем отладочную и ищем адрес InitExe,
     // который отвечает за инициализацию модулей
+
     DebugMap.Init(APEImage.ImageBase, APEImage.ImagePath);
 
-    // ищем старый вариант названия функции
+    // we look for the old variant of the function name
+    // [ru] ищем старый вариант названия функции
+
     Result := oltDelphi;
     InitExeVA := DebugMap.GetAddrFromDescription('@InitExe');
     if InitExeVA = 0 then
     begin
-      // а если у нас новые Delphi, тогда по новому названию
+
+      // and if we have new Delphi versions, then by the new name
+      // [ru] а если у нас новые Delphi, тогда по новому названию
+
       Result := oltDelphiWithNamespaces;
       InitExeVA := DebugMap.GetAddrFromDescription('SysInit.@InitExe');
     end;
     if InitExeVA = 0 then
       raise Exception.Create('@InitExe not found.');
 
-    // ищем адрес таблицы инициализации
+    // we look for the address of the initialization table
+    // [ru] ищем адрес таблицы инициализации
+
     M := TMemoryStream.Create;
     try
       M.LoadFromFile(APEImage.ImagePath);
@@ -311,15 +394,21 @@ begin
       if InitTableHeaderVA = 0 then
         raise Exception.Create('InitTable not found.');
 
-      // читаем заголовок
+      // we read the header
+      // [ru] читаем заголовок
+
       P := M.Memory;
       Inc(P, APEImage.VaToRaw(InitTableHeaderVA));
 
       InitTableLen := ReadChunk;
       InitTableVA := ReadChunk;
 
-      // загружаем таблицу представленную парами VA адресов
+      // we load the table, represented by pairs of VA addresses
+      // initialization address + finalization address
+
+      // [ru] загружаем таблицу, представленную парами VA адресов
       // адрес инициализации + адрес финализации
+
       P := M.Memory;
       Inc(P, APEImage.VaToRaw(InitTableVA));
 
@@ -328,7 +417,9 @@ begin
         UnitData.InitializarionVA := ReadChunk;
         UnitData.FinalizationVA := ReadChunk;
 
-        // в таблице спокойно могут быть пустые записи, такие просто пропускаем
+        // the table may well contain empty records, we just skip them
+        // [ru] в таблице спокойно могут быть пустые записи, такие просто пропускаем
+
         if (UnitData.InitializarionVA = 0) and (UnitData.FinalizationVA = 0) then
           Continue;
 
@@ -354,18 +445,30 @@ var
 begin
   Result := TUnitInitOrderList.Create;
 
-  // загрузка строк из образа не нужна, отключаем
+  // loading strings from the image is not needed, we disable it
+  // [ru] загрузка строк из образа не нужна, отключаем
+
   TRawPEImage.DisableLoadStrings := True;
 
-  // чистим загруженые ранее символы
+  // we clear the symbols loaded earlier
+  // [ru] чистим загруженные ранее символы
+
   SymbolStorage.Clear;
 
-  // грузим сам образ
+  // we load the image itself
+  // [ru] грузим сам образ
+
   PEImage := TRawPEImage.Create(FilePath, iltFull);
   try
-    // если в образе присутствует отладочные COFF символы,
+
+    // if the image contains debug COFF symbols,
+    // then this is most likely Lazarus/FPC, we check for the "INITFINAL" table
+    // and if it exists - then it can be output right away
+
+    // [ru] если в образе присутствуют отладочные COFF-символы,
     // значит это скорее всего Lazarus/FPC, проверяем наличие таблицы "INITFINAL"
     // и если есть - тогда можно её сразу выводить
+
     if ditCoff in PEImage.DebugData then
     begin
       ListType := oltLazarus;
@@ -373,8 +476,12 @@ begin
       Exit;
     end;
 
-    // в противном случае ищем таблицу через дизассемблирование точки входа
+    // otherwise we look for the table by disassembling the entry point
+    // with debug symbols connected
+
+    // [ru] в противном случае ищем таблицу через дизассемблирование точки входа
     // с подключением отладочных символов
+
     ListType := LoadDelphiUnitInitOrder(PEImage, Result);
   finally
     PEImage.Free;

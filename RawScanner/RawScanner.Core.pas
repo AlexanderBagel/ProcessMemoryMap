@@ -1,19 +1,35 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Core.pas
-//  * Purpose   : Класс содержащий общий интерфейс работы с RawScanner
-//  *           : и хранящий информацию об известных для анализа и отображения
-//  *           : адресах
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : A class that provides a general interface for working with
+//  *           : RawScanner and stores information about addresses
+//  *           : known for analysis and display
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.29
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -38,15 +54,17 @@ uses
   RawScanner.Logger,
   {$ENDIF}
   RawScanner.Image.Pe,
+  RawScanner.Pdb,
   RawScanner.SymbolStorage,
+  RawScanner.CoffDwarf,
   RawScanner.Types,
   RawScanner.Utils,
   RawScanner.Wow64,
   RawScanner.X64Gates;
 
 const
-  RawScannerVersionInt = $0102001D;
-  RawScannerVersionStr = '1.2 (revision 29)';
+  RawScannerVersionInt = $0102001E;
+  RawScannerVersionStr = '1.2 (revision 30)';
 
 type
   TPEB64 = record
@@ -86,6 +104,8 @@ type
     FPEB32, FPEB64: TPEB64;
     FModules: TRawModules;
     FAnalizer: TPatchAnalyzer;
+    FDownloadPDB, FUsePDB: Boolean;
+    FPdbStorage: TPdbStorage;
     FProgress: TProgressEvent;
     procedure Clear;
     procedure DoProgress(const Step: string; APecent: Integer);
@@ -99,9 +119,13 @@ type
     procedure InitFromProcess(AProcessID: Cardinal);
     function IsActualState: Boolean;
     function GetDataTypeAtAddr(AdrrVA: ULONG_PTR64): TSymbolDataType;
+    function LoadPdb(Image: TRawPEImage; APdbFile: TPdb): Boolean;
     property Analizer: TPatchAnalyzer read FAnalizer;
+    property DownloadPDB: Boolean read FDownloadPDB write FDownloadPDB;
     property InitializationResult: TInitializationResult read FInitResult;
     property Modules: TRawModules read FModules;
+    property PdbStorage: TPdbStorage read FPdbStorage;
+    property UsePDB: Boolean read FUsePDB write FUsePDB;
     property OnProgress: TProgressEvent read FProgress write FProgress;
   end;
 
@@ -230,7 +254,10 @@ const
     dwReturnLength: Cardinal;
     Peb32: TPEB32;
   begin
-    // Чтение 32 битного PEB из 64 битного кода производится через PebWow64BaseAddress
+
+    // A 32-bit PEB is read from 64-bit code via PebWow64BaseAddress
+    // [ru] Чтение 32-битного PEB из 64-битного кода производится через PebWow64BaseAddress
+
     Result := NtQueryInformationProcess(AProcess,
       ProcessWow64Information, @PebWow64BaseAddress, SizeOf(ULONG_PTR),
       @dwReturnLength) = 0;
@@ -257,7 +284,10 @@ const
     PBI64: PROCESS_BASIC_INFORMATION64;
     dwReturnLength: Cardinal;
   begin
-    // Чтение 64 битного PEB из 32 битного кода производится через Wow64 обертку
+
+    // Reading a 64-bit PEB from 32-bit code is performed through the Wow64 wrapper
+    // [ru] Чтение 64-битного PEB из 32-битного кода производится через Wow64 обертку
+
     Result := Wow64Support.QueryInformationProcess(AProcess,
       ProcessBasicInformation, @PBI64, SizeOf(PBI64), dwReturnLength);
     if not Result then
@@ -281,7 +311,10 @@ const
     dwReturnLength: Cardinal;
     Peb: TPEB;
   begin
-    // чтение PEB, совпадающего битностью с текущей сборкой
+
+    // Reading the PEB that matches the bitness of the current build
+    // [ru] Чтение PEB, совпадающего битностью с текущей сборкой
+
     Result := NtQueryInformationProcess(AProcess,
       ProcessBasicInformation, @PBI, SizeOf(PBI), @dwReturnLength) = 0;
     if not Result then
@@ -347,6 +380,7 @@ begin
   FreeAndNil(FSystemContext);
   {$ENDIF}
   FModules.Clear;
+  FPdbStorage.Clear;
   SymbolStorage.Clear;
 end;
 
@@ -363,15 +397,20 @@ begin
     end;
   end;
   {$ELSE}
-  // чтобы в 64 битах не висел ворнинг - просто вызов заглушки
+
+  // To prevent a warning from appearing in 64-bit mode - just call the dummy function
+  // [ru] Чтобы в 64-битном режиме не висел ворнинг - просто вызов заглушки
+
   InitNtQueryVirtualMemory;
   {$ENDIF}
   FModules := TRawModules.Create;
+  FPdbStorage := TPdbStorage.Create;
 end;
 
 destructor TRawScanner.Destroy;
 begin
   Clear;
+  FPdbStorage.Free;
   FModules.Free;
   {$IFDEF WIN32}
   ReleaseNtQueryVirtualMemory64;
@@ -425,17 +464,33 @@ begin
   Wow64Support.IsWow64Process(FProcess, FIsWow64Mode);
 
   {$IFDEF WIN32}
-  // если мы в 32 битном коде и в 32 битной системе
+
+  // if we are using 32-bit code and a 32-bit system
+  // [ru] если мы в 32-битном коде и в 32-битной системе
+
   if not Wow64Support.Use64AddrMode then
-    // то нам доступен только 32 битный PEB
+  begin
+
+    // then only the 32-bit PEB is available to us
+    // [ru] то нам доступен только 32-битный PEB
+
     GetPEB(FProcess, True, FPEB32)
+  end
   else
   {$ENDIF}
   begin
-    // в противном случае мы в 64 битной OS,
-    // где у любого процесса есть 64 битный PEB
+
+    // Otherwise, we're on a 64-bit OS,
+    // where every process has a 64-bit PEB
+
+    // [ru] В противном случае мы в 64-битной OS,
+    // где у любого процесса есть 64-битный PEB
+
     GetPEB(FProcess, False, FPEB64);
-    // а 32 битный есть только у 32 битных процессов
+
+    // and the 32-bit PEB is available only to 32-bit processes
+    // [ru] а 32-битный PEB есть только у 32-битных процессов
+
     if FIsWow64Mode then
       GetPEB(FProcess, True, FPEB32);
   end;
@@ -483,28 +538,69 @@ end;
 procedure TRawScanner.InitModules(ALoader: TLoaderData);
 const
   ProgressHint = 'Loading image... [0x%x] %s';
+
+  procedure AppModuleAndLoadPDB(Module: TModuleData);
+  var
+    I: Integer;
+    Image: TRawPEImage;
+    Pdb: TPdb;
+  begin
+    I := FModules.AddImage(Module);
+    if not UsePDB then Exit;    
+    Image := FModules.Items[I];
+    if ditPdb in Image.DebugData then
+    begin
+      try
+        Pdb := PdbStorage.QueryPDB(Image.CodeViewInfo.UincalId,
+          Image.CodeViewInfo.Age, Image.CodeViewInfo.PdbFileName);
+        Pdb.BinaryPath := Image.ImagePath;
+
+        if DownloadPDB and not (Pdb.State in [psNoSections, psReady]) then
+        begin
+
+          // If it isn't found in the local cache, we search the symbol servers
+          // [ru] Если в локальном кэше не нашлось, ищем на серверах символов
+
+          if PdbStorage.QueryRemotePDB(Pdb) = psAvailableForLoading then
+          begin
+            PdbStorage.DownloadPDB(Pdb, pdmAsyncModal);
+
+            // we'll mark the PDB files we've downloaded so it's easier
+            // to clean them up when they become obsolete.
+
+            // [ru] скачанные нами PDB файлы будем помечать, чтобы было
+            // удобней их чистить, когда они устареют
+
+            SavePdbInfo(Pdb, Image.ImagePath);
+          end;
+        end;
+
+        LoadPdb(Image, Pdb);
+
+      except
+        on E: Exception do
+          Error(E.ClassName + ': ' + E.Message);
+      end;
+    end;
+  end;
+
 var
-  Cursor, MaxCursor, LastPercent, CurrentPercent: Integer;
+  Cursor, MaxCursor, CurrentPercent: Integer;
   Module: TModuleData;
 begin
   Wow64Support.DisableRedirection;
   try
     DoProgress(Format(ProgressHint,
       [ALoader.RootModule.ImageBase, ALoader.RootModule.ImagePath]), 0);
-    FModules.AddImage(ALoader.RootModule);
+    AppModuleAndLoadPDB(ALoader.RootModule);
     Cursor := 1;
-    LastPercent := 0;
     MaxCursor := ALoader.Modules.Count;
     for Module in ALoader.Modules do
     begin
       CurrentPercent := Round(Cursor / (MaxCursor / 100));
-      if CurrentPercent <> LastPercent then
-      begin
-        LastPercent := CurrentPercent;
-        DoProgress(Format(ProgressHint,
-          [Module.ImageBase, Module.ImagePath]), CurrentPercent);
-      end;
-      FModules.AddImage(Module);
+      DoProgress(Format(ProgressHint,
+        [Module.ImageBase, Module.ImagePath]), CurrentPercent);
+      AppModuleAndLoadPDB(Module);
       Inc(Cursor);
     end;
   finally
@@ -521,11 +617,17 @@ var
   NtDll: TRawPEImage;
   Index: Integer;
 begin
-  // инициализируем адрес 64 битной NtQueryVirtualMemory необходимый
-  // для чтения данных по 64-битным адресам из 32 битного кода
 
-  // для чтения данных псевдохэндл не подойдет,
+  // Initialize the 64-bit NtQueryVirtualMemory address required
+  // to read data from 64-bit addresses using 32-bit code.
+  // A pseudo-handle won't work for reading data,
+  // so you need to open the current process
+
+  // [ru] Инициализируем адрес 64-битной NtQueryVirtualMemory, необходимый
+  // для чтения данных по 64-битным адресам из 32-битного кода.
+  // Для чтения данных псевдохэндл не подойдет,
   // поэтому нужно открывать текущий процесс
+
   hProc := OpenProcess(
     PROCESS_QUERY_INFORMATION or PROCESS_VM_READ,
     False, GetCurrentProcessId);
@@ -540,7 +642,9 @@ begin
 
   try
 
-    // получаем данные по 64 битному PEB
+    // We receive data via a 64-bit PEB
+    // [ru] Получаем данные по 64-битному PEB
+
     if not GetPEB(hProc, False, PEB) then
     begin
       Fatal(
@@ -549,21 +653,37 @@ begin
       Exit;
     end;
 
-    // создаем сканер для чтения списков загруззчика
+    // We create a scanner to read the loader's lists
+    // [ru] Создаем сканер для чтения списков загрузчика
+
     LocalLoader := TLoaderData.Create(hProc, True);
     try
-      // получаем данные только по 64 битным модулям
+
+      // We receive data only in 64-bit modules
+      // [ru] Получаем данные только по 64-битным модулям
+
       if LocalLoader.Load64LoaderData(PEB.LoaderData) > 0 then
         for var Module in LocalLoader.Modules do
         begin
-          // ищем 64 битню ntdll
+
+          // We are looking for a 64-bit ntdll
+          // [ru] Ищем 64-битную ntdll
+
           if ExtractFileName(Module.ImagePath).ToLower = 'ntdll.dll' then
           begin
-            // если нашли (а мы должны найти) инициализирем с учетом её инстанса
+
+            // If we find it (and we must find it), we'll initialize it based on its instance
+            // [ru] Если нашли (а мы должны найти), инициализируем с учетом её инстанса
+
             NtDll := TRawPEImage.Create(Module.ImagePath, iltWithoutDebug, Module.ImageBase);
             try
-              // и только теперь получаем адрес NtQueryVirtualMemory
+
+              // and only now do we obtain the NtQueryVirtualMemory address
+              // that is valid for our process
+
+              // [ru] и только теперь получаем адрес NtQueryVirtualMemory,
               // который актуален применительно к нашему процессу
+
               Index := NtDll.ExportIndex('NtQueryVirtualMemory');
               if Index >= 0 then
                 InitNtQueryVirtualMemory64(MakeX64Gate(
@@ -612,6 +732,63 @@ begin
     end;
   finally
     Loader.Free;
+  end;
+end;
+
+function TRawScanner.LoadPdb(Image: TRawPEImage; APdbFile: TPdb): Boolean;
+var
+  I, Tmp: Integer;
+  Sections: TSectionsRva;
+  SectionData: TImageSectionHeaderEx;
+  Symbol: TSymbolData;
+  Stubs: TDictionary<ULONG_PTR64, Integer>;
+begin
+  Result := False;
+  try
+    if APdbFile.State = psNoSections then
+    begin
+      SetLength(Sections, Image.NtHeader.FileHeader.NumberOfSections);
+      for I := 0 to Length(Sections) - 1 do
+      begin
+        if Image.SectionAtIndex(I, SectionData) then
+          Sections[I] := SectionData.VirtualAddress;
+      end;
+      APdbFile.UpdateSections(Sections);
+    end;
+
+    Result := APdbFile.State = psReady;
+    if Result then
+    begin
+      Symbol := Default(TSymbolData);
+      Symbol.Binary.ModuleIndex := Image.ModuleIndex;
+      Stubs := TDictionary<ULONG_PTR64, Integer>.Create;
+      try
+        Stubs.Capacity := APdbFile.Count;
+        for I := 0 to APdbFile.Count - 1 do
+        begin
+          Symbol.AddrVA := Image.RvaToVa(APdbFile[I].Rva);
+          Symbol.Binary.ListIndex := I;
+          case APdbFile[I].SymbolType of
+            pstData: Symbol.DataType := sdtPdbData;
+            pstFunc: Symbol.DataType := sdtPdbFunc;
+            pstIcfStub:
+            begin
+              if Stubs.TryGetValue(Symbol.AddrVA, Tmp) then
+                Continue;
+              Stubs.Add(Symbol.AddrVA, 0);
+              APdbFile.UpdateStubSymbol(I, Symbol.AddrVA);
+              Symbol.DataType := sdtPdbStub;
+            end;
+          end;
+          SymbolStorage.Add(Symbol);
+        end;
+      finally
+        Stubs.Free;
+      end;
+    end;
+  except
+    on E: Exception do
+      Error(E.ClassName + ': ' + E.Message);
   end;
 end;
 

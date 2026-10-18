@@ -18,7 +18,7 @@ object dlgPatchRestore: TdlgPatchRestore
   KeyPreview = True
   Position = poScreenCenter
   OnKeyPress = FormKeyPress
-  PixelsPerInch = 144  
+  PixelsPerInch = 144
   DesignSize = (
     785
     722)
@@ -37,7 +37,7 @@ object dlgPatchRestore: TdlgPatchRestore
   object clbPatches: TCheckListBox
     Left = 11
     Top = 45
-    Width = 762
+    Width = 768
     Height = 617
     Margins.Left = 5
     Margins.Top = 5
@@ -49,7 +49,7 @@ object dlgPatchRestore: TdlgPatchRestore
     OnClickCheck = clbPatchesClickCheck
   end
   object btnCancel: TButton
-    Left = 662
+    Left = 668
     Top = 671
     Width = 111
     Height = 39
@@ -61,9 +61,10 @@ object dlgPatchRestore: TdlgPatchRestore
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 1
+    ExplicitLeft = 662
   end
   object btnRestore: TButton
-    Left = 539
+    Left = 545
     Top = 671
     Width = 111
     Height = 39
@@ -76,5 +77,6 @@ object dlgPatchRestore: TdlgPatchRestore
     Enabled = False
     ModalResult = 1
     TabOrder = 2
+    ExplicitLeft = 539
   end
 end

@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uIPC.pas
-//  * Purpose   : Модуль для обмена данными о кучах между процессами
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Unit for exchanging data between 32-bit and 64-bit processes
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -109,12 +125,20 @@ end;
 constructor TIPCServer.Create;
 begin
   Randomize;
-  // Директива SINGLE_INSTANCE не дает запускать 32 битному приложению 64 битный аналог
-  // Сугубо для отладки
   FMMFName := DefIPCServerName;
+
+  // The SINGLE_INSTANCE directive prevents the 32-bit application
+  // from launching its 64-bit counterpart
+  // For debugging purposes only
+
+  // [ru] Директива SINGLE_INSTANCE не дает запускать 32 битному приложению
+  // 64 битный аналог
+  // Сугубо для отладки
+
   {$IFNDEF SINGLE_INSTANCE}
   FMMFName := FMMFName + IntToHex(Random(MaxInt), 1);
   {$ENDIF}
+
   InitFileMapping;
 end;
 
@@ -217,7 +241,7 @@ begin
       try
         IPCServerParams := PIPCServerParams(Data)^;
       except
-        // Другое приложение файл создало, но еще ничего туда не записало..
+         // Another application has created the file but hasn't written anything to it yet
         on EAccessViolation do ;
       end;
     finally
@@ -266,7 +290,7 @@ begin
       try
         IPCServerParams := PIPCServerParams(Data)^;
       except
-        // Другое приложение файл создало, но еще ничего туда не записало..
+        // Another application has created the file but hasn't written anything to it yet
         on EAccessViolation do ;
       end;
     finally

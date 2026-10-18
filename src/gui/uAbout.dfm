@@ -4848,7 +4848,7 @@ object dlgAbout: TdlgAbout
     UseVisualStyle = True
     OnLinkClick = LinkLabel1LinkClick
   end
-  object LinkLabel2: TLinkLabel
+  object lblHexView: TLinkLabel
     Left = 85
     Top = 240
     Width = 249

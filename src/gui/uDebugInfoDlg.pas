@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uDebugInfoDlg.pas
-//  * Purpose   : Краткая отладочная информация об открытом проекте
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2016, 2023.
-//  * Version   : 1.4.30
+//  * Purpose   : Brief debug information about the open project
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -24,6 +40,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Menus,
   Winapi.ShLwApi,
 
+  uUtils,
   ScaledCtrls;
 
 type
@@ -34,11 +51,10 @@ type
     Copyselected1: TMenuItem;
     procedure Copydebuginfointoclipboard1Click(Sender: TObject);
     procedure Copyselected1Click(Sender: TObject);
-    procedure FormKeyPress(Sender: TObject; var Key: Char);
   private
     { Private declarations }
   public
-    procedure ShowDebugInfo(Advanced: TStringList);
+    procedure ShowDebugInfo(Advanced: TStringList; const RemoteGitInfo: TReseaseInfo);
   end;
 
 var
@@ -49,10 +65,11 @@ implementation
 uses
   Clipbrd,
   MemoryMap.Core,
+  RawScanner.Core,
   RawScanner.SymbolStorage,
   uPluginManager,
-  uSettings,
-  uUtils;
+  RawScanner.Pdb,
+  uSettings;
 
 {$R *.dfm}
 
@@ -68,15 +85,12 @@ begin
   edDebugInfo.CopyToClipboard;
 end;
 
-procedure TdlgDbgInfo.FormKeyPress(Sender: TObject; var Key: Char);
-begin
-  if Key = #27 then Close;
-end;
-
-procedure TdlgDbgInfo.ShowDebugInfo(Advanced: TStringList);
+procedure TdlgDbgInfo.ShowDebugInfo(Advanced: TStringList;
+  const RemoteGitInfo: TReseaseInfo);
 var
   Tmp: string;
-  I: Integer;
+  S: TArray<string>;
+  I, A, Total: Integer;
 begin
   if MemoryMapCore.PID <> 0 then
   begin
@@ -126,6 +140,24 @@ begin
       end;
       edDebugInfo.Lines.Add(EmptyStr);
     end;
+    if RawScannerCore.PdbStorage.Items.Count > 0 then
+    begin
+      edDebugInfo.Lines.Add('Loaded PDB files:');
+      Tmp := IntToStr(Length(IntToStr(RawScannerCore.PdbStorage.Items.Count)));
+      A := 1;
+      Total := 0;
+      for I := 0 to RawScannerCore.PdbStorage.Items.Count - 1 do
+      begin
+        if RawScannerCore.PdbStorage.Items[I].State <> psReady then Continue;
+        edDebugInfo.Lines.Add(Format('%.' + Tmp + 'd: "%s", symbols: %.0n', [A,
+          RawScannerCore.PdbStorage.Items[I].LocalPath, RawScannerCore.PdbStorage.Items[I].Count + 0.0]));
+        Inc(Total, RawScannerCore.PdbStorage.Items[I].Count);
+        Inc(A);
+      end;
+      edDebugInfo.Lines.Add(EmptyStr);
+      edDebugInfo.Lines.Add('Total PDB Symbols count: ' + Format('%.0n', [Total + 0.0]));
+      edDebugInfo.Lines.Add(EmptyStr);
+    end;
     if PluginManager.Items.Count > 0 then
     begin
       edDebugInfo.Lines.Add('Plugins:');
@@ -158,7 +190,27 @@ begin
     edDebugInfo.Lines.Add('Debug Log: ');
     for I := 0 to Advanced.Count - 1 do
       edDebugInfo.Lines.Add(Advanced[I]);
+    edDebugInfo.Lines.Add(EmptyStr);
   end;
+
+  if RemoteGitInfo.Version <> '' then
+  begin
+    edDebugInfo.Lines.Add('Git latest resease: ' + RemoteGitInfo.Version);
+    edDebugInfo.Lines.Add('Published date: ' + RemoteGitInfo.PublishedDate);
+    edDebugInfo.Lines.Add('Git page: ' + RemoteGitInfo.HtmlUrl);
+    edDebugInfo.Lines.Add('Download count: ' + RemoteGitInfo.DownloadCount);
+    edDebugInfo.Lines.Add(EmptyStr);
+    if RemoteGitInfo.Body <> '' then
+    begin
+      edDebugInfo.Lines.Add('Release info:');
+      S := RemoteGitInfo.Body.Split([sLineBreak]);
+      for Tmp in S do
+        edDebugInfo.Lines.Add(Tmp);
+      edDebugInfo.Lines.Add(EmptyStr);
+    end;
+  end;
+
+  edDebugInfo.SelStart := 0;
 
   ShowModal;
 end;

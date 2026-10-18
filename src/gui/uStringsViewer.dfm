@@ -86,7 +86,7 @@ object dlgStringsViewer: TdlgStringsViewer
         Position = 3
         Spacing = 5
         Text = 'Data'
-        Width = 682
+        Width = 680
       end>
   end
   object pmCopy: TPopupMenu

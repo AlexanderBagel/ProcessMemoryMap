@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uProcessMM.pas
-//  * Purpose   : Главная форма проекта
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Main form of the project
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -22,7 +38,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.Menus, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls,
+  Vcl.Menus, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls, System.UITypes,
   Vcl.ImgList, Winapi.TlHelp32, Winapi.ShellAPI, Winapi.CommCtrl,
   Vcl.Clipbrd, System.Actions, Vcl.ActnList, Vcl.PlatformDefaultStyleActnCtrls,
   Vcl.ActnMan, System.ImageList, System.Diagnostics, Generics.Collections,
@@ -46,13 +62,16 @@ uses
   RawScanner.Wow64,
   RawScanner.Image.Pe,
   RawScanner.Logger,
+  RawScanner.Pdb,
   RawScanner.CoffDwarf,
   RawScanner.SymbolStorage,
   RawScanner.Utils,
 
   uDisplayUtils,
   uIPC,
-  uProgress;
+  uProgress,
+  uUtils,
+  uBaseForm;
 
 type
   TdlgProcessMM = class(TForm)
@@ -170,6 +189,15 @@ type
     mnuResources: TMenuItem;
     acShowWindows: TAction;
     ShowWindows1: TMenuItem;
+    mnuCheckUpdates: TMenuItem;
+    N15: TMenuItem;
+    acPdbManager: TAction;
+    PDBManager1: TMenuItem;
+    N16: TMenuItem;
+    News1: TMenuItem;
+    N17: TMenuItem;
+    acNews: TAction;
+    acUpdates: TAction;
     // Actions
     procedure acAboutExecute(Sender: TObject);
     procedure acCollapseAllExecute(Sender: TObject);
@@ -239,8 +267,12 @@ type
     procedure acShowWindowsExecute(Sender: TObject);
     procedure FormAfterMonitorDpiChanged(Sender: TObject; OldDPI,
       NewDPI: Integer);
+    procedure acPdbManagerExecute(Sender: TObject);
+    procedure acUpdatesExecute(Sender: TObject);
+    procedure acNewsExecute(Sender: TObject);
   private
     FirstRun, ProcessOpen, MapPresent, FirstSelectProcess: Boolean;
+    ContinueState: TSymSrvContinueState;
     NodeDataArrayLength: Integer;
     NodeDataArray: array of TNodeData;
     SearchString: string;
@@ -250,6 +282,7 @@ type
     {$ENDIF}
     DebugLog: TStringList;
     LastProgressCaption: string;
+    RemoteGitInfo: TReseaseInfo;
     procedure AddShieldIconToMenu;
     procedure CalcNodeDataArraySize;
     procedure InternalOpenProcess(AMap: TMemoryMap;
@@ -263,7 +296,12 @@ type
     procedure OnInitProgress(const Step: string; APecent: Integer);
     procedure OnLog(ALevel: TLogLevel; AType: TLogType;
       const FuncName, Description: string);
+    procedure OnPdbLoad(Sender: TObject; State: TSymSrvProgressState;
+      Pdb: TPdb; BytesReceived, TotalBytes: Int64;
+      var AContinueState: TSymSrvContinueState);
+    procedure OnCancelBtnPress(Sender: TObject);
     procedure DelayedLoad(var Msg: TMessage); message WM_USER;
+    procedure CheckUpdates(OnlyCheckNewest: Boolean);
   public
     function Reconnect: Boolean;
   end;
@@ -282,7 +320,6 @@ uses
   uFindData,
   uSettings,
   uSettings.Form,
-  uUtils,
   uDump,
   uAbout,
   uMemoryMapListInfo,
@@ -290,6 +327,7 @@ uses
   uKnownData,
   uPatchDetect,
   uPluginManager,
+  uPdbManager,
   uDebugInfoDlg,
   uStringsViewer,
   uCallStack,
@@ -405,7 +443,7 @@ procedure TdlgProcessMM.acDebugInfoExecute(Sender: TObject);
 begin
   dlgDbgInfo := TdlgDbgInfo.Create(nil);
   try
-    dlgDbgInfo.ShowDebugInfo(DebugLog);
+    dlgDbgInfo.ShowDebugInfo(DebugLog, RemoteGitInfo);
   finally
     dlgDbgInfo.Free;
   end;
@@ -516,6 +554,11 @@ begin
     (MemoryMapCore.DebugMapData.Items.Count > 0);
 end;
 
+procedure TdlgProcessMM.acNewsExecute(Sender: TObject);
+begin
+  ShellExecute(Handle, 'open', 'https://boosty.to/processmemorymap', nil, nil, SW_SHOWNORMAL);
+end;
+
 procedure TdlgProcessMM.acOpenExecute(Sender: TObject);
 begin
   if OpenPMMDialog.Execute then
@@ -543,6 +586,17 @@ begin
   Data := GetSelectedNodeData;
   (Sender as TAction).Enabled :=
     ProcessOpen and (Data <> nil) and FileExists(Data.Details);
+end;
+
+procedure TdlgProcessMM.acPdbManagerExecute(Sender: TObject);
+begin
+  if dlgPdbManager <> nil then
+  begin
+    dlgPdbManager.BringToFront;
+    Exit;
+  end;
+  dlgPdbManager := TdlgPdbManager.Create(Application);
+  dlgPdbManager.Show;
 end;
 
 procedure TdlgProcessMM.acQueryAddrExecute(Sender: TObject);
@@ -870,6 +924,11 @@ begin
   dlgStringsViewer.ShowStrings;
 end;
 
+procedure TdlgProcessMM.acUpdatesExecute(Sender: TObject);
+begin
+  CheckUpdates(False);
+end;
+
 procedure TdlgProcessMM.AddShieldIconToMenu;
 var
   IconInfo: TSHStockIconInfo;
@@ -885,9 +944,6 @@ begin
   end;
 end;
 
-//
-//   Процедура рассчитывает количество всех отображаемых узлов
-// =============================================================================
 procedure TdlgProcessMM.CalcNodeDataArraySize;
 var
   Region: TRegionData;
@@ -908,8 +964,8 @@ begin
         Inc(NodeDataArrayLength, Region.Directory.Count);
         if Region.Contains.Count > 0 then
         begin
-          if Region.RegionType = rtHeap then
-            if Region.Contains.Count = 1 then Continue;
+          if (Region.RegionType = rtHeap) and (Region.Contains.Count = 1) then
+            Continue;
           Inc(NodeDataArrayLength, Region.Contains.Count);
         end;
       end;
@@ -920,14 +976,63 @@ begin
   SetLength(NodeDataArray, NodeDataArrayLength);
 end;
 
+procedure TdlgProcessMM.CheckUpdates(OnlyCheckNewest: Boolean);
+var
+  Check: TThreadProcedure;
+begin
+  Check :=
+    procedure
+    var
+      VerInfo: TVersionInfo;
+    begin
+      if OnlyCheckNewest and (Settings.LastCheckedUpdate = RemoteGitInfo.Version) then
+        Exit;
+      if not GetVersionInfo(VerInfo) then Exit;
+      if RemoteGitInfo.VerInfo > VerInfo then
+      begin
+        Settings.LastCheckedUpdate := RemoteGitInfo.Version;
+        Settings.SaveSettings;
+        if Application.MessageBox(PChar(Format('A new version is available: %s' + sLineBreak +
+          'Published: %s' + sLineBreak + sLineBreak +
+          'Would you like to open the release page?',
+          [RemoteGitInfo.Version, RemoteGitInfo.PublishedDate])),
+          PChar(Application.Title), MB_ICONQUESTION or MB_YESNO or MB_DEFBUTTON1) = ID_YES then
+          ShellExecute(Handle, 'open', 'https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest', nil, nil, SW_SHOWNORMAL);
+      end
+      else
+        if not OnlyCheckNewest then
+          Application.MessageBox(PChar('You are using the latest version.' + sLineBreak +
+             sLineBreak + 'No updates are currently available.'), PChar(Application.Title), MB_ICONINFORMATION);
+    end;
+
+  if OnlyCheckNewest then
+  begin
+    TThread.CreateAnonymousThread(
+      procedure
+      var
+        GitInfo: TReseaseInfo;
+      begin
+        if GetLatestRelease(Settings.Proxy, GitInfo) then
+        begin
+          RemoteGitInfo := GitInfo;
+          TThread.Queue(nil, Check);
+        end;
+        Finalize(Check);
+      end).Start;
+  end
+  else
+    if GetLatestRelease(Settings.Proxy, RemoteGitInfo) then
+    begin
+      Check;
+      Finalize(Check);
+    end;
+end;
+
 procedure TdlgProcessMM.DelayedLoad(var Msg: TMessage);
 begin
   ProcessFirstRun;
 end;
 
-//
-//   Процедура инициализирует дерево
-// =============================================================================
 procedure TdlgProcessMM.FillTreeView;
 var
   Lvl1, Lvl2, Counter: Integer;
@@ -940,14 +1045,18 @@ var
     I: Integer;
     NeedAdd: Boolean;
   begin
-    // в случае если регион содержит в себе один единственный элемент кучи
+
+    // if the region contains only a single element of the heap
+    // do not print the data (since it makes no sense)
+
+    // [ru] в случае если регион содержит в себе один единственный элемент кучи
     // данные не выводим (ибо не имеет смысла)
+
     if Region.RegionType = rtHeap then
       if Region.Contains.Count = 1 then Exit;
 
     for I := 0 to Region.Contains.Count - 1 do
     begin
-      // фильтруем регион
       NeedAdd := False;
       case MemoryMapCore.Filter of
         fiNone: NeedAdd := True;
@@ -956,7 +1065,6 @@ var
         fiSystem: NeedAdd := Region.Contains[I].ItemType = itSystem;
       end;
       if not NeedAdd then Continue;
-      // если фильтр пройден - добавляем
       AddDataToContainsNode(Region, @NodeDataArray[Counter],
         Region.Contains[I]);
       NodeDataArray[Counter].Node :=
@@ -969,8 +1077,13 @@ var
   var
     I: Integer;
   begin
-    // директории и секции выводятся только в случае отсутвия фильтра
+
+    // directories and sections are displayed only if no filter is applied
+    // or when a filter is set to file images
+
+    // [ru] директории и секции выводятся только в случае отсутвия фильтра
     // или когда выставлен фильтр на образы файлов
+
     if not (MemoryMapCore.Filter in [fiNone, fiImage]) then Exit;
     for I := 0 to Region.Directory.Count - 1 do
     begin
@@ -997,7 +1110,6 @@ begin
     stMemoryMap.RootNodeCount := 0;
     MemoryMapCore.ShowEmpty := Settings.ShowFreeRegions;
     MemoryMapCore.DetailedHeapData := Settings.ShowDetailedHeap;
-    // Рассчитываем общее количество узлов
     CalcNodeDataArraySize;
     Counter := 0;
     LastPercent := 0;
@@ -1012,7 +1124,9 @@ begin
         OnInitProgress(Format(ProgressHint2, [CurrentPercent]), CurrentPercent);
       end;
 
-      // Заполяем данные по узлам первого уровня
+      // Populating data for first-level nodes
+      // [ru] Заполняем данные по узлам первого уровня
+
       Region := MemoryMapCore[Lvl1];
       if Region.RegionVisible then
         NodesColor := AddDataToLevel1Node(Region, @NodeDataArray[Counter])
@@ -1027,21 +1141,34 @@ begin
       NodeDataArray[Counter].Node := Lvl1Root;
       Inc(Counter);
 
-      // Рассчитываем доппараметры, для более красивого отображения узлов
+      // Calculate additional parameters for a nicer display of
+      // second-level nodes. NodesColor controls the color of child
+      // items, PEImage is used to output additional region info
+
+      // [ru] Рассчитываем доппараметры, для более красивого отображения узлов
       // второго уровня. NodesColor отвечает за цвет подэлементов,
       // PEImage за вывод допинформации по региону
+
       if Region.RegionType in [rtDefault, rtSystem] then
         NodesColor := 0;
       PEImage := Region.RegionType in [rtExecutableImage, rtExecutableImage64];
-      // если секции просто отмаплены, то они пойдут именно как мап
+
+      // If the sections are simply mapped, they will be classified as Mapped
+      // [ru] если секции просто отмаплены, то они пойдут именно как мап
+
       PEImage := PEImage and not (Region.MBI.Type_9 = MEM_MAPPED);
       if PEImage then
         NodesColor := Settings.ImagePartColor;
 
-      // Проверка, присутствуют ли скрытые узлы?
+      // check whether any nodes are hidden
+      // [ru] Проверка, присутствуют ли скрытые узлы?
+
       if Region.HiddenRegionCount > 0 then
       begin
-        // если присутствуют, добавляем их...
+
+        // if there are, add them...
+        // [ru] если присутствуют, добавляем их...
+
         for Lvl2 := 0 to Region.HiddenRegionCount do
         begin
           Region := MemoryMapCore.GetHiddenRegion(Lvl1, Lvl2);
@@ -1051,9 +1178,14 @@ begin
           NodeDataArray[Counter].Node := Lvl2Root;
           Inc(Counter);
 
-          // у узлов второго уровня всегда выводится список директорий
+          // second-level nodes always show a list of directories
+          // [ru] у узлов второго уровня всегда выводится список директорий
+
           AddDirectoryNodes(Lvl2Root);
-          // и дополнительной информации
+
+          // and additional information
+          // [ru] и дополнительной информации
+
           if Region.Contains.Count > 0 then
             AddContainsNodes(Lvl2Root);
         end;
@@ -1061,8 +1193,12 @@ begin
       else
       begin
 
-        // а у узлов первого уровня директории и доп информация выводятся только
-        // в тех случаях, если отсутствую скрытые узлы
+        // while for first-level nodes, directories and additional info
+        // are shown only if there are no hidden nodes
+
+        // [ru] а у узлов первого уровня директории и дополнительная информация
+        //  выводится только в тех случаях, если отсутствуют скрытые узлы
+
         AddDirectoryNodes(Lvl1Root);
         if Region.Contains.Count > 0 then
           AddContainsNodes(Lvl1Root);
@@ -1107,7 +1243,6 @@ begin
   IPCServer := TIPCServer.Create;
   {$ENDIF}
 
-  // Инициализация синглтонов и их событий
   RawScannerCore.OnProgress := OnInitProgress;
   PluginManager.OnProgress := OnInitProgress;
   MemoryMapCore.DetailedHeapData := Settings.ShowDetailedHeap;
@@ -1135,6 +1270,7 @@ begin
   DebugLog := TStringList.Create;
 
   DebugInitialHeapSize := GetMemAlloc;
+  RawScannerCore.PdbStorage.OnProgress := OnPdbLoad;
 end;
 
 procedure TdlgProcessMM.FormDestroy(Sender: TObject);
@@ -1149,7 +1285,6 @@ procedure TdlgProcessMM.FormKeyPress(Sender: TObject; var Key: Char);
 var
   TmpString, ClipboardString: string;
 begin
-  // реализуем быстрый поиск при нажатии клавиш
   if Key = #8 then
   begin
     Delete(SearchString, Length(SearchString), 1);
@@ -1223,7 +1358,8 @@ procedure TdlgProcessMM.InternalOpenProcess(AMap: TMemoryMap; PID: DWORD;
 var
   Stopwatch: TStopwatch;
 begin
-  dlgProgress := TdlgProgress.Create(nil);
+  if not TBaseAppForm.CloseAllBaseForm then Exit;
+  dlgProgress := TdlgProgress.Create(Self);
   try
     if not ProcessOpen then
       dlgProgress.Position := poScreenCenter;
@@ -1234,17 +1370,32 @@ begin
       try
         AMap.DebugMapData.LoadLines := Settings.LoadLines;
         Stopwatch.Start;
-        // Сначала должно отработать ядро MemoryMap для получения данных по процессу
+        FirstRun := False;
+
+        // First, the MemoryMap must run to retrieve data about the process
+        // [ru] Сначала должно отработать ядро MemoryMap для получения данных по процессу
+
         AMap.InitFromProcess(PID, ProcessName);
-        // Редиректору нужно знать по какому адресу расположен ApiSet
+
+        // The redirector needs to know the address of the ApiSet
+        // in order to translate addresses from the local address
+        // space to the remote one
+
+        // [ru] Редиректору нужно знать по какому адресу расположен ApiSet
         // для пересчета адресов из локального адресного пространства в удаленное
+
         ApiSetRedirector.RemoteApiSetVA := ULONG_PTR64(AMap.PEB.ApiSetMap);
-        // Не забыть прокинуть настройки для строк
+
         TRawPEImage.DisableLoadStrings := not Settings.LoadStrings;
         TRawPEImage.LoadStringLength := Settings.StringMinLengh;
-        // И только после этого можно запускать на выполнение RawScannerCore
-        DebugLog.Clear;
-        // загрузка DWARF не быстрый процесс, поэтому нужно тоже выводить прогресс
+        RawScannerCore.UsePDB := Settings.UsePDB;
+        RawScannerCore.DownloadPDB := Settings.DownloadPDB;
+        RawScannerCore.PdbStorage.SymConfig := Settings.SymSrv;
+        dlgProgress.ProgressBarAdv.OnCancelClick := OnCancelBtnPress;
+
+        // Loading DWARF is slow, so progress should be shown as well
+        // [ru] загрузка DWARF не быстрый процесс, поэтому нужно тоже выводить прогресс
+
         TDwarfDebugInfo.LoadCallback := procedure(AStep: TLoadCallbackStep; ACurrent, AMax: Int64)
         var
           AHint: string;
@@ -1256,20 +1407,36 @@ begin
           else
             AHint := LastProgressCaption + ' load DWARF lines.';
           end;
+          dlgProgress.ProgressBarAdv.HintLabel.Visible := False;
+          dlgProgress.ProgressBarAdv.ShowCancelButton := False;
           dlgProgress.ProgressBarAdv.Visible := ACurrent <> AMax;
           dlgProgress.ProgressBarAdv.Max := AMax;
           dlgProgress.UpdateCaption(AHint, ACurrent);
         end;
         RawScannerLogger.OnLog := OnLog;
+
+        // RawScannerCore is configured, now it can be started
+        // [ru] RawScannerCore настроен, теперь можно его запускать
+
+        ContinueState := scsRun;
+        DebugLog.Clear;
         RawScannerCore.InitFromProcess(PID);
-        // Последним идет подсистема плагинов
+
+        // The plugin subsystem goes last
+        // [ru] Последним идет подсистема плагинов
+
         PluginManager.OpenProcess(PID);
-        // Теперь необходимо добавить отладочную информацию из DebugMap в отладочные символы
+
+        // Now we need to move the debug info from DebugMap into the debug symbols
+        // [ru] Теперь необходимо перенести отладочную информацию из DebugMap в отладочные символы
+
         TransmitDebugMapToSymbols;
-        // Отладочное время
+
+        // Save the elapsed time for the debug information window
+        // [ru] Запомним для окна с отладочной информацией сколько времени было потрачено
+
         Stopwatch.Stop;
         DebugElapsedMilliseconds := Stopwatch.ElapsedMilliseconds;
-        {$MESSAGE 'Разослать уведомления окнам об необходимости обновления информации'}
       finally
         Wow64Support.EnableRedirection;
       end;
@@ -1347,6 +1514,24 @@ begin
   FillTreeView;
 end;
 
+procedure TdlgProcessMM.OnCancelBtnPress(Sender: TObject);
+begin
+  if ContinueState <> scsRun then Exit;
+  ContinueState := scsPause;
+  if MessageBox(Handle, PChar('Cancel the download?' + sLineBreak +
+    'The download of the current and all subsequent debug PDB files ' +
+    'will be interrupted, until the process is reopened.'),
+    PChar(Application.Title), MB_YESNO or MB_ICONQUESTION or MB_DEFBUTTON2) = IDYES then
+  begin
+    ContinueState := scsCancel;
+    RawScannerCore.DownloadPDB := False;
+    if Assigned(dlgProgress) then
+      dlgProgress.ProgressBarAdv.HintLabel.Text := 'Canceling...';
+  end
+  else
+    ContinueState := scsRun;
+end;
+
 procedure TdlgProcessMM.OnGetWow64Heaps(Value: THeap);
 var
   M: TMemoryStream;
@@ -1403,10 +1588,36 @@ begin
   end;
 end;
 
+procedure TdlgProcessMM.OnPdbLoad(Sender: TObject;
+  State: TSymSrvProgressState; Pdb: TPdb; BytesReceived,
+  TotalBytes: Int64; var AContinueState: TSymSrvContinueState);
+begin
+  if State = spsConnecting then
+  begin
+    dlgProgress.lblProgress.Caption :=
+      dlgProgress.lblProgress.Caption + ' -> ' + Pdb.PdbName;
+    dlgProgress.ProgressBarAdv.HintLabel.Visible := True;
+    dlgProgress.ProgressBarAdv.HintLabel.Width := 130;
+    dlgProgress.ProgressBarAdv.ShowCancelButton := True;
+  end;
+  dlgProgress.ProgressBarAdv.Visible := State = spsDownloading;
+  if ContinueState = scsRun then
+    dlgProgress.ProgressBarAdv.HintLabel.Text := 'Downloaded: ' + SizeToStr3(BytesReceived);
+  dlgProgress.ProgressBarAdv.Max := TotalBytes;
+  dlgProgress.ProgressBarAdv.Position := BytesReceived;
+  AContinueState := ContinueState;
+end;
+
 procedure TdlgProcessMM.ProcessFirstRun;
 begin
   if FirstRun then
+  begin
     acSelectProcess.Execute;
+    {$IFNDEF DEBUG}
+    if Settings.CheckUpdates then
+      CheckUpdates(True);
+    {$ENDIF}
+  end;
   FirstRun := False;
 end;
 
@@ -1518,8 +1729,13 @@ begin
     SymbolData.Binary.ListIndex := I;
     SymbolStorage.Add(SymbolData);
   end;
-  // так как отладочные символы изменились, надо их обновить
+
+  // Since the debug symbols have changed, they need to be updated,
+  // otherwise the magic won't happen
+
+  // [ru] так как отладочные символы изменились, надо их обновить
   // иначе никакого фокуса не получится
+
   SymbolStorage.PrepareForWork;
 end;
 

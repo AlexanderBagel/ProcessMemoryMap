@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Elf.pas
-//  * Purpose   : Декларация типов используемых для чтения ELF файлов.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Declaration of the types used for reading ELF files.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.28
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -21,53 +37,55 @@ interface
 
   {$I rawscanner.inc}
 
-{$Q-} // Отключаем INTEGER OVERFLOW
-{$R-} // Отключаем RANGE CHECK ERROR
+{$Q-}
+{$R-}
 
-// Дока взята из man elf, она же в интеренетах этих ваших:
 // https://manpages.ubuntu.com/manpages/lunar/ru/man5/elf.5.html
-
-// Дополнено из https://llvm.org/docs/doxygen/BinaryFormat_2ELF_8h_source.html
+// https://llvm.org/docs/doxygen/BinaryFormat_2ELF_8h_source.html
 
 const
 
   // ElfN_Ehdr.e_ident
 
-  EI_MAG0       = 0; // Первый байт отличительного (magic) числа. Должен быть заполнен ELFMAG0.  (0: 0x7f)
+  EI_MAG0       = 0; // The first byte of the identification (magic) number. Must be filled with ELFMAG0. (0: 0x7f)
   EI_MAG1       = 1; // E
   EI_MAG2       = 2; // L
   EI_MAG3       = 3; // F
-  EI_CLASS      = 4; // В пятом байте задаётся архитектура двоичного файла ELFCLASS*
-  EI_DATA       = 5; // В  шестом  байте задаётся порядок кодирования данных в файле, используемый в процессоре ELFDATA*
-  EI_VERSION    = 6; // В седьмом байте указывается номер версии спецификации ELF: EV_CURRENT
-  EI_OSABI      = 7; // В восьмом байте указывается тип операционной системы и двоичного  интерфейса
-                     // приложений  (ABI),  для которой предназначен объект ELFOSABI_*
-  EI_ABIVERSION = 8; // В девятом байте указывается версия ABI, для которой предназначен объект
-  EI_PAD        = 9; // Начало заполнителя
-  EI_NIDENT     = 16; // Размер массива e_ident.
+  EI_CLASS      = 4; // The architecture of the ELF binary file is specified in the fifth byte as ELFCLASS*.
+  EI_DATA       = 5; // The byte order (endianness) of the data encoding in the file, used by the processor, is specified in the sixth byte as ELFDATA*.
+  EI_VERSION    = 6; // The version number of the ELF specification, EV_CURRENT, is specified in the seventh byte.
+  EI_OSABI      = 7; // The type of operating system and binary application interface (ABI) for which the ELF object
+                     // is intended, ELFOSABI_*, is specified in the eighth byte.
+  EI_ABIVERSION = 8; // The ABI version for which the object is intended is specified in the ninth byte.
+  EI_PAD        = 9; // Start of padding bytes.
+  EI_NIDENT     = 16; // Number of bytes in e_ident.
   ELF_MAGIC     = $464C457F; // $7F + ELF
 
   // EI_CLASS
 
-  ELFCLASSNONE  = 0; // Неправильный класс.
-  ELFCLASS32    = 1; // 32-битная  архитектура.
-  ELFCLASS64    = 2; // 64-битная архитектура.
+  // Object file classes.
+  ELFCLASSNONE  = 0;
+  ELFCLASS32    = 1; // 32-bit object file
+  ELFCLASS64    = 2; // 64-bit object file
+
   // EI_DATA
-  ELFDATANONE   = 0; // Неизвестный формат данных.
-  ELFDATA2LSB   = 1; // Обратный порядок байт (little-endian) в дополнительном коде
-  ELFDATA2MSB   = 2; // Прямой порядок байт (big-endian) в дополнительном коде.
+
+  // Object file byte orderings.
+  ELFDATANONE   = 0; // Invalid data encoding.
+  ELFDATA2LSB   = 1; // Little-endian object file
+  ELFDATA2MSB   = 2; // Big-endian object file
 
   // EI_VERSION + ElfN_Ehdr.e_version
-  // В этом поле содержится версия файла:
 
-  EV_NONE     = 0; // Неправильный номер версии
-  EV_CURRENT  = 1; // Текущая версия
+  // Versioning
+  EV_NONE     = 0;
+  EV_CURRENT  = 1;
   EV_NUM      = 2; // ???
 
   // EI_OSABI
 
-  ELFOSABI_NONE		  = 00; // Тоже что и ELFOSABI_SYSV.
-  ELFOSABI_SYSV		  = ELFOSABI_NONE; // UNIX System V ABI
+  ELFOSABI_NONE		  = 00; // UNIX System V ABI
+  ELFOSABI_SYSV		  = ELFOSABI_NONE;
   ELFOSABI_HPUX		  = 01; // Hewlett-Packard HP-UX
   ELFOSABI_NETBSD		= 02; // NetBSD
   ELFOSABI_LINUX		= 03; // Linux
@@ -82,20 +100,22 @@ const
   ELFOSABI_NSK		  = 14;	// Hewlett-Packard Non-Stop Kernel
   ELFOSABI_AROS		  = 15;	// Amiga Research OS
   ELFOSABI_ARM_AEABI= 64; // ARM EABI
-  ELFOSABI_ARM		  = 97; // ABI архитектуры ARM
-  ELFOSABI_STANDALONE	= 255; //	Автономный (встраиваемый) ABI
+  ELFOSABI_ARM		  = 97; // ARM
+  ELFOSABI_STANDALONE	= 255; //	Standalone (embedded) application
 
   // ElfN_Ehdr.e_type
-  // В этом поле структуры содержится тип объектного файла:
 
-  ET_NONE       = 0;  // Неизвестный тип.
-  ET_REL        = 1;  // Перемещаемый файл.
-  ET_EXEC       = 2;  // Исполняемый файл.
-  ET_DYN        = 3;  // Динамический объект.
-  ET_CORE       = 4;  // Файл типа core.
+  // File types.
+  // See current registered ELF types at:
+  // http://www.sco.com/developers/gabi/latest/ch4.eheader.html
+
+  ET_NONE       = 0;  // No file type
+  ET_REL        = 1;  // Relocatable file
+  ET_EXEC       = 2;  // Executable file
+  ET_DYN        = 3;  // Shared object file
+  ET_CORE       = 4;  // Core file
 
   // ElfN_Ehdr.e_machine
-  // В этом поле содержится значение требуемой для файла архитектуры.
   // https://docs.rs/elf/latest/src/elf/abi.rs.html
 
   EM_NONE         = 000;
@@ -292,7 +312,7 @@ const
 
 
   // ElfN_Ehdr.e_phnum
-  // В этом поле содержится количество элементов в таблице заголовков  программы.
+  // This field contains the number of entries in the program header table.
 
   PN_XNUM = $FFFF;
 
@@ -557,8 +577,6 @@ type
   Elf64_Sxword  = Int64;
   Elf64_Xword  = UInt64;
 
-  // Заголовок ELF
-
   EIdent = record
     e_magic: UInt32;
     e_class: Byte;
@@ -607,8 +625,6 @@ type
     e_shstrndx: UInt16;
   end;
 
-  // Заголовок программы
-
   Elf32_Phdr = record
     p_type: UInt32;        // Type of segment
     p_offset: Elf32_Off;   // File offset where segment is located, in bytes
@@ -630,8 +646,6 @@ type
     p_memsz: UInt64;       // Num. of bytes in mem image of segment (may be zero)
     p_align: UInt64;       // Segment alignment constraint
   end;
-
-  // Заголовок раздела
 
   Elf32_Shdr = record
     sh_name: UInt32;       // Section name (index into string table)
@@ -658,8 +672,6 @@ type
     sh_addralign: UInt64;  // Section address alignment
     sh_entsize: UInt64;    // Size of records contained within the section
   end;
-
-  // Зпголовок таблицы символов
 
   Elf32_Sym = record
     st_name: UInt32;       // Symbol name (index into string table)

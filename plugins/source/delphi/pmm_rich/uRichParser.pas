@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uRichParser.pas
 //  * Purpose   : Классы для парсинга Rich заголовков
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.0
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -119,9 +135,14 @@ begin
   FValid := False;
   FData.Clear;
 
-  // Зачитываем все целиком, так как искать будем с конца
-  // За одно при нахождении маркера tagEndID автоматом рассчитаем
-  // размер MS-DOS стаба
+	// Read everything in full, since we will search from the end.
+	// At the same time, once the tagEndID marker is found, we will automatically
+	// calculate the size of the MS-DOS stub.
+
+	// [ru] Зачитываем все целиком, так как искать будем с конца
+	// За одно при нахождении маркера tagEndID автоматом рассчитаем
+	// размер MS-DOS стаба
+
   AStream := TFileStream.Create(FilePath, fmShareDenyWrite);
   try
     if AStream.Read(idh, SizeOf(TImageDosHeader)) <> SizeOf(TImageDosHeader) then
@@ -135,10 +156,11 @@ begin
     AStream.Free;
   end;
 
-  // Rich идет сразу за DOS заголовком, учитываем его
+	// The Rich header immediately follows the DOS header, so we account for it.
+	// [ru] Rich идет сразу за DOS заголовком, учитываем его
+
   Inc(AInstance, SizeOf(TImageDosHeader));
 
-  // Ищем начало
   Mask := 0;
   while Cursor > 0 do
   begin
@@ -158,7 +180,6 @@ begin
     FData.Insert(0, Item);
   end;
 
-  // зачитываем все элементы с последнего по первый
   Index := 0;
   while Cursor > 0 do
   begin
@@ -178,21 +199,25 @@ begin
       FData.Insert(0, Item);
   end;
 
-  // проверка - все ли правильно?
   FValid :=
     (Index <> 0) and
     (Items.Count > 2) and
     (Items.List[Index].ProdId = tagBegID) and
-    (Items.List[Index].Count <> 0) and // контрольная сумма заголовка с расшифрованным Rich
+    (Items.List[Index].Count <> 0) and
     (Items.List[0].ProdId = tagEndID) and
     (Items.List[0].Count = 0) and
     (FData.List[1].ProdId = 0) and
     (FData.List[1].Count = 0){ and
     (Cursor = SizeOfDefaultDosStub)};
 
-  // если все правильно, курсор расположен в самом конце
-  // 16-битной MS-DOS заглушки, которую тоже добавляем в список
-  // (если под неё осталось место)
+	// If everything is correct, the cursor is positioned at the very end
+	// of the 16-bit MS-DOS stub, which we also add to the list
+	// (if there is room left for it).
+
+	// [ru] если все правильно, курсор расположен в самом конце
+	// 16-битной MS-DOS заглушки, которую тоже добавляем в список
+	// (если под неё осталось место)
+
   if FValid and (Cursor > 0) then
   begin
     Item.ItemType := ritDosStub;
@@ -352,7 +377,8 @@ begin
     begin
       if (Item.ProdId = 0) and (Item.Count = 0) then
       begin
-        Data.Caption := ' '; // пробелом указываем что описание есть, но пустое!
+        Data.Caption := ' ';  // A space indicates that a description exists, but is empty!
+                              // [ru] пробелом указываем что описание есть, но пустое!
         Data.Description := 'end of tallies (Masked)';
       end
       else

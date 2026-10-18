@@ -1,19 +1,35 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Filter.pas
-//  * Purpose   : Класс для быстрой фильтрации результатов анализатора.
-//  *           : Не используется в составе фреймворка,
-//  *           : и предназначен для внешнего кода.
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Purpose   : A class for quickly filtering analyzer results.
+//  *           : Not used within the framework,
+//  *           : and intended for external code.
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -51,21 +67,39 @@ type
     constructor Create;
     destructor Destroy; override;
     /// <summary>
-    ///  Добавление фильтра в список
-    ///  HookHandler - библиотека в которую идет перенаправление
-    ///  FuncTemplate - имя функции в формате "библиотека.имя"
-    ///  на которой обнаружден перехватчик (например ntdll.RtlExitUserThread)
-    ///  HookTypes - расположение установленого перехвата
-    ///  FilterStatus - какой результат должен вернуть фильтр
+    ///  Add a filter to the list
     /// </summary>
+    /// <param name="HookHandler">the library to which the call is redirected</param>
+    /// <param name="FuncTemplate">
+    ///  the function name in the format "library.name"
+    ///  on which the hook was detected (e.g., ntdll.RtlExitUserThread)
+    /// </param>
+    /// <param name="HookTypes">the location of the installed hook</param>
+    /// <param name="FilterStatus">the result the filter should return</param>
+    /// <remarks>
+    ///  [ru] Добавление фильтра в список
+    ///  HookHandler - библиотека, в которую идёт перенаправление
+    ///  FuncTemplate - имя функции в формате "библиотека.имя"
+    ///  на которой обнаружен перехват (например, ntdll.RtlExitUserThread)
+    ///  HookTypes - расположение установленного перехвата
+    ///  FilterStatus - какой результат должен вернуть фильтр
+    /// </remarks>
     procedure AddFilter(HookHandler, FuncTemplate: string;
       HookTypes: THookTypes; FilterStatus: TFilterStatus);
     /// <summary>
-    ///  Проверка фильтра
-    ///  HookHandler - библиотека в которую идет перенаправление
-    ///  FuncTemplate - имя функции "библиотека.имя" которую перенаправили
-    ///  HookType - ресположение установленого перехвата
+    ///  Filter check
     /// </summary>
+    /// <param name="HookHandler">the library to which the call is redirected</param>
+    /// <param name="FuncTemplate">
+    ///  the name of the function "library.name" that was redirected
+    /// </param>
+    /// <param name="HookType">the location of the installed hook</param>
+    /// <remarks>
+    ///  [ru] Проверка фильтра
+    ///  HookHandler - библиотека, в которую идёт перенаправление
+    ///  FuncTemplate - имя функции "библиотека.имя", которую перенаправили
+    ///  HookType - расположение установленного перехвата
+    /// </remarks>
     function Check(HookHandler, FuncTemplate: string;
       HookType: THookType): TFilterStatus;
     procedure Clear;
@@ -111,16 +145,26 @@ begin
   if FData.TryGetValue(HookHandler, LibraryData) then
   begin
     try
-      // проверка конкретного фильтра на библиотека + имя
-      // например ntdll.RtlExitUserThread
+
+      // Checking for a specific filter by library + name
+      // for example, ntdll.RtlExitUserThread
+
+      // [ru] Проверка конкретного фильтра на библиотеку + имя
+      // например, ntdll.RtlExitUserThread
+
       if LibraryData.TryGetValue(FuncTemplate, FilterData) then
       begin
         if HookType in FilterData.HookType then
           Result := FilterData.FilterStatus;
         Exit;
       end;
-      // проверка фильтра на библиотеку + любая функция
-      // например ntdll.*
+
+      // Checking the filter for a library + any function
+      // for example, ntdll.*
+
+      // [ru] Проверка фильтра на библиотеку + любая функция
+      // например, ntdll.*
+
       Index := LastDelimiter('.', FuncTemplate);
       if Index > 0 then
       begin
@@ -132,8 +176,13 @@ begin
           Exit;
         end;
       end;
-      // проверка фильтра на хэндлер хука
-      // например *
+
+      // Checking the filter for a hook handler
+      // for example, *
+
+      // [ru] Проверка фильтра на обработчик перехвата
+      // например, *
+
       if LibraryData.TryGetValue(FilterAll, FilterData) then
       begin
         if HookType in FilterData.HookType then

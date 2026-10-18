@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uSettings.Form.pas
-//  * Purpose   : Диалог настроек
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Settings dialog
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.47
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -22,7 +38,9 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.Samples.Spin;
+  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.Samples.Spin, Vcl.Mask,
+
+  RawScanner.Pdb;
 
 type
   TdlgSettings = class(TForm)
@@ -65,30 +83,48 @@ type
     pnImage7: TPanel;
     cbDemangleNames: TCheckBox;
     cbShowChildFormsOnTaskBar: TCheckBox;
-    cbLoadStrings: TCheckBox;
-    seStringLength: TSpinEdit;
-    Label10: TLabel;
     cbShowAligns: TCheckBox;
     seSOLimit: TSpinEdit;
     Label11: TLabel;
-    Label12: TLabel;
+    lblSearchDistance: TLabel;
     seLineLimit: TSpinEdit;
     cbLineDirection: TComboBox;
-    Label13: TLabel;
+    lblSearchDirection: TLabel;
     cbCheckStackAddrPCExecutable: TCheckBox;
     cbAutoRefresh: TCheckBox;
     Label14: TLabel;
     seAutoRefreshDelay: TSpinEdit;
     Label15: TLabel;
     seSearchLimit: TSpinEdit;
+    memSymSrv: TMemo;
+    Label16: TLabel;
+    cbUsePDBSymbols: TCheckBox;
+    cbDownloadSym: TCheckBox;
+    TabSheet5: TTabSheet;
+    cbCheckUpdates: TCheckBox;
+    cbProxy: TComboBox;
+    edProxyAddr: TLabeledEdit;
+    edProxyPort: TLabeledEdit;
+    lblProxyAuth: TLabel;
+    cbProxyAuth: TComboBox;
+    edProxyUser: TLabeledEdit;
+    edProxyPassword: TLabeledEdit;
+    btnTestProxy: TButton;
+    seStringLength: TSpinEdit;
+    Label10: TLabel;
+    cbLoadStrings: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure pnImage0Click(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure btnResetClick(Sender: TObject);
     procedure tvNavigateClick(Sender: TObject);
+    procedure cbUsePDBSymbolsClick(Sender: TObject);
+    procedure btnTestProxyClick(Sender: TObject);
   private
     Colors: array [0..7] of TColorRef;
+    function GetProxy: TProxySettings;
     procedure ShowSettings;
+    procedure UpdateGUI;
   end;
 
 var
@@ -97,7 +133,8 @@ var
 implementation
 
 uses
-  uSettings;
+  uSettings,
+  uUtils;
 
 {$R *.dfm}
 
@@ -107,6 +144,27 @@ procedure TdlgSettings.btnResetClick(Sender: TObject);
 begin
   Settings.LoadDefault;
   ShowSettings;
+end;
+
+procedure TdlgSettings.btnTestProxyClick(Sender: TObject);
+var
+  Info: TReseaseInfo;
+begin
+  if GetLatestRelease(GetProxy, Info) then
+    Application.MessageBox(PChar('Connection successful. Latest version: ' + Info.Version),
+      PChar(Application.Title), MB_ICONINFORMATION)
+  else
+    Application.MessageBox(PChar('Connection failed.' + sLineBreak +
+      sLineBreak +
+      'Unable to connect to the proxy server. Please check the server address, ' +
+      'port, and authentication settings.' + sLineBreak +
+      sLineBreak +
+      Info.ErrorData), PChar(Application.Title), MB_ICONINFORMATION);
+end;
+
+procedure TdlgSettings.cbUsePDBSymbolsClick(Sender: TObject);
+begin
+  UpdateGUI;
 end;
 
 procedure TdlgSettings.btnOkClick(Sender: TObject);
@@ -136,6 +194,11 @@ begin
   Settings.AutoRefresh := cbAutoRefresh.Checked;
   Settings.AutoRefreshDelay := seAutoRefreshDelay.Value;
   Settings.SearchLimit := seSearchLimit.Value;
+  Settings.UsePDB := cbUsePDBSymbols.Checked;
+  Settings.DownloadPDB := cbDownloadSym.Checked;
+  Settings.SymSrv := Trim(memSymSrv.Text);
+  Settings.CheckUpdates := cbCheckUpdates.Checked;
+  Settings.Proxy := GetProxy;
   Settings.SaveSettings;
   ModalResult := mrOk;
 end;
@@ -146,9 +209,38 @@ begin
   TabSheet2.TabVisible := False;
   TabSheet3.TabVisible := False;
   TabSheet4.TabVisible := False;
+  TabSheet5.TabVisible := False;
   pcSettings.ActivePage := TabSheet1;
   tvNavigate.Items[0].Selected := True;
   ShowSettings;
+end;
+
+function TdlgSettings.GetProxy: TProxySettings;
+begin
+  Result := Default(TProxySettings);
+  case cbProxy.ItemIndex of
+    0: ;
+    1: Result.Kind := pkDefault;
+    2:
+    begin
+      Result.Host := edProxyAddr.Text;
+      TryStrToInt(edProxyPort.Text, Result.Port);
+      if cbProxyAuth.ItemIndex > 0 then
+      begin
+        Result.Kind := pkUserSettingsWithAuthority;
+        case cbProxyAuth.ItemIndex of
+          1: Result.AuthKind := pakAuto;
+          2: Result.AuthKind := pakBasic;
+          3: Result.AuthKind := pakNegotiate;
+          4: Result.AuthKind := pakNTLM;
+        end;
+        Result.Login := edProxyUser.Text;
+        Result.Password := edProxyPassword.Text;
+      end
+      else
+        Result.Kind := pkUserSettings;
+    end;
+  end;
 end;
 
 procedure TdlgSettings.pnImage0Click(Sender: TObject);
@@ -194,6 +286,25 @@ begin
   cbAutoRefresh.Checked := Settings.AutoRefresh;
   seAutoRefreshDelay.Value := Settings.AutoRefreshDelay;
   seSearchLimit.Value := Settings.SearchLimit;
+  cbUsePDBSymbols.Checked := Settings.UsePDB;
+  cbDownloadSym.Checked := Settings.DownloadPDB;
+  memSymSrv.Text := Settings.SymSrv;
+  cbCheckUpdates.Checked := Settings.CheckUpdates;
+  case Settings.Proxy.Kind of
+    pkNone: cbProxy.ItemIndex := 0;
+    pkDefault: cbProxy.ItemIndex := 1;
+  else
+    cbProxy.ItemIndex := 2;
+    edProxyAddr.Text := Settings.Proxy.Host;
+    edProxyPort.Text := IntToStr(Settings.Proxy.Port);
+    if Settings.Proxy.Kind = pkUserSettingsWithAuthority then
+    begin
+      cbProxyAuth.ItemIndex := 1 + Byte(Settings.Proxy.AuthKind);
+      edProxyUser.Text := Settings.Proxy.Login;
+      edProxyPassword.Text := Settings.Proxy.Password;
+    end;
+  end;
+  UpdateGUI;
 end;
 
 procedure TdlgSettings.tvNavigateClick(Sender: TObject);
@@ -205,8 +316,43 @@ begin
       1: pcSettings.ActivePage := TabSheet2;
       2: pcSettings.ActivePage := TabSheet3;
       3: pcSettings.ActivePage := TabSheet4;
+      4: pcSettings.ActivePage := TabSheet5;
     end;
   end;
+end;
+
+procedure TdlgSettings.UpdateGUI;
+var
+  ProxyLvl: Integer;
+begin
+  cbDownloadSym.Enabled := cbUsePDBSymbols.Checked;
+  memSymSrv.Enabled := cbUsePDBSymbols.Checked;
+  seLineLimit.Enabled := cbLoadLineSymbols.Checked;
+  cbLineDirection.Enabled := cbLoadLineSymbols.Checked;
+  if cbLoadLineSymbols.Checked then
+  begin
+    lblSearchDistance.Font.Color := clWindowText;
+    lblSearchDirection.Font.Color := clWindowText;
+  end
+  else
+  begin
+    lblSearchDistance.Font.Color := clGrayText;
+    lblSearchDirection.Font.Color := clGrayText;
+  end;
+  if cbProxy.ItemIndex < 2 then
+    ProxyLvl := 0
+  else
+  begin
+    if cbProxyAuth.ItemIndex = 0 then
+      ProxyLvl := 1
+    else
+      ProxyLvl := 2;
+  end;
+  edProxyAddr.Enabled := ProxyLvl > 0;
+  edProxyPort.Enabled := ProxyLvl > 0;
+  cbProxyAuth.Enabled := ProxyLvl > 0;
+  edProxyUser.Enabled := ProxyLvl = 2;
+  edProxyPassword.Enabled := ProxyLvl = 2;
 end;
 
 end.

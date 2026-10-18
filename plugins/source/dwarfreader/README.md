@@ -1,16 +1,18 @@
+**English** | [Русский](README.RU.md)
+
 DWARF Reader
 ================
 
-Небольшая утилита выводящая информацию об присутствующей отладочной информации в исполняемом файле.
-Поддерживаются форматы:
-* PE32/64 - выводится DWARF информация и информация из COFF секции (Va+Raw адресация)
-* ELF32/64 - выводится DWARF информация и информация из секции символов (Va+Raw адресация), для обьектных файлов данные выводятся только в Raw адресации.
-* обьектные COFF32/64 - выводится DWARF информация и информация из COFF секции. Доступна только Raw адресация.
+A small utility that displays the debug information present in an executable file.
+Supported formats:
+* PE32/64 - displays DWARF information and information from the COFF section (Va+Raw addressing)
+* ELF32/64 - displays DWARF information and information from the symbol section (Va+Raw addressing); for object files, data is displayed in Raw addressing only.
+* COFF32/64 object files - displays DWARF information and information from the COFF section. Only Raw addressing is available.
 
-ВАЖНО: 
-Обьектные файлы содержат DWARF информацию без указания адресов, поэтому для них она выводится только как информационная.
-Частично ввиде Raw оффсетов информация присутствует в секции символов (для ELF обьектников) и в секции COFF.
+IMPORTANT:
+Object files contain DWARF information without addresses, so for them it is displayed for informational purposes only.
+Partial information in the form of Raw offsets is present in the symbol section (for ELF object files) and in the COFF section.
 
-###Внешний вид:
+### Appearance:
 
-![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/plugins/source/dwarfreader/img/1.png?raw=true "Внешний вид")
+![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/plugins/source/dwarfreader/img/1.png?raw=true "Appearance")

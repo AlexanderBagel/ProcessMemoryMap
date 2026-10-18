@@ -25,7 +25,7 @@ object dlgSearchResult: TdlgSearchResult
     Left = 0
     Top = 0
     Width = 1287
-    Height = 617
+    Height = 598
     Margins.Left = 5
     Margins.Top = 5
     Margins.Right = 5
@@ -34,16 +34,19 @@ object dlgSearchResult: TdlgSearchResult
     PopupMenu = pmPage
     TabOrder = 0
     OnChange = PageControlChange
+    ExplicitHeight = 617
   end
   object StatusBar: TStatusBar
     Left = 0
-    Top = 392
-    Width = 858
+    Top = 598
+    Width = 1287
     Height = 19
     Panels = <
       item
         Width = 33
       end>
+    ExplicitTop = 392
+    ExplicitWidth = 858
   end
   object pmViewer: TPopupMenu
     Left = 248

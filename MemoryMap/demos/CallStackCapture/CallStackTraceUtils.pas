@@ -2,8 +2,8 @@
 //
 //  ****************************************************************************
 //  * Unit Name : CallStackTraceUtils
-//  * Purpose   : Реализация дампа текущего стека вызовов
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Implementation of the current call stack dump
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Version   : 1.01
 //  ****************************************************************************
 //

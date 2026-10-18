@@ -1,16 +1,32 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : ProcessMM.dpr
-//  * Author    : Александр (Rouse_) Багель
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -92,12 +108,22 @@ uses
   uDisplayStyleInfo in 'src\uDisplayStyleInfo.pas',
   uPatchRestore in 'src\gui\uPatchRestore.pas' {dlgPatchRestore},
   uWindows in 'src\gui\uWindows.pas' {dlgWindows},
-  FWAniPaintBox in 'Controls\FWAniPaintBox.pas';
+  FWAniPaintBox in 'Controls\FWAniPaintBox.pas',
+  RawScanner.Pdb in 'RawScanner\RawScanner.Pdb.pas',
+  uPdbManager in 'src\gui\uPdbManager.pas' {dlgPdbManager};
 
 {$R *.res}
 
-// Директива SINGLE_INSTANCE не дает запускать 32 битному приложению 64 битный аналог
+{$IFDEF RELEASE}
+  {$R version.res}
+{$ENDIF}
+
+// The SINGLE_INSTANCE directive prevents a 32-bit application from launching its 64-bit counterpart
+// For debugging purposes only
+
+// [ru] Директива SINGLE_INSTANCE не дает запускать 32 битному приложению 64 битный аналог
 // Сугубо для отладки
+
 {$IFDEF SINGLE_INSTANCE}
 begin
   Application.Initialize;
@@ -125,11 +151,19 @@ begin
   {$IFDEF WIN32}
   if Is64OS and not FindCmdLineSwitch('32', ['x'], True) then
   begin
-    // Если OS 64-битная, то запускаем соответствующее приложение,
+
+    // If the OS is 64-bit, we launch the corresponding application,
+    // while we remain running in the background to pass it data about 32-bit heaps.
+    // However, if the 64-bit application restarts as an administrator,
+    // we will no longer have access to it and will have to shut down.
+    // I’ll rework this mechanism properly at some point.
+
+    // [ru] Если OS 64-битная, то запускаем соответствующее приложение,
     // а сами остаемся висеть чтобы отдавать ему данные о 32-битных кучах.
     // Правда если 64-битное приложение перезапустится из под админа
     // то доступа к нему мы уже иметь не будем, придется закрываться.
     // Потом этот механизм пересмотрю как нибудь по нормальному.
+
     IPC := TIPCServer.Create;
     try
       Path := ExtractFilePath(ParamStr(0)) + 'processmm64.exe';

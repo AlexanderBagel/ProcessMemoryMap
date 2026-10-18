@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uFindData.pas
-//  * Purpose   : Диалог для поиска данных в памяти процесса
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Dialog with search results
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -94,7 +110,6 @@ type
     SaveToFile1: TMenuItem;
     SaveDialog: TSaveDialog;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure acOpenUpdate(Sender: TObject);
     procedure acOpenExecute(Sender: TObject);
     procedure acCopyAddrExecute(Sender: TObject);
@@ -388,12 +403,6 @@ begin
   end
   else
     Action := TCloseAction.caHide;
-end;
-
-procedure TdlgSearchResult.FormKeyPress(Sender: TObject; var Key: Char);
-begin
-  if Key = #27 then
-    Close;
 end;
 
 function TdlgSearchResult.GetActiveView: TSearchView;

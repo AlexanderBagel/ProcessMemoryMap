@@ -1,21 +1,37 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.LoaderData.pas
-//  * Purpose   : Класс получает список загруженых модулей процесса
-//  *           : на основе прямого чтения списка LOADER_DATA из памяти процеса.
-//  *           : Работает и с 32 и с 64 битными процессами, но нужен в оновном
-//  *           : для 32 битных процессов, которым нужно получить информацию об
-//  *           : 64 битных библиотеках.
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.0.11
+//  * Purpose   : The class retrieves a list of the process's loaded modules
+//  *           : by directly reading the LOADER_DATA list from the process's memory.
+//  *           : Works with both 32-bit and 64-bit processes, but is primarily intended
+//  *           : for 32-bit processes that need to obtain information about
+//  *           : 64-bit libraries.
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -201,8 +217,6 @@ begin
   begin
     Volume := PChar(@Buff[(I * DriveNameSize) + 1]);
     Volume[3] := #0;
-    // Преобразуем имя каждого диска в символьную ссылку и
-    // сравниваем с формализированным путем
     QueryDosDevice(PChar(Volume), @lpQuery[0], MAX_PATH);
     dwQueryLength := Length(string(lpQuery));
     if Copy(Result, 1, dwQueryLength) = string(lpQuery) then
@@ -263,17 +277,30 @@ begin
       Continue;
     end;
 
-    // нюанс, 32 битные библиотеки в списке LDR будут прописаны с путем из
+    // Note: 32-bit libraries in the LDR list will be specified with a path from
+    // the default system directory, even though they are actually loaded
+    // from the SysWow64 folder. Therefore, we check if SysWow64 is present,
+    // if so, we replace all 32-bit library paths with the correct ones by
+    // calling GetMappedFileName and normalizing the result.
+    // For 64-bit libraries, this doesn't make sense, since they are loaded at higher
+    // addresses where a 32-bit library cannot be loaded, and at lower
+    // addresses we can read data from a 32-bit build ourselves, but there's a catch!!!
+    // GetMappedFileName works with addresses less than MM_HIGHEST_USER_ADDRESS
+    // if the address is greater, it will return zero with the ERROR_INVALID_PARAMETER error
+    // therefore, the GetMappedFileName call must be 64-bit!
+
+    // [ru] Примечание: 32-битные библиотеки в списке LDR будут прописаны с путем из
     // дефолтной системной директории, хотя на самом деле они грузятся
-    // из SysWow64 папки. Поэтому проверяем, если SysWow64 присутствует
-    // то все 32 битные пути библиотек меняем на правильный посредством
+    // из SysWow64 папки. Поэтому проверяем, присутствует ли SysWow64,
+    // и если да, то все 32-битные пути библиотек меняем на правильные посредством
     // вызова GetMappedFileName + нормализация.
-    // Для 64 битных это делать не имеет смысла, т.к. они грузятся по старшим
-    // адресам куда не может быть загружена 32 битная библиотека, а по младшим
-    // мы и сами сможет прочитать данные из 32 битной сборки, но есть нюанс!!!
+    // Для 64-битных это делать не имеет смысла, т.к. они грузятся по старшим
+    // адресам, куда не может быть загружена 32-битная библиотека, а по младшим
+    // мы и сами сможем прочитать данные из 32-битной сборки, но есть нюанс!!!
     // GetMappedFileName работает с адресами меньше MM_HIGHEST_USER_ADDRESS
-    // если адрес будет больше - вернется ноль с ошибкой ERROR_INVALID_PARAMETER
-    // поэтому вызов GetMappedFileName должен осуществляться 64-битный!
+    // если адрес будет больше - вернётся ноль с ошибкой ERROR_INVALID_PARAMETER
+    // поэтому вызов GetMappedFileName должен быть 64-битным!
+
     if FUse64Addr then
     begin
       MapedFilePathLen := GetMappedFileName64(FProcess, Module.ImageBase,
@@ -282,7 +309,9 @@ begin
         Module.ImagePath := NormalizePath(Copy(MapedFilePath, 1, MapedFilePathLen));
     end;
 
-    // инициализируе дополнительные флаги загруженого модуля
+    // Initialize additional flags for the loaded module
+    // [ru] Инициализируем дополнительные флаги загруженного модуля
+
     Module.IsDll := Entry.Flags and LDRP_IMAGE_DLL <> 0;
     Module.IsBaseValid := Entry.Flags and LDRP_IMAGE_NOT_AT_BASE = 0;
     Module.IsILCoreImage := Entry.Flags and LDRP_COR_IMAGE <> 0;
@@ -344,16 +373,24 @@ begin
       Continue;
     end;
 
-    // инициализируе дополнительные флаги загруженого модуля
+    // Initialize additional flags for the loaded module
+    // [ru] Инициализируем дополнительные флаги загруженного модуля
+
     Module.IsDll := Entry.Flags and LDRP_IMAGE_DLL <> 0;
     Module.IsBaseValid := Entry.Flags and LDRP_IMAGE_NOT_AT_BASE = 0;
     Module.IsILCoreImage := Entry.Flags and LDRP_COR_IMAGE <> 0;
     Module.IsRedirected := Entry.Flags and LDRP_REDIRECTED <> 0;
 
-    // есть нюанс, в 64 битном списке 32 битного процесса первым
-    // идет запись об исполняемом файле, даже не смотря на то что он 32 битный
+    // There's a nuance: in a 64-bit list of 32-bit processes, the first
+    // entry is for the executable file, even though it's 32-bit,
+    // so we check whether this information was loaded when reading
+    // the loader's 32-bit list
+
+    // [ru] Есть нюанс: в 64-битном списке 32-битного процесса первым
+    // идет запись об исполняемом файле, даже несмотря на то, что он 32-битный,
     // поэтому делаем проверку - была ли загружена эта информация при чтении
-    // 32 битного списка загрузчика?
+    // 32-битного списка загрузчика
+
     if FRootModule.IsEmpty then
      FRootModule := Module
     else

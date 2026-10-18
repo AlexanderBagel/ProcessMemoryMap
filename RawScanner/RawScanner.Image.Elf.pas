@@ -1,18 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Image.Elf.pas
-//  * Purpose   : Классы получающие данные о состоянии ELF файлов в процессе
-//  *           : рассчитанные на основе образов файлов с диска.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Classes that retrieve state information about ELF files during
+//  *           : the process, computed based on file images from disk
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.28
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -394,7 +410,9 @@ begin
   Symbol.Hash := CalculateGnuHash(AnsiString(Symbol.DisplayName));
   BucketIdx := Symbol.Hash mod UInt32(FHeader.nbuckets);
 
-  // Индекс символа из корзины
+  // Index of the symbol from the bucket.
+  // [ru] Индекс символа из корзины
+
   SymIdx := FBuckets[BucketIdx];
   if SymIdx = 0 then
   begin
@@ -402,7 +420,9 @@ begin
     Exit;
   end;
 
-  // Проверяем фильтр Блума
+  // Checking the Bloom filter.
+  // [ru] Проверяем фильтр Блума
+
   WordSizeBits := PtrSize[FOwner.Image64] shl 3;
   BloomIdx := (Symbol.Hash div UInt32(WordSizeBits)) mod FHeader.maskwords;
   BitMask := (UInt64(1) shl (Int32(Symbol.Hash) mod WordSizeBits)) or
@@ -414,7 +434,9 @@ begin
     Exit;
   end;
 
-  // Поиск в цепочке (нечетный хэш означает конец цепочки)
+  // Searching in the chain (an odd hash indicates the end of the chain).
+  // [ru] Поиск в цепочке (нечетный хэш означает конец цепочки)
+
   Symbol.Hash := Symbol.Hash and not 1;
   for HashIdx := SymIdx - FHeader.symndx to Length(FHashValues) - 1 do
   begin
@@ -424,7 +446,9 @@ begin
       Exit(True);
     end;
 
-    // Конец цепочки
+    // End of the chain.
+    // [ru] Конец цепочки
+
     if (FHashValues[HashIdx] and 1) <> 0 then
       Break;
   end;
@@ -611,15 +635,15 @@ begin
 
     if FImageLoadType = iltWithoutDebug then Exit;
 
-    // COFF + DWARF могут сидеть во внешнем отладочном файле
+    // COFF + DWARF can reside in an external debug file,
+    // a reference to which will be located in the .gnu_debuglink section.
+
+    // [ru] COFF + DWARF могут сидеть во внешнем отладочном файле
     // ссылка на который будет находится в секции .gnu_debuglink
+
     FDebugLinkPath := GetGnuDebugLink(Raw);
     if FDebugLinkPath <> '' then
     begin
-      // если это так - то переопределяем гейт образа на вспомогательный,
-      // откуда будем брать актуальные отладочные данные, причем грузить его
-      // будем только до секций (второй параметр), остальное в принципе лишнее
-      // (да и нет там больше ничего)
       DebugLinkImage := TRawElfImage.Create(FDebugLinkPath, iltSectionOnly, ImageBase);
       FImageGate.ReplaceImage(DebugLinkImage);
       Raw.LoadFromFile(FDebugLinkPath);
@@ -708,7 +732,10 @@ begin
   RelaPltDict := TDictionary<Integer, Elf64_Rela>.Create;
   try
 
-    ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
+    if SymSection.Hdr.sh_entsize = 0 then
+      ACount := 0
+    else
+      ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
     Raw.Position := SymSection.Hdr.sh_offset;
     Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
     Elf64Dyn := Default(Elf64_Dyn);
@@ -720,7 +747,7 @@ begin
       begin
         Raw.ReadBuffer(Elf32Dyn, SizeOf(Elf32Dyn));
         Elf64Dyn.d_tag := Elf32Dyn.d_tag;
-        Elf32Dyn.d_ptr := Elf32Dyn.d_ptr;
+        Elf64Dyn.d_ptr := Elf32Dyn.d_ptr;
       end;
       if Elf64Dyn.d_tag = DT_NEEDED then
       begin
@@ -739,36 +766,50 @@ begin
     else
       Result := SymSection.Hdr.sh_entsize = SizeOf(Elf32_Sym);
     if not Result then Exit;
-    ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
+    if SymSection.Hdr.sh_entsize = 0 then
+      ACount := 0
+    else
+      ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
     FSymbols.Count := ACount;
     if ACount = 0 then Exit;
     Strings := PByte(Raw.Memory) + SymStrSection.Hdr.sh_offset;
     Symbol := Default(TImageSymbol);
     ASectionsCount := Length(FSections);
 
-    // зачитываем таблицу импортируемых символов
+    // Reading the table of imported symbols.
+    // [ru] читаем таблицу импортируемых символов
+
     if SectionAtName('.rela.plt', I) and SectionAtIndex(I, RelaPltSection) then
     begin
       Raw.Position := RelaPltSection.Hdr.sh_offset;
       Elf64Rela := Default(Elf64_Rela);
-      for I := 0 to (RelaPltSection.Hdr.sh_size div RelaPltSection.Hdr.sh_entsize) - 1 do
+      if RelaPltSection.Hdr.sh_entsize > 0 then
       begin
-        if Image64 then
-          Raw.ReadBuffer(Elf64Rela, SizeOf(Elf64_Rela))
-        else
+        for I := 0 to (RelaPltSection.Hdr.sh_size div RelaPltSection.Hdr.sh_entsize) - 1 do
         begin
-          Raw.ReadBuffer(Elf32Rela, SizeOf(Elf32_Rela));
-          Elf64Rela.r_offset := Elf32Rela.r_offset;
-          Elf64Rela.r_info := ELF64_R_INFO(
-            ELF32_R_SYM(Elf32Rela.r_info), ELF32_R_TYPE(Elf32Rela.r_info));
-          Elf64Rela.r_addend := Elf32Rela.r_addend;
+          if Image64 then
+            Raw.ReadBuffer(Elf64Rela, SizeOf(Elf64_Rela))
+          else
+          begin
+            Raw.ReadBuffer(Elf32Rela, SizeOf(Elf32_Rela));
+            Elf64Rela.r_offset := Elf32Rela.r_offset;
+            Elf64Rela.r_info := ELF64_R_INFO(
+              ELF32_R_SYM(Elf32Rela.r_info), ELF32_R_TYPE(Elf32Rela.r_info));
+            Elf64Rela.r_addend := Elf32Rela.r_addend;
+          end;
+
+          if ELF64_R_SYM(Elf64Rela.r_info) = 0 then
+            Continue;
+
+          Elf64Rela.r_addend := I;
+          RelaPltDict.TryAdd(ELF64_R_SYM(Elf64Rela.r_info), Elf64Rela);
         end;
-        Elf64Rela.r_addend := I;
-        RelaPltDict.Add(ELF64_R_SYM(Elf64Rela.r_info), Elf64Rela);
       end;
     end;
 
-    // зачитываем список хэшей экспортируемых функций
+    // Reading the list of hashes of exported functions.
+    // [ru] читаем список хэшей экспортируемых функций
+
     FHashReader.LoadGnuHash(Raw);
     FGnuHashReader.LoadGnuHash(Raw);
 
@@ -789,7 +830,9 @@ begin
         Symbol.Hdr.st_size := Hdr32.st_size;
       end;
 
-      // игнорируем абсолютные и OS специфичные символы
+      // Ignoring absolute and OS-specific symbols.
+      // [ru] игнорируем абсолютные и OS специфичные символы
+
       if Symbol.Hdr.st_shndx >= ASectionsCount then
         Continue;
 
@@ -798,11 +841,14 @@ begin
       else
         Symbol.DisplayName := '';
 
-      // Экспорт идентифицируется по следующим признакам:
+      // Export is identified by the following characteristics:
+      // [ru] Экспорт идентифицируется по следующим признакам:
+
       // 1. st_shndx != undef
       // 2. bind == STB_GLOBAL
       // 3. type == STT_OBJECT, STT_FUNC
       // 4. visiblity == STV_DEFAULT, STV_PROTECTED
+
       IsValidExportFlags :=
         (Symbol.Hdr.st_value > 0) and
         (ELF32_ST_TYPE(Symbol.Hdr.st_info) in [STT_OBJECT, STT_FUNC, STT_GNU_IFUNC]) and
@@ -970,7 +1016,10 @@ begin
   else
     Result := SymSection.Hdr.sh_entsize = SizeOf(Elf32_Sym);
   if not Result then Exit;
-  ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
+  if SymSection.Hdr.sh_entsize = 0 then
+    ACount := 0
+  else
+    ACount := SymSection.Hdr.sh_size div SymSection.Hdr.sh_entsize;
   FDynSymbolsCount := Symbols.Count;
   Symbols.Count := FDynSymbolsCount + ACount;
   if ACount = 0 then Exit;
@@ -1119,13 +1168,19 @@ end;
 
 function TRawElfImage.RvaToRaw(RvaAddr: DWORD): DWORD;
 begin
-  // ELF файлы не работают в RVA адресации
+
+  // ELF files do not work with RVA addressing.
+  // [ru] ELF файлы не работают в RVA адресации
+
   Result := VaToRaw(RvaAddr);
 end;
 
 function TRawElfImage.RvaToVa(RvaAddr: DWORD): ULONG_PTR64;
 begin
-  // ELF файлы не работают в RVA адресации
+
+  // ELF files do not work with RVA addressing.
+  // [ru] ELF файлы не работают в RVA адресации
+
   Result := RvaAddr;
 end;
 
@@ -1217,7 +1272,10 @@ end;
 
 function TRawElfImage.VaToRva(VaAddr: ULONG_PTR64): DWORD;
 begin
-  // ELF файлы не работают в RVA адресации
+
+  // ELF files do not work with RVA addressing.
+  // [ru] ELF файлы не работают в RVA адресации
+
   Result := VaAddr;
 end;
 

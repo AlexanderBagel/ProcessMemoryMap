@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : MemoryMap
+//  * Project   : Process Memory Map
 //  * Unit Name : MemoryMap.PEImage.pas
-//  * Purpose   : Класс собирает данные по секциям и директориям PE файла
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.29
+//  * Purpose   : The class collects data by sections and directories of a PE file
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.4.41
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -140,8 +156,6 @@ var
   dwDirSize: DWORD;
   DirAddr: Pointer;
   Directory: TDirectoryArray;
-
-  // это все для работы с калбэками
   pTLSCursor: PULONG_PTR;
   pTLSTable: array [0..SizeOf(TLSTable64) - 1] of Byte;
   NumberOfBytesWritten: SIZE_T;
@@ -169,7 +183,6 @@ begin
   Directory.Count := 0;
   for I := 0 to 14 do
   begin
-    // Получаем адрес директории
     DirAddr := ImageDirectoryEntryToData(FImageInfo.MappedAddress,
       True, I, dwDirSize);
     if DirAddr <> nil then
@@ -180,36 +193,31 @@ begin
       Directory.Data[I].Address := NativeUint(FImageBase) +
         NativeUint(DirAddr) - NativeUint(FImageInfo.MappedAddress);
       Directory.Data[I].Size := dwDirSize;
-      // дополнительно рассчитываем адреса всех TLS Callback
+
       if I = IMAGE_DIRECTORY_ENTRY_TLS then
       begin
-        // рассчитываем адрес TLS таблицы у удаленном АП
         pTLSCursor := PULONG_PTR(NativeUint(FImageBase) +
           NativeUint(DirAddr) - NativeUint(FImageInfo.MappedAddress));
-        // читаем начало TLS таблицы
+
         if not ReadProcessMemory(FProcessHandle, pTLSCursor,
           @pTLSTable[0], SizeOf(pTLSTable), NumberOfBytesWritten) then Continue;
 
-        // читаем саму таблицу каллбэков
         SetLength(TLSCallbackTable, 256);
         if FImage64 then
           pTLSCursor := Pointer(PLSTable64(@pTLSTable[0])^.AddressOfCallBacks)
         else
           pTLSCursor := Pointer(PLSTable32(@pTLSTable[0])^.AddressOfCallBacks);
 
-        // Проверка, а вдруг мы читаем не из модуля
         if (ULONG_PTR(pTLSCursor) < ULONG_PTR(FImageBase)) or
           (ULONG_PTR(pTLSCursor) > (ULONG_PTR(FImageBase) + FImageInfo.SizeOfImage)) then
           Continue;
 
-        // вторая проверка, а мы вообще иинициализированы?
         if not LoadAsImage then Exit;
 
         if not ReadProcessMemory(FProcessHandle,
           pTLSCursor, @TLSCallbackTable[0], Length(TLSCallbackTable),
           NumberOfBytesWritten) then Continue;
 
-        // читаем их последовательно (по 4 или 8 байт в зависимости от битности)
         A := 0;
         TLSCallbackTableCursor := 0;
         pCallBack := GetNextCallback;
@@ -219,7 +227,7 @@ begin
           CallbackData.Address := pCallBack;
           TLSCallbacks.Add(CallbackData);
           Inc(A);
-          if A > 31 then // 32 калбэка? Серьезно?!!!
+          if A > 31 then // 32 callbacks? Seriously?!!!
             Break;
           pCallBack := GetNextCallback;
         end;

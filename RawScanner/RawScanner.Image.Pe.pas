@@ -1,18 +1,35 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Image.Pe.pas
-//  * Purpose   : Классы получающие данные о состоянии PE файлов в процессе
-//  *           : рассчитанные на основе образов файлов с диска.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Classes that retrieve information about the status
+//  *           : of PE files during the process calculated based on
+//  *           : file images from the disk.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.28
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -42,45 +59,113 @@ uses
   // https://wasm.in/blogs/ot-zelenogo-k-krasnomu-glava-2-format-ispolnjaemogo-fajla-os-windows-pe32-i-pe64-sposoby-zarazhenija-ispolnjaemyx-fajlov.390/
 
 type
-  // здесь и далее
-  // RAW адрес - 4 байта, оффсет в бинарном образе файла от его начала
-  // RVA адрес - 4 байта, адрес не включающий в себя базу загрузки модуля
-  // VA адрес  - 8 байт, полный адрес в адресном пространстве процесса
+  // here and below:
+  // RAW address - 4 bytes, the offset within the binary file image from its beginning
+  // RVA address - 4 bytes, an address that does not include the module's load base
+  // VA address - 8 bytes, the full address in the process's address space
 
-  // Информация о записи в таблице импорта полученая из RAW модуля
+  // [ru] здесь и далее:
+  // RAW адрес - 4 байта, смещение в бинарном образе файла от его начала
+  // RVA адрес - 4 байта, адрес, не включающий в себя базу загрузки модуля
+  // VA адрес - 8 байт, полный адрес в адресном пространстве процесса
+
+  // Information about a record in the import table obtained from the RAW module
+  // [ru] Информация о записи в таблице импорта, полученная из RAW модуля
   TImportChunk = record
     Delayed: Boolean;
     OrigLibraryName,
     LibraryName,
     FuncName: string;
     Ordinal: Word;
-    ImportTableVA: ULONG_PTR64;       // VA адрес где должна находиться правильная запись
+
+    // VA address where the correct entry should be located
+    // [ru] VA адрес, где должна находиться правильная запись
+
+    ImportTableVA: ULONG_PTR64;
     function ToString: string;
     case Boolean of
-      True: ( // доп данные для отложеного импорта
-        DelayedModuleInstanceVA,          // VA адрес где будет записан инстанс загруженого модуля на который идет отложеный импорт
-        DelayedIATData,                   // RVA адрес или указатель на отложеную функцию
-        DelayedDescriptorVA: ULONG_PTR64; // VA адрес дескриптора, нужен для вывода информации если не прошла проверка DelayedModuleInstanceVA
+
+      // Additional data for delayed import
+      // [ru] Дополнительные данные для отложенного импорта
+
+      True: (
+
+        // The VA address where the instance of the loaded module,
+        // which is the target of the delayed import, will be stored
+
+        // [ru] VA адрес, где будет записан инстанс загруженного модуля,
+        // на который идёт отложенный импорт
+
+        DelayedModuleInstanceVA,
+
+        // RVA address or pointer to a delayed function
+        // [ru] RVA адрес или указатель на отложенную функцию
+
+        DelayedIATData,
+
+        // VA descriptor address, required to display information
+        // if the DelayedModuleInstanceVA check fails
+
+        // [ru] VA адрес дескриптора, нужен для вывода информации,
+        // если не прошла проверка DelayedModuleInstanceVA
+
+        DelayedDescriptorVA: ULONG_PTR64;
       );
   end;
 
-  // Информация об экспортируемой функции полученая из RAW модуля
+  // Information about the exported function obtained from the RAW module
+  // [ru] Информация об экспортируемой функции, полученная из RAW модуля
   TExportChunk = record
     FuncName: string;
     Ordinal: Word;
-    ExportTableVA: ULONG_PTR64;       // VA адрес в таблице экспорта с RVA линком на адрес функции
-    ExportTableRaw: DWORD;            // Оффсет на запись в таблице экспорта в RAW файле
-    FuncAddrRVA: DWORD;               // RVA адрес функции, именно он записан по смещению ExportTableVA
-    FuncAddrVA: ULONG_PTR64;          // VA адрес функции в адресном пространстве процесса
-    FuncAddrRaw: DWORD;               // Оффсет функции в RAW файле
-    Executable: Boolean;              // Флаг - является ли функция исполняемой
-    // если функция перенаправлена, запоминаем куда должно идти перенаправление
-    OriginalForvardedTo,              // изначальная строка перенаправления
-    ForvardedTo: string;              // преобразованная строка через ApiSet
+
+    // A VA address in the export table with an RVA link to the function's address
+    // [ru] VA адрес в таблице экспорта с RVA линком на адрес функции
+
+    ExportTableVA: ULONG_PTR64;
+
+    // Offset for an entry in the export table in a RAW file
+    // [ru] Смещение на запись в таблице экспорта в RAW файле
+
+    ExportTableRaw: DWORD;
+
+    // The RVA address of the function, the one stored at the offset in ExportTableRaw
+    // [ru] RVA адрес функции, именно он записан по смещению ExportTableRaw
+
+    FuncAddrRVA: DWORD;
+
+    // VA address of a function in the process's address space
+    // [ru] VA адрес функции в адресном пространстве процесса
+
+    FuncAddrVA: ULONG_PTR64;
+
+    // Function offset in a RAW file
+    // [ru] Смещение функции в RAW файле
+
+    FuncAddrRaw: DWORD;
+
+    // Flag - whether the function is executable
+    // [ru] Флаг - является ли функция исполняемой
+
+    Executable: Boolean;
+
+    // If a function is redirected, we store where the redirection should go
+    // [ru] Если функция перенаправлена, запоминаем, куда должно идти перенаправление
+
+    // original redirect string
+    // [ru] изначальная строка перенаправления
+
+    OriginalForvardedTo,
+
+    // converted string via ApiSet
+    // [ru] преобразованная строка через ApiSet
+
+    ForvardedTo: string;
     function ToString: string;
   end;
 
-  // информация о точках входа и TLS каллбэках
+  // Information about entry points and TLS callbacks
+  // [ru] Информация о точках входа и TLS колбэках
   TEntryPointChunk = record
     EntryPointName: string;
     AddrRaw: DWORD;
@@ -109,6 +194,19 @@ type
     Unicode: Boolean;
   end;
 
+  TCV_INFO_PDB70 = record
+    Signature: DWORD;   // 'RSDS'
+    Guid: TGUID;
+    Age: DWORD;
+    // char  PdbFileName[]; // null-terminated
+  end;
+
+  TCodeViewInfoPdb70 = record
+    Age: DWORD;
+    UincalId: TGUID;
+    PdbFileName: string;
+  end;
+
   TImageSectionHeaderEx = record
     Name: packed array[0..IMAGE_SIZEOF_SHORT_NAME-1] of Byte;
     Misc: TISHMisc;
@@ -121,7 +219,11 @@ type
     NumberOfLinenumbers: Word;
     Characteristics: DWORD;
     COFFDebugOffsetRaw: DWORD;
-    DisplayName: string; // содержит реальное имя секции с учетом отладочных COFF символов
+
+    // contains the actual section name, including debug COFF symbols
+    // [ru] содержит реальное имя секции с учетом отладочных COFF символов
+
+    DisplayName: string;
   end;
 
   TRawPEImage = class;
@@ -153,7 +255,7 @@ type
 
   TRawPEImage = class(TAbstractImage)
   public class var
-    // настройки загрузки строк глобально
+    // global settings
     DisableLoadStrings: Boolean;
     LoadStringLength: Integer;
   private const
@@ -161,8 +263,11 @@ type
     DEFAULT_SECTION_ALIGNMENT = $1000;
   strict private
     FBoundDir: TDirectoryData;
+    FCodeViewInfo: TCodeViewInfoPdb70;
     FCoffDebugInfo: TCoffDebugInfo;
     FDebugData: TDebugInfoTypes;
+    FDebugDirectory: TDirectoryData;
+    FDebugDirList: TList<TImageDebugDirectory>;
     FDebugLinkPath: string;
     FDelayDir: TDirectoryData;
     FDwarfDebugInfo: TDwarfDebugInfo;
@@ -214,6 +319,7 @@ type
     function LoadRelocations(Raw: TStream): Boolean;
     function LoadStrings(Raw: TMemoryStream): Boolean;
     function LoadTLS(Raw: TStream): Boolean;
+    function LoadDebugDirs(Raw: TMemoryStream): Boolean;
     procedure ProcessApiSetRedirect(const LibName: string;
       var ImportChunk: TImportChunk); overload;
     procedure ProcessApiSetRedirect(const LibName: string;
@@ -245,8 +351,11 @@ type
     function VaToRva(VaAddr: ULONG_PTR64): DWORD; override;
     function ValidImage: Boolean; override;
     property BoundDirectory: TDirectoryData read FBoundDir;
+    property CodeViewInfo: TCodeViewInfoPdb70 read FCodeViewInfo;
     property CoffDebugInfo: TCoffDebugInfo read FCoffDebugInfo;
     property ComPlusILOnly: Boolean read  FILOnly;
+    property DebugDirectory: TDirectoryData read FDebugDirectory;
+    property DebugDirList: TList<TImageDebugDirectory> read FDebugDirList;
     property DelayImportDirectory: TDirectoryData read FDelayDir;
     property EntryPoint: ULONG_PTR64 read FEntryPoint;
     property EntryPointList: TList<TEntryPointChunk> read FEntryPoints;
@@ -348,9 +457,15 @@ function ParceForvardedLink(const Value: string; var LibraryName,
 var
   Index: Integer;
 begin
-  // нужно искать именно последнюю точку. если делать через Pos, то на таком
-  // форварде "KERNEL.APPCORE.IsDeveloperModeEnabled" в библиотеку уйдет только
-  // "KERNEL", а должен "KERNEL.APPCORE"
+
+  // You need to look for the last dot specifically. If you use Pos(), then with a
+  // forward like "KERNEL.APPCORE.IsDeveloperModeEnabled", only
+  // "KERNEL" will be included in the LibraryName, but it should be "KERNEL.APPCORE"
+
+  // [ru] Нужно искать именно последнюю точку. Если делать через Pos(), то на таком
+  // форварде "KERNEL.APPCORE.IsDeveloperModeEnabled" в LibraryName уйдет только
+  // "KERNEL", а должно быть "KERNEL.APPCORE"
+
   Index := Value.LastDelimiter(['.']) + 1;
   Result := Index > 0;
   if not Result then Exit;
@@ -360,7 +475,10 @@ end;
 
 function CheckImageAtAddr(Image: TRawPEImage; CheckAddrVA: ULONG_PTR64): Boolean;
 begin
-  // проверка того, что VA адрес принадлежит образу в памяти
+
+  // Verifying that a VA address belongs to an image in memory
+  // [ru] Проверка того, что VA адрес принадлежит образу в памяти
+
   Result := (Image.ImageBase < CheckAddrVA) and
     (Image.ImageBase + UInt64(Image.VirtualSizeOfImage) > CheckAddrVA);
 end;
@@ -541,6 +659,7 @@ begin
   FCoffDebugInfo := TCoffDebugInfo.Create(FImageGate);
   FDwarfDebugInfo := TDwarfDebugInfo.Create(FImageGate);
   FDwarfDebugInfo.AppendUnitName := DefaultDwarfAppendUnitName;
+  FDebugDirList := TList<TImageDebugDirectory>.Create;
   FImageLoadType := AImageLoadType;
   SymbolData.AddrVA := ImageBase;
   SymbolData.DataType := sdtInstance;
@@ -563,6 +682,7 @@ end;
 
 destructor TRawPEImage.Destroy;
 begin
+  FDebugDirList.Free;
   FDwarfDebugInfo.Free;
   FCoffDebugInfo.Free;
   FImageGate.Free;
@@ -581,7 +701,10 @@ end;
 function TRawPEImage.DirectoryIndexFromRva(RvaAddr: DWORD): Integer;
 begin
   Result := -1;
-  // Игнорируем IMAGE_DIRECTORY_ENTRY_SECURITY, она ведет себя крайне не понятно
+
+  // We're ignoring IMAGE_DIRECTORY_ENTRY_SECURITY, its behavior is extremely unpredictable.
+  // [ru] Игнорируем IMAGE_DIRECTORY_ENTRY_SECURITY, она ведет себя крайне непонятно
+
   if FNtHeader.OptionalHeader.NumberOfRvaAndSizes = 0 then Exit;  
   for var I := 0 to FNtHeader.OptionalHeader.NumberOfRvaAndSizes - 1 do
   begin
@@ -646,11 +769,17 @@ end;
 
 function TRawPEImage.GetImageAtAddr(AddrVA: ULONG_PTR64): TRawPEImage;
 begin
-  // проверка альтернативных образов
+
+  // Checking alternative images
+  // The logic is simple: if the current image does not correspond to the
+  // CheckAddrVA address, (which is being checked), then we search for a suitable one.
+  // If one is found, we replace the image with it
+
+  // [ru] Проверка альтернативных образов
   // логика простая, если текущий образ не принадлежит адресу CheckAddrVA,
   // (по которому идет проверка) то ищем подходящий.
-  // Найдется - заменим образ на него, а если нет,
-  // то сработает проверка в коде выше по адресу функции
+  // Найдется - заменим образ на него
+
   Result := Self;
   if (RelocatedImages.Count > 0) and not CheckImageAtAddr(Self, AddrVA) then
   begin
@@ -690,9 +819,15 @@ begin
 
     SizeOfRawData := FSections[I].SizeOfRawData;
     VirtualSize := FSections[I].Misc.VirtualSize;
-    // если виртуальный размер секции не указан, то берем его из размера данных
-    // (см. LdrpSnapIAT или RelocateLoaderSections)
-    // к которому уже применяется SectionAlignment
+
+    // If the virtual size of the section is not specified,
+    // we take it from the data size (see LdrpSnapIAT or RelocateLoaderSections)
+    // to which the SectionAlignment must be applied
+
+    // [ru] Если виртуальный размер секции не указан,
+    // то берем его из размера данных (см. LdrpSnapIAT или RelocateLoaderSections)
+    // к которому нужно применить SectionAlignment
+
     if VirtualSize = 0 then
       VirtualSize := SizeOfRawData;
     if FNtHeader.OptionalHeader.SectionAlignment >= DEFAULT_SECTION_ALIGNMENT then
@@ -796,6 +931,12 @@ begin
       SymbolStorage.Add(SymbolData);
     end;
   end;
+
+  with FNtHeader.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DEBUG] do
+  begin
+    FDebugDirectory.VirtualAddress := RvaToVa(VirtualAddress);
+    FDebugDirectory.Size := Size;
+  end;
 end;
 
 procedure TRawPEImage.InternalProcessApiSetRedirect(const LibName: string;
@@ -803,7 +944,10 @@ procedure TRawPEImage.InternalProcessApiSetRedirect(const LibName: string;
 var
   ForvardLibraryName, FuncName: string;
 begin
-  // тут обрабатываем перенаправление системных библиотек через ApiSet
+
+  // Here, we handle the redirection of system libraries via ApiSet
+  // [ru] Тут обрабатываем перенаправление системных библиотек через ApiSet
+
   if not ParceForvardedLink(RedirectTo, ForvardLibraryName, FuncName) then
     Exit;
   ForvardLibraryName := ChangeFileExt(ForvardLibraryName, '');
@@ -833,8 +977,13 @@ end;
 
 function TRawPEImage.IsExportForvarded(RvaAddr: DWORD): Boolean;
 begin
-  // перенаправленые функции в качестве адреса содержат указатель на
-  // строку перенаправления обычно размещенную в директории экспорта
+
+  // Redirected functions contain, as their address, a pointer to
+  // the redirect string, which is typically located in the export directory
+
+  // [ru] Перенаправленные функции в качестве адреса содержат указатель на
+  // строку перенаправления, обычно размещённую в директории экспорта
+
   Result := DirectoryIndexFromRva(RvaAddr) = IMAGE_DIRECTORY_ENTRY_EXPORT;
 end;
 
@@ -876,7 +1025,6 @@ end;
 
 procedure TRawPEImage.LoadCoff(Raw: TStream);
 begin
-  // проверка - а был ли мальчик?
   if NtHeader.FileHeader.PointerToSymbolTable = 0 then
     Exit;
   try
@@ -936,9 +1084,67 @@ begin
     FILOnly := ComHeader.Flags and (COMIMAGE_FLAGS_ILONLY or COMIMAGE_FLAGS_32BITREQUIRED) <> 0;
 end;
 
+function TRawPEImage.LoadDebugDirs(Raw: TMemoryStream): Boolean;
+const
+  RSDS_SIG = $53445352; // ((DWORD)'SDSR')
+var
+  Dir: TImageDebugDirectory;
+  CountBytes: Integer;
+  SymbolData: TSymbolData;
+  CvRaw: Int64;
+  CvIdx: Integer;
+  CvSize: DWORD;
+  CvInfo: TCV_INFO_PDB70;
+begin
+  Result := False;
+  if (DebugDirectory.VirtualAddress = 0) or (DebugDirectory.Size = 0) then Exit;
+  Raw.Position := VaToRaw(DebugDirectory.VirtualAddress);
+  if Raw.Position = 0 then Exit;
+  CountBytes := Integer(DebugDirectory.Size);
+  SymbolData := Default(TSymbolData);
+  SymbolData.DataType := sdtDebugDir;
+  SymbolData.Binary.ModuleIndex := ModuleIndex;
+  CvRaw := 0;
+  CvSize := 0;
+  CvIdx := 0;
+  while CountBytes >= SizeOf(TImageDebugDirectory) do
+  begin
+    SymbolData.AddrVA := RawToVa(Raw.Position);
+    Raw.ReadBuffer(Dir, SizeOf(TImageDebugDirectory));
+    Dec(CountBytes, SizeOf(TImageDebugDirectory));
+    SymbolData.Binary.ListIndex := FDebugDirList.Add(Dir);
+    SymbolStorage.Add(SymbolData);
+    if Dir._Type = IMAGE_DEBUG_TYPE_CODEVIEW then
+    begin
+      CvRaw := Dir.PointerToRawData;
+      CvSize := Dir.SizeOfData;
+      CvIdx := SymbolData.Binary.ListIndex;
+    end;
+  end;
+  if (CvRaw <> 0) and (CvSize > SizeOf(TCV_INFO_PDB70)) then
+  begin
+    Raw.Position := CvRaw;
+    Raw.ReadBuffer(CvInfo, SizeOf(TCV_INFO_PDB70));
+    if CvInfo.Signature <> RSDS_SIG  then
+      Exit;
+    SymbolData.DataType := sdtDbgTypeCodeView;
+    SymbolData.AddrVA := RawToVa(CvRaw);
+    SymbolData.Binary.ListIndex := CvIdx;
+    SymbolData.Binary.Param := CvSize - SizeOf(TCV_INFO_PDB70);
+    SymbolStorage.Add(SymbolData);
+    FCodeViewInfo.Age := CvInfo.Age;
+    FCodeViewInfo.UincalId := CvInfo.Guid;
+    SetString(FCodeViewInfo.PdbFileName,
+      PAnsiChar(PByte(Raw.Memory) + Raw.Position),
+      SymbolData.Binary.Param - 1);
+    Include(FDebugData, ditPdb);
+  end;
+  Result := FDebugDirList.Count > 0;
+end;
+
 function TRawPEImage.LoadDelayImport(Raw: TStream): Boolean;
 type
-  // https://learn.microsoft.com/ru-ru/cpp/build/reference/understanding-the-helper-function?view=msvc-160#structure-and-constant-definitions
+  // https://learn.microsoft.com/en-us/cpp/build/reference/understanding-the-helper-function?view=msvc-160#structure-and-constant-definitions
   TImgDelayDescr = record
     grAttrs,                // attributes
     rvaDLLName,             // RVA to dll name
@@ -971,10 +1177,17 @@ var
   ImportChunk: TImportChunk;
   SymbolData, DescrData: TSymbolData;
 begin
-  // Пример стабильно воспроизводящегося перехвата отложеного импорта
-  // Адрес правится из kernelbase.dll
+
+  // Example of a consistently reproducible interception of a delayed import
+  // The address is substituted from kernelbase.dll
+
+  // [ru] Пример стабильно воспроизводящегося перехвата отложенного импорта
+  // Адрес подменяется из kernelbase.dll
+
+  // ===
   // Delayed import modified Windows.Networking.Connectivity.dll -> EXT-MS-WIN-NETWORKING-XBLCONNECTIVITY-L1-1-0.IsXblConnectivityLevelEnabled, at address: 00007FF8CA31B300
   // Expected: 00007FF8CA254FC8, present: 00007FF8E85C1EB0 --> KernelBase.dll
+  // ===
 
   Result := False;
   DescVA := DelayImportDirectory.VirtualAddress;
@@ -993,15 +1206,22 @@ begin
   Raw.ReadBuffer(DelayDescr, SizeOf(TImgDelayDescr));
   while DelayDescr.rvaIAT <> 0 do
   begin
-    // запоминаем адрес следующего дексриптора
+
+    // We store the address of the next descriptor
+    // [ru] Запоминаем адрес следующего дескриптора
+
     NextDescriptorRawAddr := Raw.Position;
 
-    // помещаем адрес дескриптора в символы
+    // Store the descriptor address to symbols
+    // [ru] Помещаем адрес дескриптора в символы
+
     DescrData.AddrVA := DescVA;
     DescrData.Binary.ListIndex := FImport.Count;
     SymbolStorage.Add(DescrData);
 
-    // вычитываем имя библиотеки импорт из которой описывает дескриптор
+    // Read the name of the library whose import is described by the descriptor
+    // [ru] Читаем имя библиотеки, импорт из которой описывает дескриптор
+
     Raw.Position := RvaToRaw(GetRva(DelayDescr.rvaDLLName));
     if Raw.Position = 0 then
     begin
@@ -1011,12 +1231,18 @@ begin
       Exit;
     end;
 
-    // контроль перенаправления через ApiSet
+    // Controlling Redirects via ApiSet
+    // [ru] Контроль перенаправления через ApiSet
+
     ImportChunk.OrigLibraryName := ReadString(Raw);
     ProcessApiSetRedirect(ImageName, ImportChunk);
 
-    // VA адрес по которому будет расположен HInstance модуля,
-    // из которого идет импорт функции после его инициализации
+    // The VA address where the HInstance of the module from which the function
+    // is imported will be located after the module is initialized
+
+    // [ru] VA адрес, по которому будет расположен HInstance модуля,
+    // из которого идёт импорт функции, после инициализации модуля
+
     if DelayDescr.rvaHmod <> 0 then
     begin
       ImportChunk.DelayedModuleInstanceVA := RvaToVa(GetRva(DelayDescr.rvaHmod));
@@ -1025,16 +1251,26 @@ begin
     else
       ImportChunk.DelayedModuleInstanceVA := 0;
 
-    // запоминаем начальне позиции таблицы импорта
+    // Save the initial positions of the import address table
+    // [ru] Запоминаем начальные позиции таблицы адресов импорта
+
     IAT := GetRva(DelayDescr.rvaIAT);
-    // таблицы имен
+
+    // Import Name Table
+    // [ru] Таблицы имен
+
     INT := GetRva(DelayDescr.rvaINT);
-    // номер функции по порядку
+
+    // and the function number in order
+    // [ru] и номер функции по порядку
+
     Index := 0;
 
     repeat
 
-      // вычитываем имя функции отложеного вызова
+      // Read the name of the delayed import function
+      // [ru] Читаем имя функции отложенного импорта
+
       LastOffset := RvaToRaw(INT);
       if LastOffset = 0 then
       begin
@@ -1048,10 +1284,15 @@ begin
       if IntData <> 0 then
       begin
 
-        // проверка - идет импорт только по ORDINAL или есть имя функции?
+        // Checking whether the import is by ORDINAL only or there is a function name
+        // [ru] Проверка, идёт ли импорт только по ORDINAL или есть имя функции
+
         if IntData and OrdinalFlag = 0 then
         begin
-          // имя есть - нужно его вытащить
+
+          // The name is present - we need to read it
+          // [ru] Имя есть - нужно его прочитать
+
           Raw.Position := RvaToRaw(GetRva(IntData));
           if Raw.Position = 0 then
           begin
@@ -1064,20 +1305,38 @@ begin
         end
         else
         begin
-          // имени нет - запоминаем только ordinal функции
+
+          // No name - we just store the function's ordinal
+          // [ru] Имени нет - запоминаем только ordinal функции
+
           ImportChunk.FuncName := EmptyStr;
           ImportChunk.Ordinal := IntData and not OrdinalFlag;
         end;
 
-        // запоминаем адрес по которому будут располагаться адреса
-        // заполняемые лоадером при загрузке модуля в память процесса
+        // Store the address where the addresses will be located
+        // that are populated by the loader when the module is loaded into process memory
+
+        // [ru] Запоминаем адрес, по которому будут располагаться адреса,
+        // заполняемые загрузчиком при загрузке модуля в память процесса
+
         ImportChunk.ImportTableVA := RvaToVa(IAT);
 
-        // запоминаем реальное неинициализированное значение
-        // по адресу ImportTableVA будет либо оно, либо адрес вызываемой функции
-        // адрес появится после её первого вызова, причем пропадет после выгрузки
-        // модуля из адресного пространства процесса, откатившись на старые данные,
-        // которые все это время будут хранится в pUnloadIAT (она инициализируется лоадером)
+        // Store the actual, uninitialized value.
+        // The address ImportTableVA will contain either that value
+        // or the address of the called function.
+        // The address will appear after the function is called for the first time
+        // and will disappear after the module is unloaded from the process's address space,
+        // reverting to the old data, which will be stored in pUnloadIAT the entire time
+        // (it is initialized by the loader)
+
+        // [ru] Запоминаем реальное неинициализированное значение.
+        // По адресу ImportTableVA будет либо оно,
+        // либо адрес вызываемой функции.
+        // Адрес появится после её первого вызова,
+        // причем пропадет после выгрузки модуля из адресного пространства процесса,
+        // откатившись на старые данные, которые все это время будут храниться в pUnloadIAT
+        // (она инициализируется загрузчиком)
+
         Raw.Position := VaToRaw(ImportChunk.ImportTableVA);
         if Raw.Position = 0 then
         begin
@@ -1112,7 +1371,9 @@ begin
 
     until IntData = 0;
 
-    // переходим к следующему дескриптору
+    // move on to the next descriptor
+    // [ru] переходим к следующему дескриптору
+
     Raw.Position := NextDescriptorRawAddr;
     Raw.ReadBuffer(DelayDescr, SizeOf(TImgDelayDescr));
     Inc(DescVA, SizeOf(TImgDelayDescr));
@@ -1147,11 +1408,18 @@ begin
 
   SymbolData.Binary.ModuleIndex := ModuleIndex;
 
-  // читаем префикс для перенаправления через ApiSet,
+  // Read the redirect prefix via ApiSet,
+  // it won't necessarily match the library name
+  // for example:
+  // kernel.appcore.dll -> appcore.dll
+  // gds32.dll -> fbclient.dll
+
+  // [ru] Читаем префикс для перенаправления через ApiSet,
   // он не обязательно будет равен имени библиотеки
   // например:
   // kernel.appcore.dll -> appcore.dll
   // gds32.dll -> fbclient.dll
+
   Raw.Position := RvaToRaw(ImageExportDirectory.Name);
   if Raw.Position = 0 then
   begin
@@ -1161,7 +1429,9 @@ begin
   end;
   FOriginalName := ReadString(Raw);
 
-  // читаем массив Rva адресов функций
+  // Read the array Rva of function addresses
+  // [ru] Читаем массив Rva адресов функций
+
   SetLength(FunctionsAddr, ImageExportDirectory.NumberOfFunctions);
   Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfFunctions);
   if Raw.Position = 0 then
@@ -1172,14 +1442,22 @@ begin
   end;
   Raw.ReadBuffer(FunctionsAddr[0], ImageExportDirectory.NumberOfFunctions shl 2);
 
-  // Важный момент!
-  // Библиотека может вообще не иметь функций экспортируемых по имени,
+  // Important note!
+  // A library may not have any functions exported by name at all,
+  // only by ordinal. An example of such a library is mfperfhelper.dll
+  // Therefore, you need to check whether they exist
+
+  // [ru] Важный момент!
+  // Библиотека может вообще не иметь функций, экспортируемых по имени,
   // только по ординалам. Пример такой библиотеки: mfperfhelper.dll
   // Поэтому нужно делать проверку на их наличие
+
   if ImageExportDirectory.NumberOfNames > 0 then
   begin
 
-    // читаем массив Rva адресов имен функций
+    // Read the Rva array of function name addresses
+    // [ru] Читаем массив Rva адресов имен функций
+
     SetLength(NamesAddr, ImageExportDirectory.NumberOfNames);
     Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfNames);
     if Raw.Position = 0 then
@@ -1190,8 +1468,12 @@ begin
     end;
     Raw.ReadBuffer(NamesAddr[0], ImageExportDirectory.NumberOfNames shl 2);
 
-    // читаем массив ординалов - индексов через которые имена функций
+    // Read the array of ordinal indices through which function names
+    // are associated with the array of addresses
+
+    // [ru] Читаем массив ординалов - индексов, через которые имена функций
     // связываются с массивом адресов
+
     SetLength(Ordinals, ImageExportDirectory.NumberOfNames);
     Raw.Position := RvaToRaw(ImageExportDirectory.AddressOfNameOrdinals);
     if Raw.Position = 0 then
@@ -1202,49 +1484,81 @@ begin
     end;
     Raw.ReadBuffer(Ordinals[0], ImageExportDirectory.NumberOfNames shl 1);
 
-    // сначала обрабатываем функции экспортируемые по имени
+    // First, we process the exported functions by name
+    // [ru] Сначала обрабатываем функции экспортируемые по имени
+
     for I := 0 to ImageExportDirectory.NumberOfNames - 1 do
     begin
       Raw.Position := RvaToRaw(NamesAddr[I]);
       if Raw.Position = 0 then Continue;
 
-      // два параметра по которым будем искать фактические данные функции
+      // two parameters we'll use to look up the actual function values
+      // [ru] два параметра, по которым будем искать фактические данные функции
+
       ExportChunk.FuncName := ReadString(Raw);
       ExportChunk.Ordinal := Ordinals[I];
 
-      // VA адрес в котором должен лежать Rva линк на адрес функции
+      // The VA address where the RVA link to the function's address should be located
+      // This is the address that is modified when a function is intercepted
+      // using the patch method in the export table
+
+      // [ru] VA адрес, в котором должен лежать RVA линк на адрес функции
       // именно его изменяют при перехвате функции методом патча
       // таблицы экспорта
+
       ExportChunk.ExportTableVA := RvaToVa(
         ImageExportDirectory.AddressOfFunctions + ExportChunk.Ordinal shl 2);
 
-      // Смещение в RAW файле по которому лежит Rva линк
+      // Offset in the RAW file at which the RVA link is located
+      // [ru] Смещение в RAW файле, по которому лежит RVA линк
+
       ExportChunk.ExportTableRaw := VaToRaw(ExportChunk.ExportTableVA);
 
-      // Само RVA значение которое будут подменять
+      // The RVA value itself, which will be overwritten
+      // [ru] Само RVA значение, которое будут подменять
+
       ExportChunk.FuncAddrRVA := FunctionsAddr[ExportChunk.Ordinal];
 
-      // VA адрес функции, именно по этому адресу (как правило) устанавливают
+      // VA is the function address, this is the address where (as a rule)
+      // an interceptor is set up using splicing or a hotpatch via a trampoline.
+
+      // [ru] VA адрес функции, именно по этому адресу (как правило) устанавливают
       // перехватчик методом сплайсинга или хотпатча через трамплин
+
       ExportChunk.FuncAddrVA := RvaToVa(ExportChunk.FuncAddrRVA);
 
-      // Raw адрес функции в образе бинарника с которым будет идти проверка
-      // на измененые инструкции
+      // The raw address of the function in the binary image that will be used
+      // for the check for modified instructions
+
+      // [ru] Raw адрес функции в образе бинарника, с которым будет идти проверка
+      // на изменённые инструкции
+
       ExportChunk.FuncAddrRaw := RvaToRaw(ExportChunk.FuncAddrRVA);
 
-      // обязательная проверка на перенаправление
-      // если обрабатывается Forvarded функция то её Rva линк будет указывать
-      // на строку, расположеную (как правило) в директории экспорта
-      // указывающую какая функция должна быть выполнена вместо перенаправленой
+      // Mandatory redirect check
+      // If a Forwarded function is being processed, its RVA link will point
+      // to a string located (as a rule) in the export directory
+      // that specifies which function should be executed instead of the redirected one
+
+      // [ru] Обязательная проверка на перенаправление
+      // если обрабатывается Forwarded функция, то её RVA линк будет указывать
+      // на строку, расположенную (как правило) в директории экспорта
+      // указывающую, какая функция должна быть выполнена вместо перенаправленной
+
       if IsExportForvarded(FunctionsAddr[ExportChunk.Ordinal]) then
       begin
         Raw.Position := ExportChunk.FuncAddrRaw;
         if Raw.Position = 0 then Continue;
         ExportChunk.OriginalForvardedTo := ReadString(Raw);
 
-        // у функций может быть ремап форвардлинков
+        // Functions may have remapped forward links
+        // For example: kernel32.GetModuleFileNameW -> api-ms-win-core-libraryloader-l1-1-0 -> KernelBase
+        // This situation must be handled using ApiSet
+
+        // [ru] У функций может быть ремап форвардлинков
         // например kernel32.GetModuleFileNameW -> api-ms-win-core-libraryloader-l1-1-0 -> KernelBase
         // такую ситуацию надо обрабатывать через ApiSet
+
         ProcessApiSetRedirect(FOriginalName, ExportChunk);
       end
       else
@@ -1253,43 +1567,66 @@ begin
         ExportChunk.ForvardedTo := EmptyStr;
       end;
 
-      // вставляем признак что функция обработана
+      // Set a flag to indicate that the function has been processed
+      // [ru] Вставляем признак, что функция обработана
+
       FunctionsAddr[ExportChunk.Ordinal] := 0;
 
-      // переводим в NameOrdinal который прописан в таблице импорта
+      // Convert to NameOrdinal, which is specified in the import table
+      // [ru] Переводим в NameOrdinal, который прописан в таблице импорта
+
       Inc(ExportChunk.Ordinal, ImageExportDirectory.Base);
 
-      // Теперь выставляем флаг, является ли функция исполняемой или нет?
+      // Now we set a flag to indicate whether a function is executable or not.
+      // Some functions are pointers to tables and do not contain code
+      // in Raw mode, such as ntdll.NlsMbCodePageTag or NlsMbOemCodePageTag
+      // Their RVA points to an empty space between the .data and .pdata sections
+      // which is filled by the loader and contains code pages.
+      // Or RtlNtdllName, which is a pointer to the string "ntdll.dll"
+      // We mark such functions separately, they should be skipped during code verification
+
+      // [ru] Теперь выставляем флаг, является ли функция исполняемой или нет
       // Некоторые функции являются указателями на таблицы и не имеют кода
-      // в Raw режиме, например ntdll.NlsMbCodePageTag или NlsMbOemCodePageTag
+      // в Raw-режиме, например, ntdll.NlsMbCodePageTag или NlsMbOemCodePageTag
       // их RVA указывает на пустое место между секциями .data и .pdata
       // которое заполняется загрузчиком и содержит кодовые страницы.
-      // Ну или RtlNtdllName которая является указателем на строку ntdll.dll
+      // Ну или RtlNtdllName, которая является указателем на строку "ntdll.dll"
       // Такие функции отмечаем отдельно, их нужно пропускать при проверке кода
+
       ExportChunk.Executable := IsExecutable(ExportChunk.FuncAddrRVA);
 
-      // добавляем в общий список для анализа снаружи
+      // Add it to the general list for external analysis
+      // [ru] Добавляем в общий список для анализа снаружи
+
       Index := FExport.Add(ExportChunk);
 
-      // Добавляем адрес из таблицы в список символов
+      // Add an address from the table to the list of symbols
+      // [ru] Добавляем адрес из таблицы в список символов
+
       SymbolData.DataType := sdtEATAddr;
       SymbolData.AddrVA := ExportChunk.ExportTableVA;
       SymbolData.Binary.ListIndex := Index;
       SymbolStorage.Add(SymbolData);
 
-      // Добавляем ординал из таблицы в список символов
+      // Add an ordinal from the table to the list of symbols
+      // [ru] Добавляем ординал из таблицы в список символов
+
       SymbolData.DataType := sdtEATOrdinal;
       SymbolData.AddrVA :=
         RvaToVa(ImageExportDirectory.AddressOfNameOrdinals + Cardinal(I) * 2);
       SymbolStorage.Add(SymbolData);
 
-      // Добавляем адрес из таблицы имен
+      // Add an address from the names table
+      // [ru] Добавляем адрес из таблицы имен
+
       SymbolData.DataType := sdtEATName;
       SymbolData.AddrVA :=
         RvaToVa(ImageExportDirectory.AddressOfNames + Cardinal(I) * 4);
       SymbolStorage.Add(SymbolData);
 
-      // Если нет форварда, добавляем адрес функции в список символов
+      // If there is no forwarder, add the function address to the list of symbols
+      // [ru] Если нет форварда, добавляем адрес функции в список символов
+
       if {ExportChunk.Executable and} ExportChunk.OriginalForvardedTo.IsEmpty then
       begin
         SymbolData.DataType := sdtExport;
@@ -1297,35 +1634,59 @@ begin
         SymbolStorage.Add(SymbolData);
       end;
 
-      // vcl270.bpl спокойно декларирует 4 одинаковых функции
+      // vcl270.bpl simply declares 4 identical functions
+      // these ones: '@$xp$39System@%TArray__1$p17System@TMetaClass%'
+      // with ordinal numbers 7341, 7384, 7411, 7222
+      // so we'll have to store only the very first one in the name array
+      // because they can only be linked via their ordinals
+      // upd: actually, they aren't even linked, they're generics with a link to the class
+      // and in the export table obtained via Symbols, there's only one
+      // with ordinal 7384
+
+      // [ru] vcl270.bpl спокойно декларирует 4 одинаковых функции
       // вот эти '@$xp$39System@%TArray__1$p17System@TMetaClass%'
       // с ординалами 7341, 7384, 7411, 7222
       // поэтому придется в массиве имен запоминать только самую первую
       // ибо линковаться они могут только через ординалы
       // upd: а они даже не линкуются, а являются дженериками с линком на класс
-      // а в таблице экспорта полученом через Symbols присутствует только одна
+      // а в таблице экспорта, полученной через Symbols, присутствует только одна
       // с ординалом 7384
+
       FExportIndex.TryAdd(ExportChunk.FuncName, Index);
 
-      // индекс для поиска по ординалу
-      // (если тут упадет с дубликатом, значит что-то не верно зачитано)
+      // index for searching by ordinal
+      // (if it fails here with a duplicate, it means something was read incorrectly)
+
+      // [ru] индекс для поиска по ординалу
+      // (если тут упадёт с дубликатом, значит, что-то неверно зачитано)
+
       FExportOrdinalIndex.Add(ExportChunk.Ordinal, Index);
     end;
   end;
 
-  // обработка функций экспортирующихся по индексу
+  // Processing functions exported by index
+  // [ru] Обработка функций экспортируемых по индексу
+
   for I := 0 to ImageExportDirectory.NumberOfFunctions - 1 do
     if FunctionsAddr[I] <> 0 then
     begin
-      // здесь все тоже самое за исключение что у функции нет имени
+
+      // It's the same here, except that the function has no name
+      // and is loaded based on its ordinal, which is calculated
+      // relative to the export directory base
+
+      // [ru] Здесь всё то же самое, за исключением того, что у функции нет имени
       // и её подгрузка осуществляется по её ординалу, который рассчитывается
       // от базы директории экспорта
+
       ExportChunk.FuncAddrRVA := FunctionsAddr[I];
       ExportChunk.Executable := IsExecutable(ExportChunk.FuncAddrRVA);
       ExportChunk.Ordinal := ImageExportDirectory.Base + DWORD(I);
       ExportChunk.FuncName := EmptyStr;
 
-      // сами значения рассчитываются как есть, без пересчета в ординал
+      // The values themselves are calculated as is, without being converted to ordinal numbers
+      // [ru] Сами значения рассчитываются как есть, без пересчета в ординал
+
       ExportChunk.ExportTableVA := RvaToVa(
         ImageExportDirectory.AddressOfFunctions + DWORD(I shl 2));
 
@@ -1343,7 +1704,9 @@ begin
         ExportChunk.OriginalForvardedTo := EmptyStr;
         ExportChunk.ForvardedTo := EmptyStr;
 
-        // Если нет форварда, добавляем адрес функции в список символов
+        // If there is no forwarder, add the function address to the list of symbols
+        // [ru] Если нет форварда, добавляем адрес функции в список символов
+
         if ExportChunk.Executable then
         begin
           SymbolData.DataType := sdtExport;
@@ -1353,13 +1716,19 @@ begin
         end;
       end;
 
-      // добавляем в общий список для анализа снаружи
+      // Add it to the general list for external analysis
+      // [ru] Добавляем в общий список для анализа снаружи
+
       Index := FExport.Add(ExportChunk);
 
-      // имени нет, поэтому добавляем только в индекс ординалов
+      // There is no name, so we're only adding it to the ordinal index
+      // [ru] Имени нет, поэтому добавляем только в индекс ординалов
+
       FExportOrdinalIndex.Add(ExportChunk.Ordinal, Index);
 
-      // Добавляем адрес в таблице в список символов
+      // Add the address in the table to the list of symbols
+      // [ru] Добавляем адрес в таблице в список символов
+
       SymbolData.DataType := sdtEATAddr;
       SymbolData.AddrVA := ExportChunk.ExportTableVA;
       SymbolData.Binary.ListIndex := Index;
@@ -1397,7 +1766,9 @@ begin
     end;
     FSizeOfFileImage := Raw.Size;
 
-    // проверка DOS заголовка
+    // Checking the DOS header
+    // [ru] Проверка DOS заголовка
+
     Raw.ReadBuffer(IDH, SizeOf(TImageDosHeader));
     if IDH.e_magic <> IMAGE_DOS_SIGNATURE then
     begin
@@ -1407,20 +1778,32 @@ begin
     end;
     Raw.Position := IDH._lfanew;
 
-    // загрузка NT заголовка, всегда в виде 64 битной структуры
-    // даже если библиотека 32 бита
+    // Loading the NT header, always as a 64-bit structure
+    // even if the library is 32-bit
+
+    // [ru] Загрузка NT заголовка, всегда в виде 64-битной структуры
+    // даже если библиотека 32-битная
+
     if not LoadNtHeader(Raw) then Exit;
 
-    // читаем массив секций, они нужны для работы алигнов в RvaToRaw
+    // We read the array of sections, they are needed for the aligners to work in RvaToRaw
+    // [ru] Читаем массив секций, они нужны для работы алигнов в RvaToRaw
+
     if not LoadSections(Raw) then Exit;
 
     FValidImage := True;
 
-    // при быстрой загрузке образа необходимы только секции,
-    // на основе которых идут релоки, остальное лишнее
+    // When loading an image quickly, only the sections
+    // used for relocations are needed, the rest is unnecessary
+
+    // [ru] При быстрой загрузке образа необходимы только секции,
+    // на основе которых идут релокации, остальное лишнее
+
     if FImageLoadType = iltSectionOnly then Exit;
 
-    // теперь можем инициализировать параметры точки входа
+    // Now we can initialize the entry point parameters
+    // [ru] Теперь можем инициализировать параметры точки входа
+
     if NtHeader.OptionalHeader.AddressOfEntryPoint <> 0 then
     begin
       FEntryPoint := RvaToVa(NtHeader.OptionalHeader.AddressOfEntryPoint);
@@ -1439,61 +1822,100 @@ begin
     if FImageLoadType <> iltDebugOnly then
     begin
 
-      // читаем COM+ заголовок (если есть)
+      // Read the COM+ header (if any)
+      // [ru] Читаем COM+ заголовок (если есть)
+
       LoadCor20Header(Raw);
 
-      // в принципе, если файл не исполняемый COM+, уже тут можно выходить
-      // но для проверки, оставим инициализацию всех данных.
+      // Initialize the addresses of the import and export tables
+      // These will be useful externally to speed up checks on these tables
 
-      // инициализируем адреса таблиц импорта и экспорта
+      // [ru] Инициализируем адреса таблиц импорта и экспорта
       // они пригодятся снаружи для ускорения проверки этих таблиц
+
       InitDirectories;
 
-      // читаем директорию экспорта
+      // Read the export directory
+      // [ru] Читаем директорию экспорта
+
       LoadExport(Raw);
 
-      // читаем дескрипторы импорта
+      // Read the import descriptors
+      // [ru] Читаем дескрипторы импорта
+
       LoadImport(Raw);
 
-      // дескрипторы отложеного импорта содержат данные с учетом релокейшенов
-      // для чтения правильных значений нужно сделать правки
+      // deferred import descriptors contain data that depends on relocations,
+      // so to read the correct values, you first need to apply the relocations
+
+      // [ru] дескрипторы отложенного импорта содержат данные, зависящие от релокаций,
+      // поэтому для чтения правильных значений сначала нужно применить релокации
+
       if LoadRelocations(Raw) then
         ProcessRelocations(Raw);
 
-      // Читаем Tls калбэки
+      // Reading TLS callbacks
+      // [ru] Читаем TLS колбэки
+
       LoadTLS(Raw);
 
-      // читаем дескрипторы отложеного импорта
+      // Read delayed import descriptors
+      // [ru] Читаем дескрипторы отложенного импорта
+
       LoadDelayImport(Raw);
 
-      // читаем все строки
+      // Read all strings
+      // [ru] Читаем все строки
+
       if not DisableLoadStrings then
         LoadStrings(Raw);
 
-      // читаем привязаный импорт
+      // Read the bound import
+      // [ru] Читаем привязанный импорт
+
       LoadBoundImport(Raw);
     end;
 
-    // COFF + DWARF могут сидеть во внешнем отладочном файле
-    // ссылка на который будет находится в секции .gnu_debuglink
+    if FImageLoadType = iltWithoutDebug then Exit;
+
+    // We'll try to extract information about PDB symbols from the debug directory.
+    // [ru] Попробуем вытащить из отладочной директории информацию о PDB символах
+
+    LoadDebugDirs(Raw);
+
+    // COFF and DWARF can be stored in an external debug file
+    // a reference to which will be located in the .gnu_debuglink section
+
+    // [ru] COFF + DWARF могут сидеть во внешнем отладочном файле
+    // ссылка на который будет находиться в секции .gnu_debuglink
+
     FDebugLinkPath := GetGnuDebugLink(Raw);
     if FDebugLinkPath <> '' then
     begin
-      // если это так - то переопределяем гейт образа на вспомогательный,
+
+      // If that's the case, we'll redefine the image gate to an auxiliary one,
+      // from which we'll retrieve the current debugging data, and we'll load it
+      // only up to the sections (the second parameter), the rest is essentially unnecessary
+      // (and there's nothing else there anyway)
+
+      // [ru] Если это так, то переопределяем гейт образа на вспомогательный,
       // откуда будем брать актуальные отладочные данные, причем грузить его
       // будем только до секций (второй параметр), остальное в принципе лишнее
       // (да и нет там больше ничего)
+
       DebugLinkImage := TRawPEImage.Create(FDebugLinkPath, iltSectionOnly, ImageBase);
       FImageGate.ReplaceImage(DebugLinkImage);
       Raw.LoadFromFile(FDebugLinkPath);
     end;
 
-    if FImageLoadType = iltWithoutDebug then Exit;
+    // If COFF debug is available, we'll try to read the debug information
+    // [ru] Если есть COFF debug, пробуем зачитать отладочную информацию
 
-    // если есть COFF debug, пробуем зачитать отладочную информацию
     LoadCoff(Raw);
 
-    // ну и до кучи DWARF
+    // And to top it all off, DWARF
+    // [ru] Ну и до кучи DWARF
+
     LoadDwarf(Raw);
 
   finally
@@ -1528,10 +1950,14 @@ begin
     SymbolStorage.Add(DescrData);
     Inc(DescrData.AddrVA, SizeOf(TImageImportDescriptor));
 
-    // запоминаем адрес следующего дексриптора
+    // We store the address of the next descriptor
+    // [ru] Запоминаем адрес следующего дескриптора
+
     NextDescriptorRawAddr := Raw.Position;
 
-    // вычитываем имя библиотеки импорт из которой описывает дескриптор
+    // Read the name of the library whose import is described by the descriptor
+    // [ru] Читаем имя библиотеки, импорт из которой описывает дескриптор
+
     Raw.Position := RvaToRaw(ImageImportDescriptor.Name);
     if Raw.Position = 0 then
     begin
@@ -1541,29 +1967,53 @@ begin
       Exit;
     end;
 
-    // контроль перенаправления через ApiSet
+    // Controlling Redirects via ApiSet
+    // [ru] Контроль перенаправления через ApiSet
+
     ImportChunk.OrigLibraryName := ReadString(Raw);
     ProcessApiSetRedirect(ImageName, ImportChunk);
 
-    // инициализируем размер записей и флаги
+    // Initialize the record sizes and flags
+    // [ru] Инициализируем размеры записей и флаги
+
     IatDataSize := IfThen(Image64, 8, 4);
     OrdinalFlag := IfThen(Image64, IMAGE_ORDINAL_FLAG64, IMAGE_ORDINAL_FLAG32);
 
-    // вычитываем все записи описываемые дескриптором, пока не кончатся
+    // We read all the records described by the descriptor until there are no more left.
+    // [ru] Вычитываем все записи, описываемые дескриптором, пока не кончатся
+
     IatData := 0;
     Index := 0;
-    // сразу запоминаем адрес таблицы в которой будут располазаться адреса
-    // заполняемые лоадером при загрузке модуля в память процесса
+
+    // We immediately store the address of the table where the addresses
+    // filled in by the loader when the module is loaded into the process's memory will be located
+
+    // [ru] Сразу запоминаем адрес таблицы, в которой будут располагаться адреса
+    // заполняемые загрузчиком при загрузке модуля в память процесса
+
     ImportChunk.ImportTableVA := RvaToVa(ImageImportDescriptor.FirstThunk);
-    // но вычитывать будем из таблицы через OriginalFirstThunk
-    // т.к. FirstThunk в Raw файле может содержать привязаные данные (реальные адреса)
-    // которые для 64 бит мало того, что могут быть далеко за пределами DWORD
-    // так еще и не подойдут для RvaToRaw
+
+    // but we'll read it from the table via OriginalFirstThunk
+    // since FirstThunk in the Raw file may contain bound data (actual addresses),
+    // which, for 64-bit systems, not only may be far beyond the limits of a DWORD
+    // but also won't work with RvaToRaw
+    // an example of such a situation is "ntoskrnl.exe"
+
+    // [ru] но читать будем из таблицы через OriginalFirstThunk
+    // т.к. FirstThunk в Raw-файле может содержать привязанные данные (реальные адреса),
+    // которые для 64-битных систем мало того, что могут быть далеко за пределами DWORD
+    // так ещё и не подойдут для RvaToRaw
     // пример такой ситуации "ntoskrnl.exe"
+
     OFTCursor := RvaToVa(ImageImportDescriptor.OriginalFirstThunk);
     OriginalFirstThunk := OFTCursor;
-    // правда OriginalFirstThunk может и не быть в некоторых случаях
+
+    // It's true that OriginalFirstThunk may not be present in some cases
+    // In that case, the read will come from FirstThunk
+
+    // [ru] Правда, OriginalFirstThunk может и не быть в некоторых случаях
     // в таком случае чтение будет идти из FirstThunk
+
     if ImageImportDescriptor.OriginalFirstThunk = 0 then
       OriginalFirstThunk := ImportChunk.ImportTableVA;
     repeat
@@ -1582,10 +2032,16 @@ begin
 
       if IatData <> 0 then
       begin
-        // проверка - идет импорт только по ORDINAL или есть имя функции?
+
+        // Checking whether the import is by ORDINAL only or there is a function name
+        // [ru] Проверка, идёт ли импорт только по ORDINAL или есть имя функции
+
         if IatData and OrdinalFlag = 0 then
         begin
-          // имя есть - нужно его вытащить
+
+          // The name is present - we need to read it
+          // [ru] Имя есть - нужно его прочитать
+
           Raw.Position := RvaToRaw(IatData);
           if Raw.Position = 0 then
           begin
@@ -1599,12 +2055,17 @@ begin
         end
         else
         begin
-          // имени нет - запоминаем только ordinal функции
+
+          // No name - we just store the function's ordinal
+          // [ru] Имени нет - запоминаем только ordinal функции
+
           ImportChunk.FuncName := EmptyStr;
           ImportChunk.Ordinal := IatData and not OrdinalFlag;
         end;
 
-        // запоминаем в таблице символов информацию о IAT
+        // We record information about the IAT in the symbols table
+        // [ru] Запоминаем в таблице символов информацию о IAT
+
         if Image64 then
           SymbolData.DataType := sdtImportTable64
         else
@@ -1613,7 +2074,9 @@ begin
         SymbolData.Binary.ListIndex := FImport.Add(ImportChunk);
         SymbolStorage.Add(SymbolData);
 
-        // запоминаем в таблице символов информацию о INT
+        // We store information about INT in the symbol table
+        // [ru] Запоминаем в таблице символов информацию о INT
+
         if ImageImportDescriptor.OriginalFirstThunk <> 0 then
         begin
           if Image64 then
@@ -1631,7 +2094,9 @@ begin
       end;
     until IatData = 0;
 
-    // переходим к следующему дескриптору
+    // We move on to the next descriptor
+    // [ru] Переходим к следующему дескриптору
+
     Raw.Position := NextDescriptorRawAddr;
   end;
 
@@ -1691,7 +2156,9 @@ begin
     Exit;
   end;
 
-  // если база кода не указана, зачитываем её из заголовка
+  // If the code base is not specified, we retrieve it from the header
+  // [ru] Если база кода не указана, зачитываем её из заголовка
+
   if ImageBase = 0 then
     FImageBase := FNtHeader.OptionalHeader.ImageBase;
 
@@ -1725,10 +2192,15 @@ begin
   while Raw.Position < MaxPos do
   try
     Raw.ReadBuffer(ImageBaseRelocation, SizeOf(TImageBaseRelocation));
-    // SizeOfBlock включает в себя полный размер данных вместе с заголовком
+
+    // SizeOfBlock includes the total size of the data, including the header
+    // [ru] SizeOfBlock включает в себя полный размер данных вместе с заголовком
+
     Dec(ImageBaseRelocation.SizeOfBlock, SizeOf(TImageBaseRelocation));
 
-    // заголовки списков запоминаем в символах
+    // We store list titles as symbols.
+    // [ru] Заголовки списков запоминаем в символах
+
     RelocationData.AddrVA := RvaToVa(ImageBaseRelocation.VirtualAddress);
     RelocationData.Index := FRelocations.Count;
     RelocationData.Count := Integer(ImageBaseRelocation.SizeOfBlock shr 1);
@@ -1745,12 +2217,21 @@ begin
           FRelocations.Add(Pointer(RvaToRaw(ImageBaseRelocation.VirtualAddress + RelocationBlock and $FFF)));
         IMAGE_REL_BASED_ABSOLUTE:
         begin
-          // ABSOLUTE может встретится посередине, а не только в конце,
+
+          // "ABSOLUTE" may appear in the middle, not just at the end,
+          // as some sources claim.
+          // Example of such a library
+          // C:\Program Files (x86)\Embarcadero\Studio\21.0\bin\dcc32270.dll
+          // Therefore, this entry should be ignored, and it does not indicate
+          // the end of the list
+
+          // [ru] ABSOLUTE может встретиться посередине, а не только в конце,
           // как утверждают некоторые источники.
-          // пример такой библиотеки
+          // Пример такой библиотеки
           // C:\Program Files (x86)\Embarcadero\Studio\21.0\bin\dcc32270.dll
           // поэтому эта запись должна быть пропущена, и она не означает
           // конец списка
+
           FRelocations.Add(nil);
           Continue;
         end
@@ -1788,7 +2269,9 @@ begin
   COFFOffset := FNtHeader.FileHeader.PointerToSymbolTable +
     FNtHeader.FileHeader.NumberOfSymbols * SizeOf(TCOFFSymbolRecord);
 
-  // Если отладочных COFF символов нет, то и обрабатывать нечего
+  // If there are no COFF debug symbols, then there's nothing to process
+  // [ru] Если отладочных COFF символов нет, то и обрабатывать нечего
+
   if COFFOffset = 0 then
     Exit;
 
@@ -1932,18 +2415,33 @@ begin
   Raw.Position := VaToRaw(TlsDirectory.VirtualAddress);
   if Raw.Position = 0 then Exit;
   AddrSize := IfThen(Image64, 8, 4);
-  // пропускаем 3 поля IMAGE_TLS_DIRECTORYхх:
+
+  // Skip the 3 IMAGE_TLS_DIRECTORYxx fields:
+  // StartAddressOfRawData + EndAddressOfRawData + AddressOfIndex
+  // thus jumping directly to the AddressOfCallBacks position
+
+  // [ru] Пропускаем 3 поля IMAGE_TLS_DIRECTORYxx:
   // StartAddressOfRawData + EndAddressOfRawData + AddressOfIndex
   // становясь, таким образом, сразу на позиции AddressOfCallBacks
+
   Raw.Position := Raw.Position + AddrSize * 3;
   Counter := 0;
   AddressOfCallBacks := 0;
   TlsCallbackPosVA := 0;
-  // зачитываем значение AddressOfCallBacks
+
+  // Read the value of AddressOfCallBacks
+  // [ru] Читаем значение AddressOfCallBacks
+
   Raw.ReadBuffer(AddressOfCallBacks, AddrSize);
-  // если цепочка колбэков не назначена - выходим
+
+  // If no callback chain is specified, exit
+  // [ru] Если цепочка колбэков не назначена - выходим
+
   if AddressOfCallBacks = 0 then Exit;
-  // позиционируемся на начало цепочки калбэков
+
+  // We position ourselves at the beginning of the callback chain
+  // [ru] Позиционируемся на начало цепочки колбэков
+
   Raw.Position := VaToRaw(AddressOfCallBacks);
   if Raw.Position = 0 then Exit;
   repeat
@@ -1954,7 +2452,9 @@ begin
       Chunk.AddrVA := TlsCallbackPosVA;
       Chunk.AddrRaw := VaToRaw(Chunk.AddrVA);
 
-      // добавляем в символы адрес записи о калбэке
+      // Add the callback entry's address to the symbols
+      // [ru] Добавляем в символы адрес записи о колбэке
+
       SymbolData.AddrVA := AddressOfCallBacks;
       if Image64 then
         SymbolData.DataType := sdtTlsCallback64
@@ -1964,7 +2464,9 @@ begin
       SymbolData.Binary.ListIndex := Counter;
       SymbolStorage.Add(SymbolData);
 
-      // и адрес самого колбэка
+      // and the callback's address
+      // [ru] и адрес самого колбэка
+
       SymbolData.AddrVA := Chunk.AddrVA;
       SymbolData.DataType := sdtEntryPoint;
       SymbolData.Binary.ListIndex := FEntryPoints.Add(Chunk);
@@ -2148,48 +2650,97 @@ begin
   Result := FItems.Add(AItem);
   FImageBaseIndex.Add(AModule.ImageBase, Result);
 
-  // в процессе может быть несколько библиотек с одинаковым именем
-  // причем одной битности, но перенаправление импорта из остальных библиотек
-  // будет на ту, у которой не включен редирект (условие верно именно для дубляжа)
-  // и которая загружена по своей ImageBase
-
-  // Вообще работу функции GetModuleHandle можно посмотреть вот здесь
-  // "...\base\ntdll\ldrapi.c" в функции LdrGetDllHandleEx() где
-  // проверяется путь на редирект через вызов RtlDosApplyFileIsolationRedirection_Ustr
-  // и потом сверяется валидность пути с проверкой флага
-  // LdrpGetModuleHandleCache->Flags & LDRP_REDIRECTED
-
-  // грубо это сделано для того чтобы мы не могли подгрузить допустим comctl32.dll
-  // из сторонней папки, после чего загрузить еще одну любую библиотеку, у которой
-  // в таблице импорта прописан comctl32. Если бы бралась первая попавшаяся запись
-  // то тогда таблица импорта в подгруженой библиотеке
-  // была бы направлена на "c:\tmp\comctl32.dll", вместо положеной штатной библиотеки
-
-  // т.е. если на пальцах:
-  // 1. создаем консольное приложение
-  // 2. вызываем LoadLibrary('c:\tmp\comctl32.dll');
-  // 3. проверяем Writeln(IntToHex(GetModuleHandle(comctl32)));
-  // в консоль будет выведен ноль, т.е. comctl32 не нашлась, а вот если вызвать
-  // Writeln(IntToHex(GetModuleHandle('c:\tmp\comctl32.dll')));
-  // то тогда получим правильный инстанс библиотеки из сторонней папки
-
-  // второй вариант подгрузки, например у нас все замаплено на пятый comctl32
-  // но подгружается библиотека импортирующая функцию HIMAGELIST_QueryInterface
-  // которая экспортируется только шестым comctl32
-  // в этом случае весь импорт этой библиотеки мапится на шестой comctl32
-  // в то время как все остальное остается сидеть на пятом!!!
-
-  // по результтам экспериментов приоритеты мапинга
-  // 1. либа сидит в системной директории
-  // 2. либа импортирована по хардлнку (с указанием пути, например ./dir/lib.dll)
-  // 3. используется первая из списка загруженых
+  // = [EN] ====================================================================
 
   {
-  Если при запушеной программер произвести обновление (например накатить обновы редистрибутейбла)
-  То используемые библиотеки буду перемаплены в каталог C:\Config.Msi\
-  Например msvcp140.dll заменится на C:\Config.Msi\5761a70b.rbf и т.д.
-  Дополнительный анализ этой ситуации не производится и будут ошибки по замененным библиотекам
+  a process may have several libraries with the same name,
+  of the same bitness, but import redirection from the other libraries
+  will go to the one without redirect enabled (the condition is true only for duplicates)
+  and which is loaded at its own ImageBase
+
+  In general, you can see how GetModuleHandle works here:
+  "...\base\ntdll\ldrapi.c" in the LdrGetDllHandleEx() function, where
+  the path is checked for redirection via a call to RtlDosApplyFileIsolationRedirection_Ustr
+  and then the validity of the path is verified by checking the flag
+  LdrpGetModuleHandleCache->Flags & LDRP_REDIRECTED
+
+  roughly, this is done so that one cannot load, say, comctl32.dll
+  from a third-party folder and then load any other library that has
+  comctl32 in its import table. If the first entry found were used,
+  then the import table in the loaded library
+  would point to "c:\tmp\comctl32.dll" instead of the standard library that should be there
+
+  in other words, in plain terms:
+  1. create a console application
+  2. call LoadLibrary('c:\tmp\comctl32.dll');
+  3. check Writeln(IntToHex(GetModuleHandle(comctl32)));
+  zero will be printed to the console, i.e. comctl32 was not found, but if we call
+  Writeln(IntToHex(GetModuleHandle('c:\tmp\comctl32.dll')));
+  then we get the correct instance of the library from the third-party folder
+
+  the second loading scenario: for example, everything is mapped to comctl32 version 5,
+  but a library is loaded that imports the HIMAGELIST_QueryInterface function,
+  which is exported only by comctl32 version 6
+  in this case, all imports of this library are mapped to version 6,
+  while everything else remains on version 5!!!
+
+  based on experimental results, the mapping priorities are:
+  1. the library is in the system directory
+  2. the library is imported via a hard-coded path (e.g., ./dir/lib.dll)
+  3. the first one from the list of loaded libraries is used
+
+  If an update is applied while the program is running (e.g., a redistributable update),
+  the libraries in use will be remapped to the C:\Config.Msi\ directory.
+  For example, msvcp140.dll will be replaced with C:\Config.Msi\5761a70b.rbf, etc.
+  Additional analysis of this situation is not performed, replaced libraries will cause errors
   }
+
+  // = [RU] ====================================================================
+
+  {
+  в процессе может быть несколько библиотек с одинаковым именем,
+  причем одной битности, но перенаправление импорта из остальных библиотек
+  будет на ту, у которой не включен редирект (условие верно именно для дубляжа)
+  и которая загружена по своей ImageBase
+
+  Вообще работу функции GetModuleHandle можно посмотреть вот здесь
+  "...\base\ntdll\ldrapi.c" в функции LdrGetDllHandleEx(), где
+  проверяется путь на редирект через вызов RtlDosApplyFileIsolationRedirection_Ustr
+  и потом сверяется валидность пути с проверкой флага
+  LdrpGetModuleHandleCache->Flags & LDRP_REDIRECTED
+
+  грубо это сделано для того, чтобы мы не могли подгрузить, допустим, comctl32.dll
+  из сторонней папки, после чего загрузить ещё одну любую библиотеку, у которой
+  в таблице импорта прописан comctl32. Если бы бралась первая попавшаяся запись,
+  то тогда таблица импорта в подгруженной библиотеке
+  была бы направлена на "c:\tmp\comctl32.dll", вместо положенной штатной библиотеки
+
+  т.е. если на пальцах:
+  1. создаем консольное приложение
+  2. вызываем LoadLibrary('c:\tmp\comctl32.dll');
+  3. проверяем Writeln(IntToHex(GetModuleHandle(comctl32)));
+  в консоль будет выведен ноль, т.е. comctl32 не нашлась, а вот если вызвать
+  Writeln(IntToHex(GetModuleHandle('c:\tmp\comctl32.dll')));
+  то тогда получим правильный инстанс библиотеки из сторонней папки
+
+  второй вариант подгрузки, например, у нас всё замаплено на пятый comctl32,
+  но подгружается библиотека, импортирующая функцию HIMAGELIST_QueryInterface,
+  которая экспортируется только шестым comctl32
+  в этом случае весь импорт этой библиотеки мапится на шестой comctl32
+  в то время как всё остальное остаётся сидеть на пятом!!!
+
+  по результатам экспериментов приоритеты мапинга:
+  1. либа сидит в системной директории
+  2. либа импортирована по жёстко заданному пути (например, ./dir/lib.dll)
+  3. используется первая из списка загруженных
+
+  Если при запущенной программе произвести обновление (например, накатить обновы редистрибутейбла),
+  то используемые библиотеки будут перемаплены в каталог C:\Config.Msi\
+  Например, msvcp140.dll заменится на C:\Config.Msi\5761a70b.rbf и т.д.
+  Дополнительный анализ этой ситуации не производится, и будут ошибки по заменённым библиотекам
+  }
+
+  // ===========================================================================
 
   Key := ToKey(AItem.ImageName, AItem.Image64);
   if FIndex.TryGetValue(Key, PreviosItemIndex) then
@@ -2318,11 +2869,18 @@ begin
   if Result then
     Result := GetProcData(LibraryName, FuncName, Is64, ProcData, CheckAddrVA);
 
-  // форвард может быть множественный, поэтому рефорвардим до упора
+  // There can be multiple forwards, so we'll keep reforwarding until we can't anymore
+  // For example:
+  // USP10.ScriptGetLogicalWidths ->
+  //   GDI32.ScriptGetLogicalWidths ->
+  //     gdi32full.ScriptGetLogicalWidths
+
+  // [ru] Форвард может быть множественный, поэтому рефорвардим до упора
   // например:
   // USP10.ScriptGetLogicalWidths ->
   //   GDI32.ScriptGetLogicalWidths ->
   //     gdi32full.ScriptGetLogicalWidths
+
   if Result and (ProcData.ForvardedTo <> EmptyStr) then
     Result := GetProcData(ProcData.ForvardedTo, Is64, ProcData, CheckAddrVA);
 
@@ -2333,7 +2891,10 @@ function TRawModules.GetRelocatedImage(const LibraryName: string; Is64: Boolean;
 var
   Index: Integer;
 begin
-  // быстрая проверка, есть ли информация о библиотеке?
+
+  // A quick check to see whether there's any information about the library
+  // [ru] Быстрая проверка, есть ли информация о библиотеке
+
   if FIndex.TryGetValue(ToKey(LibraryName, Is64), Index) then
     Result := FItems.List[Index].GetImageAtAddr(CheckAddrVA)
   else
@@ -2342,8 +2903,13 @@ end;
 
 function TRawModules.ToKey(const LibraryName: string; Is64: Boolean): string;
 begin
-  // ExtractFileName убирает привязку по пути,
+
+  // ExtractFileName removes the path reference,
+  // it is not needed because we process it through the RelocatedImages list
+
+  // [ru] ExtractFileName убирает привязку по пути,
   // она не нужна, т.к. мы её обрабатываем через список RelocatedImages
+
   Result := LowerCase(ExtractFileName(LibraryName) + BoolToStr(Is64));
 end;
 
@@ -2376,8 +2942,12 @@ begin
   Result := False;
   if LibraryName = EmptyStr then Exit;
 
-  // проверка на импорт по ординалу
+  // Check for import by ordinal
+  // A forward can be specified simply as a number, or it can include a hash prefix
+
+  // [ru] Проверка на импорт по ординалу
   // форвард может идти просто как число, а может с префиксом решетки
+
   if FuncName = EmptyStr then Exit;
   if ((FuncName[1] = OrdinalPrefix) and
     TryStrToInt(Copy(FuncName, 2, Length(FuncName) - 1), Ordinal)) or

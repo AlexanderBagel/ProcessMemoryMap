@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : MemoryMap
+//  * Project   : Process Memory Map
 //  * Unit Name : MemoryMap.DebugMapData.pas
-//  * Purpose   : Класс для работы с отладочным MAP файлом.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : A class for working with a debug MAP file.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.4.39
+//  * Version   : 1.4.41
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -170,9 +186,14 @@ begin
   Result := '';
   Item.Address := Address;
 
-  // если адрес не нашелся, результатом будет позиция,
+  // If the address is not found, the result will be the position
+  // where that address should be, that is, to calculate the offset,
+  // use the address of the previous function relative to the found position as the base
+
+  // [ru] если адрес не нашелся, результатом будет позиция,
   // где этот адрес должен был бы находится, т.е. для оффсета надо
   // взять за базу адрес предыдущей функции от найденой позиции
+
   if not FItems.BinarySearch(Item, I) then
     Dec(I);
 
@@ -180,7 +201,6 @@ begin
   if EarlierAddr then
     I := 0;
 
-  // проверка на выход за диапазон
   if I >= FItems.Count then Exit;
 
   if not AnsiSameText(ExtractFileName(CheckModuleName),
@@ -368,12 +388,16 @@ begin
           I := 0;
           Count := MapFile.Count;
 
-          // ищем начало таблицы секций
+          // looking for the beginning of the table of sections
+          // [ru] ищем начало таблицы секций
+
           Line := Trim(MapFile[I]);
           while not Line.StartsWith('Start') do
             if not NextLine then Exit;
 
-          // получаем номер секции и ее имя
+          // get the section number and its name
+          // [ru] получаем номер секции и ее имя
+
           SkipEmptyLines;
           while Line <> '' do
           begin
@@ -389,16 +413,26 @@ begin
                 Exit;
             end;
 
-            // в старых версиях дельфи в РЕ файле имя секции называлось по имени ее класса
+            // in older versions of Delphi, the section name in the PE file
+            // was the same as the name of its class,
+            // so we'll look for the correct section based on this fact
+
+            // [ru] в старых версиях дельфи в РЕ файле имя секции
+            // называлось по имени ее класса,
             // поэтому будем искать правильную секцию опираясь на этот момент
+
             SectionClass := Line;
 
-            // убираем декорирование (MS VC++ Debug MAP)
+            // remove the decoration (MS VC++ Debug MAP)
+            // [ru] убираем декорирование (MS VC++ Debug MAP)
+
             SpacePos := Pos('$', SectionName);
             if SpacePos > 0 then
               SectionName := Copy(SectionName, 1, SpacePos - 1);
 
-            // если секция содержит код, заносим ее в список
+            // if a section contains code, add it to the list
+            // [ru] если секция содержит код, заносим ее в список
+
             for A := 0 to PEImage.Sections.Count - 1 do
               if (PEImage.Sections[A].Caption = ShortString(SectionName)) or
                 (PEImage.Sections[A].Caption = ShortString(SectionClass)) then
@@ -417,7 +451,9 @@ begin
           PEImage.Free;
         end;
 
-        // ищем начало таблицы "Publics by Value"
+        // we are looking for the beginning of the "Publics by Value" table
+        // [ru] ищем начало таблицы "Publics by Value"
+
         FoundTable := False;
         SkipEmptyLines;
         while not FoundTable do
@@ -429,7 +465,9 @@ begin
           FoundTable := Line.StartsWith('Publics by Value');
         end;
 
-        // парсим таблицу "Publics by Value"
+        // parse the "Publics by Value" table
+        // [ru] парсим таблицу "Publics by Value"
+
         SkipEmptyLines;
         if I >= Count then Exit;
         while Line <> '' do
@@ -457,7 +495,9 @@ begin
             Break;
         end;
 
-        // парсим все "Line numbers for"
+        // parse all "Line numbers for"
+        // [ru] парсим все "Line numbers for"
+
         if LoadLines then
         begin
           SkipEmptyLines;
@@ -477,7 +517,9 @@ begin
             if I >= Count then
               Break;
 
-            // загружаем данные по каждому модулю
+            // load the data for each module
+            // [ru] загружаем данные по каждому модулю
+
             while Line <> '' do
             begin
               while Line <> '' do
@@ -519,7 +561,11 @@ begin
 
     FItems.Sort;
   except
-    // если не смогли распарсить - выкидываем все из массива данных
+
+    // if we couldn't parse it, we remove everything from the data array
+
+    // [ru] если не смогли распарсить - выкидываем все из массива данных
+
     for I := FItems.Count - 1 downto StartPosition do
       FItems.Delete(I);
   end;

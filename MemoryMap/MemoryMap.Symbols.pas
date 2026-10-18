@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : MemoryMap
+//  * Project   : Process Memory Map
 //  * Unit Name : MemoryMap.Symbols.pas
-//  * Purpose   : Класс для работы с символами.
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2023.
-//  * Version   : 1.4.34
+//  * Purpose   : A class for working with Symbols
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.4.41
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -118,7 +134,10 @@ begin
       end
       else
       begin
-        // с первой попытки может и не получиться
+
+        // it might not work on the first try
+        // [ru] с первой попытки может и не получиться
+
         SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)), nil, BaseAddress, 0);
         if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
           if Displacement = 0 then
@@ -163,7 +182,10 @@ begin
       end
       else
       begin
-        // с первой попытки может и не получиться
+
+        // it might not work on the first try
+        // [ru] с первой попытки может и не получиться
+
         SymLoadModule(FProcess, 0, PAnsiChar(AnsiString(ModuleName)), nil, BaseAddress, 0);
         if SymGetSymFromAddr(FProcess, Address, @Displacement, Symbol) then
           if Displacement = 0 then

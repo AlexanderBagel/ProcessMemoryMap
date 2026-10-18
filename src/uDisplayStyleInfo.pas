@@ -1,21 +1,37 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uDisplayStyleInfo.pas
-//  * Purpose   : Вспомогательные функции и массивы для определения стилей окна
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Helper functions and arrays for determining window styles
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
-// Основано на базе кода:
+// Based on the codebase of:
 //  https://github.com/strobejb/winspy/blob/master/src/DisplayStyleInfo.c
 //  Copyright (c) 2002 by J Brown
 //	Freeware
@@ -96,7 +112,7 @@ const
   WS_EX_FLAG_UISTATEKBDACCELHIDDEN = 1 shl 30;    //    +0x01c bUIStateKbdAccelHidden : Pos 30, 1 Bit
   WS_EX_FLAG_UISTATEFOCUSRECTHIDDEN = $80000000;  //    +0x01c bUIStateFocusRectHidden : Pos 31, 1 Bit
 
-  { // это похоже DWM флаги
+  {
    +0x0ac ExStyle2         : Uint4B
    +0x0ac bClipboardListener : Pos 0, 1 Bit
    +0x0ac bLayeredInvalidate : Pos 1, 1 Bit
@@ -566,7 +582,7 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  // тут дефолтные
+  // Default styles here
   StyleExList: array[0..33] of TStyleLookupEx = (
     (style: WS_EX_PALETTEWINDOW; name: 'WS_EX_PALETTEWINDOW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
     (style: WS_EX_OVERLAPPEDWINDOW; name: 'WS_EX_OVERLAPPEDWINDOW'; cmp_mask: 0; depends: NO_DATA; excludes: 0),
@@ -693,7 +709,6 @@ const
     (style: NO_DATA; name: ''; cmp_mask: NO_DATA; depends: NO_DATA; excludes: NO_DATA)
   );
 
-  // Таблицы поиска классов
   StandardControls: array[0..28] of TClassStyleLookup = (
     (szClassName: TYPE_DIALOG; stylelist: @DialogStyles),
     (szClassName: TYPE_BUTTON; stylelist: @ButtonStyles),

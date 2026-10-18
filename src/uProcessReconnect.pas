@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uProcessReconnect.pas
-//  * Purpose   : Модуль отвечающий за поиск нового PID процесса после его перезапуска
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.28
+//  * Purpose   : Module that locates a process's new PID after a restart
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -86,7 +102,10 @@ begin
     PROCESS_VM_OPERATION, False, OldPID);
   if Process <> 0 then
   try
-    // дополнительная проверка, если кто-то держит хэндл на уже убитый процесс
+
+    // additional check in case someone is holding a handle to an already terminated process
+    // [ru] дополнительная проверка, если кто-то держит хэндл на уже убитый процесс
+
     if VirtualQueryEx(Process, MemoryMapCore.PebBaseAddress, MBI, SizeOf(MBI)) <> 0 then
       Exit(OldPID);
   finally

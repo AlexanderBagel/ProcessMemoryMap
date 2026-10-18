@@ -1,17 +1,20 @@
 object dlgRegionProps: TdlgRegionProps
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   Caption = 'Process Memory Map - Region Properties'
-  ClientHeight = 548
-  ClientWidth = 958
+  ClientHeight = 822
+  ClientWidth = 1437
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
-  OldCreateOrder = False
   Position = poMainFormCenter
   OnActivate = FormActivate
   OnClose = FormClose
@@ -19,17 +22,21 @@ object dlgRegionProps: TdlgRegionProps
   OnDestroy = FormDestroy
   OnDeactivate = FormDeactivate
   OnKeyPress = FormKeyPress
-  PixelsPerInch = 96
-  TextHeight = 13
+  PixelsPerInch = 144
+  TextHeight = 21
   object edProperties: TRichEdit
     Left = 0
     Top = 0
-    Width = 958
-    Height = 548
+    Width = 1437
+    Height = 822
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alClient
     Font.Charset = RUSSIAN_CHARSET
     Font.Color = clWindowText
-    Font.Height = -11
+    Font.Height = -17
     Font.Name = 'Courier New'
     Font.Style = []
     HideSelection = False
@@ -38,7 +45,6 @@ object dlgRegionProps: TdlgRegionProps
     ReadOnly = True
     ScrollBars = ssBoth
     TabOrder = 0
-    Zoom = 100
     OnMouseDown = edPropertiesMouseDown
     OnMouseUp = edPropertiesMouseUp
   end

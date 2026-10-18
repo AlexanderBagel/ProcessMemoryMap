@@ -1,20 +1,36 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Disassembler.pas
-//  * Purpose   : Класс для дизасемблирования указаного буфера памяти
-//  *           : на основе Distorm 3.5.3
-//  *           : Не используется в составе фреймворка,
-//  *           : и предназначен для внешнего кода.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : A class for disassembling the specified memory buffer
+//  *           : Based on Distorm 3.5.3
+//  *           : Not used within the framework,
+//  *           : and intended for external code.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -174,7 +190,9 @@ begin
       if ci.codeLen <= 0 then
         Break;
 
-      // детектирование нулей для выравнивания
+      // zero detection for alignment
+      // [ru] детектирование нулей для выравнивания
+
       ZeroCount := 0;
       while ci.codeLen > 0 do
       begin
@@ -183,8 +201,13 @@ begin
           Inc(ci.code);
           Dec(ci.codeLen);
           Inc(ZeroCount);
-          // страховка, чтобы не упало если будем дизасмить
-          // неисполняемую  страницу с нулями
+
+          // a safety measure to prevent a crash if we disassemble
+          // a non-executable page containing zeros
+
+          // [ru] страховка, чтобы не упало, если будем дизассемблировать
+          // неисполняемую страницу с нулями
+
           if ZeroCount = 32 then
             Break;
         end
@@ -289,7 +312,10 @@ begin
               {$IFDEF DEBUG} {$OVERFLOWCHECKS ON} {$ENDIF}
               Result[I].RipAddrVA := OffsetAddr;
               ReadMemory(OffsetAddr, @Result[I].RipAddrPtr, 8);
-              // какой по очереди встретился RIP, чтобы вывести в правильном порядке
+
+              // We determine whether RIP came first so that the output is in the correct order
+              // [ru] Определяем, первым ли встретился RIP, чтобы вывести в правильном порядке
+
               Result[I].RipFirst := Result[I].JmpAddrVa = 0;
               if Result[I].RipFirst then
                 Result[I].JmpAddrVa := Result[I].RipAddrPtr;
@@ -371,7 +397,11 @@ begin
         if Inst.flags and FLAG_RIP_RELATIVE <> 0 then
           Data.AddrData[Data.Count].AType := atRipOffset
         else
-          // детект обрашения к TEB
+        begin
+
+          // Detect an access to the TEB
+          // [ru] Детектирование обращения к TEB
+
           if not SEGMENT_IS_DEFAULT_OR_NONE(Inst.segment) then
           begin
             case _RegisterType(SEGMENT_GET(Inst.segment)) of
@@ -384,6 +414,7 @@ begin
               64: Data.AddrData[Data.Count].AType := atPointer8;
               32: Data.AddrData[Data.Count].AType := atPointer4;
             end;
+        end;
         if Data.AddrData[Data.Count].AType <> atUnknown then
           Inc(Data.Count);
       end;

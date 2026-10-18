@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uSelectProcess.pas
-//  * Purpose   : Диалог выбора процесса
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2017, 2023.
-//  * Version   : 1.4.30
+//  * Purpose   : Process selection dialog
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -93,7 +109,10 @@ begin
       Pid := GetProcessId(AHandle);
       ProcessName := ExtractFileName(odNewProcess.FileName);
       CloseHandle(AHandle);
-      // добавляем данные для реконнекта
+
+      // add data for reconnecting
+      // [ru] добавляем данные для реконнекта
+
       ProcessList.AddObject(odNewProcess.FileName, Pointer(Pid));
       ProcessReconnect.SetKnownProcessList(ProcessList);
       ModalResult := mrOk;
@@ -153,12 +172,21 @@ end;
 procedure TdlgSelectProcess.lvProcessMouseUp(Sender: TObject;
   Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
-  // Обход небольшого глюка.
+
+  // Workaround for a minor glitch.
+  // This dialog is usually displayed over lvSummary, which is
+  // responsible for filtering data.
+  // In lvSummary, the OnNodeClick method is called on MouseUp,
+  // so a double click on this dialog immediately triggers filtering,
+  // which we don't want.
+
+  // [ru] Обход небольшого глюка.
   // Данный диалог обычно отображается над lvSummary, который отвечает
   // за фильтрацию данных.
   // А в lvSummary метод OnNodeClick вызывается по MouseUp,
   // и при двойном клике на текущем диалоге сразу вызывается фильтрация,
   // а это нам не надо.
+
   if DblClicked then
   begin
     ProcessReconnect.SetKnownProcessList(ProcessList);
@@ -328,14 +356,12 @@ begin
   if StyleServices.Enabled then
   begin
     Item.Mask := HDI_FORMAT;
-    // Убираем предыдущую стрелку
     HeaderHandle := ListView_GetHeader(lvProcess.Handle);
     if Header_GetItem(HeaderHandle, SortData.PreviosSelected, Item) then
     begin
       Item.fmt := Item.fmt and not (HDF_SORTUP or HDF_SORTDOWN);
       Header_SetItem(HeaderHandle, SortData.PreviosSelected, Item);
     end;
-    // Рисуем новую
     Item.Mask := HDI_FORMAT;
     Header_GetItem(HeaderHandle, SortData.SortColumn, Item);
     Item.fmt := Item.fmt or Direction;

@@ -1,20 +1,35 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uPatchDetect.pas
-//  * Purpose   : Диалог для работы со сканером перехваченых функций
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Restore Hooked Functions
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.49
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
 //  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
+//  ****************************************************************************
 //
-
 unit uPatchRestore;
 
 interface
@@ -43,7 +58,6 @@ type
     btnCancel: TButton;
     btnRestore: TButton;
     procedure clbPatchesClickCheck(Sender: TObject);
-    procedure FormKeyPress(Sender: TObject; var Key: Char);
   public
     procedure Restore(AList: TPatchList);
   end;
@@ -68,11 +82,6 @@ begin
       Break;
     end;
   btnRestore.Enabled := CanWork;
-end;
-
-procedure TdlgPatchRestore.FormKeyPress(Sender: TObject; var Key: Char);
-begin
-  if Key = #27 then Close;
 end;
 
 procedure TdlgPatchRestore.Restore(AList: TPatchList);

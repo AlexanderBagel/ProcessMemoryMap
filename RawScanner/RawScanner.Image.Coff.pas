@@ -1,18 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Image.Coff.pas
-//  * Purpose   : Классы получающие данные о состоянии обьектных Coff файлов
-//  *           : рассчитанные на основе образов файлов с диска.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Classes that retrieve state information about COFF object files
+//  *           : computed based on file images from disk.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.28
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -43,7 +59,11 @@ type
     NumberOfLinenumbers: Word;
     Characteristics: DWORD;
     COFFDebugOffsetRaw: DWORD;
-    DisplayName: string; // содержит реальное имя секции с учетом отладочных COFF символов
+
+    // Contains the real section name taking into account debug COFF symbols.
+    // [ru] содержит реальное имя секции с учетом отладочных COFF символов
+
+    DisplayName: string;
   end;
 
   TRawCoffImage = class;
@@ -536,7 +556,9 @@ begin
   COFFOffset := FHeader.FileHeader.PointerToSymbolTable +
     FHeader.FileHeader.NumberOfSymbols * SizeOf(TCOFFSymbolRecord);
 
-  // Если отладочных COFF символов нет, то и обрабатывать нечего
+  // If there are no debug COFF symbols, then there is nothing to process.
+  // [ru] Если отладочных COFF символов нет, то и обрабатывать нечего
+
   if COFFOffset = 0 then
     Exit;
 

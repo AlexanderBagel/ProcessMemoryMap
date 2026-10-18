@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uExportList.pas
-//  * Purpose   : Диалог для отображения списка экспорта функций
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Dialog box for displaying the list of export functions
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -37,6 +53,9 @@ uses
   MemoryMap.DebugMapData,
 
   RawScanner.Image.Pe,
+  RawScanner.CoffDwarf,
+  RawScanner.Pdb,
+  RawScanner.Utils,
 
   uBaseForm,
   uSettings;
@@ -76,6 +95,8 @@ type
     mnuShowDWARFFUNC: TMenuItem;
     mnuShowDWARFDATA: TMenuItem;
     mnuOpenInExplorer: TMenuItem;
+    mnuShowPdbFunc: TMenuItem;
+    mnuShowPdbData: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure lvExportsGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
@@ -202,7 +223,7 @@ const
   SymbolExportType: array [TExportStatus] of string =
     ('EXPORT', 'FORWARDED', 'REBASED', 'DATA', 'INVALID',
      'DEBUG_MAP FUNC', 'DEBUG_MAP DATA', 'COFF FUNC', 'COFF DATA',
-     'DWARF FUNC', 'DWARF DATA');
+     'DWARF FUNC', 'DWARF DATA', 'PDB FUNC', 'PDB DATA');
 var
   I, A: Integer;
   S: TStringList;
@@ -211,6 +232,8 @@ var
   Module: TModule;
   ExportData: TExportData;
   ProcessLock: TProcessLockHandleList;
+  Image: TRawPEImage;
+  Pdb: TPdb;
 
   function CheckRebased(AddrVA: NativeUInt): TExportStatus;
   var
@@ -222,7 +245,10 @@ var
     if SymbolStorage.GetDataAtAddr(AddrVA, ASymbol) and
       (ASymbol.DataType in [sdtExport, sdtEntryPoint, sdtPluginDescriptor, sdtInstance]) then
     begin
-      // экспорт с убитым Rva выставленым в ноль будет указывать на инстанс модуля
+
+      // an export with RVA set to zero will point to a module instance
+      // [ru] экспорт с убитым RVA выставленым в ноль будет указывать на инстанс модуля
+
       if ASymbol.DataType = sdtInstance then
       begin
         Result := esInvalid;
@@ -282,7 +308,9 @@ begin
               dlgProgress.UpdateCaption(Module.Path, I);
               ExportData.Module := ExtractFileName(Module.Path);
 
-              // вывод известных функций из COFF посредством механизма RawScanner
+              // extracting information from COFF
+              // [ru] вывод информации из COFF
+
               S.Clear;
               RawScannerCore.Modules.GetCoffData(Module.Path, S, True);
               for A := 0 to S.Count - 1 do
@@ -296,7 +324,6 @@ begin
                 NoFilterdList.Add(ExportData);
               end;
 
-              // вывод известных данных из COFF посредством механизма RawScanner
               S.Clear;
               RawScannerCore.Modules.GetCoffData(Module.Path, S, False);
               for A := 0 to S.Count - 1 do
@@ -310,7 +337,9 @@ begin
                 NoFilterdList.Add(ExportData);
               end;
 
-              // вывод известных функций из DWARF посредством механизма RawScanner
+              // extracting information from DWARF
+              // [ru] вывод информации из DWARF
+
               S.Clear;
               RawScannerCore.Modules.GetDwarfData(Module.Path, S, True);
               for A := 0 to S.Count - 1 do
@@ -324,7 +353,6 @@ begin
                 NoFilterdList.Add(ExportData);
               end;
 
-              // вывод известных данных из DWARF посредством механизма RawScanner
               S.Clear;
               RawScannerCore.Modules.GetDwarfData(Module.Path, S, False);
               for A := 0 to S.Count - 1 do
@@ -338,7 +366,9 @@ begin
                 NoFilterdList.Add(ExportData);
               end;
 
-              // вывод известных функций из отладочного MAP файла
+              // extracting information from a debug MAP file
+              // [ru] вывод информации из отладочного MAP файла
+
               S.Clear;
               MemoryMapCore.DebugMapData.GetExportFuncList(ExportData.Module, S, True);
               for A := 0 to S.Count - 1 do
@@ -352,7 +382,6 @@ begin
                 NoFilterdList.Add(ExportData);
               end;
 
-              // вывод известных данных из отладочного MAP файла
               S.Clear;
               MemoryMapCore.DebugMapData.GetExportFuncList(ExportData.Module, S, False);
               for A := 0 to S.Count - 1 do
@@ -366,7 +395,9 @@ begin
                 NoFilterdList.Add(ExportData);
               end;
 
-              // вывод данных по экспортируемым функциям посредством сиволов
+              // extracting exported functions using symbols
+              // [ru] вывод экспортируемых функций через символы
+
               S.Clear;
               Symbols.GetExportFuncList(Module.Path, Module.BaseAddr, S);
               for A := 0 to S.Count - 1 do
@@ -380,6 +411,37 @@ begin
                 NoFilterdList.Add(ExportData);
               end;
 
+              // extracting information from PDB storage
+              // [ru] вывод информации из хранилища PDB симолов
+
+              if not Module.LoadAsImage then Continue;
+              S.Clear;
+              A := RawScannerCore.Modules.GetModule(Module.BaseAddr);
+              if A < 0 then Continue;              
+              Image := RawScannerCore.Modules.Items[A];
+              if not (ditPdb in Image.DebugData) then Continue;
+              with Image.CodeViewInfo do
+                Pdb := RawScannerCore.PdbStorage.QueryPDB(UincalId, Age, PdbFileName);
+              if Pdb.State = psReady then
+              begin
+                for A := 0 to Pdb.Count - 1 do
+                begin
+                  ExportData.dwAddress := Image.RvaToVa(Pdb[A].Rva);
+                  ExportData.Address := UInt64ToStr(ExportData.dwAddress);
+                  case Pdb[A].SymbolType of
+                    pstData: ExportData.Status := esPdbData;
+                    pstFunc: ExportData.Status := esPdb;
+                  else
+                    // ICF-folded stub (e.g. mov ecx,7Fh / jmp RtlSetLastWin32Error):
+                    // many unrelated names share this RVA, skipped
+                    Continue;
+                  end;
+                  ExportData.AType := SymbolExportType[ExportData.Status];
+                  ExportData.FunctionName := Pdb[A].Name;
+                  ExportData.SearchFunctionName := AnsiUpperCase(ExportData.FunctionName);
+                  NoFilterdList.Add(ExportData);
+                end;
+              end;
             end;
 
             ShowList;
@@ -414,6 +476,8 @@ begin
     esDebug, esCoff: ItemColor := $CCEDDF;
     esDwarf: ItemColor := $A1D0A3;
     esDwarfData: ItemColor := $F0DFE5;
+    esPdb: ItemColor := $F5D6A3;
+    esPdbData: ItemColor := $FCEFD4;
   else
     ItemColor := clWhite;
   end;
@@ -439,7 +503,15 @@ begin
     0: CellText := List[Node.Index].AType;
     1: CellText := List[Node.Index].Address;
     2: CellText := List[Node.Index].Module;
-    3: CellText := List[Node.Index].FunctionName;
+    3:
+    begin
+      case List[Node.Index].Status of
+        esPdb, esPdbData:
+          CellText := UnDecorateSymbolName2(List[Node.Index].FunctionName);
+      else
+        CellText := List[Node.Index].FunctionName;
+      end;
+    end;
   end;
 end;
 
@@ -564,6 +636,8 @@ procedure TdlgExportList.pmCopyPopup(Sender: TObject);
       esCoffData: mnuShowCOFFDATA.Checked := AChecked;
       esDwarf: mnuShowDWARFFUNC.Checked := AChecked;
       esDwarfData: mnuShowDWARFDATA.Checked := AChecked;
+      esPdb: mnuShowPdbFunc.Checked := AChecked;
+      esPdbData: mnuShowPdbData.Checked := AChecked;
     end;
   end;
 

@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls,
-  Vcl.Menus, Clipbrd;
+  Vcl.Menus, Clipbrd, Vcl.Mask;
 
 type
   TfrmShowInitOrder = class(TForm)
@@ -87,9 +87,15 @@ begin
             end;
             oltDelphiWithNamespaces:
             begin
-              // для модулей процедура инициализации выглядит как "имя модуля"."имя модуля"
+
+              // for modules, the initialization procedure looks like "module name"."module name",
+              // so we simply compare both parts around the central dot and
+              // if they match, we remove the redundant one
+
+              // [ru] для модулей процедура инициализации выглядит как "имя модуля"."имя модуля"
               // поэтому просто сверяем по центральной точке совпадение обоих частей и
               // если совпало - убираем лишнее
+
               CenterIndex := Length(UnitName) div 2;
               if Copy(UnitName, 1, CenterIndex) = Copy(UnitName, CenterIndex + 2, CenterIndex) then
                 SetLength(UnitName, CenterIndex)

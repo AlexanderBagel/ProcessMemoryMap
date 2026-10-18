@@ -1,50 +1,70 @@
 object frmShowInitOrder: TfrmShowInitOrder
   Left = 0
   Top = 0
+  Margins.Left = 5
+  Margins.Top = 5
+  Margins.Right = 5
+  Margins.Bottom = 5
   Caption = 'Show Delphi/Lazarus Unit Init Order'
-  ClientHeight = 421
-  ClientWidth = 757
+  ClientHeight = 632
+  ClientWidth = 1136
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = -17
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
+  PixelsPerInch = 144
   DesignSize = (
-    757
-    421)
-  PixelsPerInch = 96
-  TextHeight = 13
+    1136
+    632)
+  TextHeight = 21
   object lePath: TLabeledEdit
-    Left = 8
-    Top = 24
-    Width = 579
-    Height = 21
+    Left = 12
+    Top = 36
+    Width = 869
+    Height = 29
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Anchors = [akLeft, akTop, akRight]
-    EditLabel.Width = 82
-    EditLabel.Height = 13
+    EditLabel.Width = 125
+    EditLabel.Height = 21
+    EditLabel.Margins.Left = 5
+    EditLabel.Margins.Top = 5
+    EditLabel.Margins.Right = 5
+    EditLabel.Margins.Bottom = 5
     EditLabel.Caption = 'Executable path:'
     TabOrder = 0
+    Text = ''
     OnChange = lePathChange
   end
   object btnBrowse: TButton
-    Left = 593
-    Top = 22
-    Width = 75
-    Height = 25
+    Left = 890
+    Top = 33
+    Width = 112
+    Height = 38
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Anchors = [akTop, akRight]
     Caption = 'Browse...'
     TabOrder = 1
     OnClick = btnBrowseClick
   end
   object btnLoad: TButton
-    Left = 674
-    Top = 22
-    Width = 75
-    Height = 25
+    Left = 1011
+    Top = 33
+    Width = 113
+    Height = 38
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Anchors = [akTop, akRight]
     Caption = 'Load'
     Enabled = False
@@ -52,14 +72,19 @@ object frmShowInitOrder: TfrmShowInitOrder
     OnClick = btnLoadClick
   end
   object lvReport: TListView
-    Left = 8
-    Top = 51
-    Width = 741
-    Height = 307
+    Left = 12
+    Top = 77
+    Width = 1112
+    Height = 460
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Anchors = [akLeft, akTop, akRight, akBottom]
     Columns = <
       item
         Caption = #8470
+        Width = 75
       end
       item
         AutoSize = True
@@ -67,19 +92,20 @@ object frmShowInitOrder: TfrmShowInitOrder
       end
       item
         Caption = 'Type'
-        Width = 75
+        Width = 113
       end
       item
         Caption = 'InitVA'
-        Width = 100
+        Width = 150
       end
       item
         Caption = 'FinallyVA'
-        Width = 100
+        Width = 150
       end>
     DoubleBuffered = True
     HideSelection = False
     HotTrack = True
+    Items.ItemData = {050000000000000000}
     ReadOnly = True
     RowSelect = True
     ParentDoubleBuffered = False
@@ -89,10 +115,14 @@ object frmShowInitOrder: TfrmShowInitOrder
     OnCustomDrawItem = lvReportCustomDrawItem
   end
   object memLog: TMemo
-    Left = 8
-    Top = 364
-    Width = 741
-    Height = 49
+    Left = 12
+    Top = 546
+    Width = 1112
+    Height = 74
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Anchors = [akLeft, akRight, akBottom]
     ReadOnly = True
     ScrollBars = ssVertical

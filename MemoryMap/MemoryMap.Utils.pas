@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : MemoryMap
+//  * Project   : Process Memory Map
 //  * Unit Name : MemoryMap.Utils.pas
-//  * Purpose   : Различные вспомогательные процедуры и функции
-//  * Author    : Александр (Rouse_) Багель
-//  * Copyright : © Fangorn Wizards Lab 1998 - 2022.
-//  * Version   : 1.2.16
+//  * Purpose   : Various Auxiliary Procedures and Functions
+//  * Author    : Alexander (Rouse_) Bagel
+//  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
+//  * Version   : 1.4.41
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -30,12 +46,46 @@ uses
   function IsWow64(hProcess: THandle): BOOL;
   function Is64OS: Boolean;
   function NormalizePath(const Value: string): string;
+
+  /// <summary>
+  /// The function returns the size of the section,
+  /// taking into account the alignment specified in the PE header.
+  /// Generally speaking, it would be more accurate to check the
+  /// IMAGE_SCN_ALIGN_XXXBYTES flags for the section,
+  /// which specify individual alignment, but it's a hassle...
+  /// </summary>
+  /// <remarks>
+  /// [ru] Функция возвращает размер секции с учетом выравнивания,
+  /// указанного в PE заголовке.
+  /// Вообще, правильней еще смотреть флаги IMAGE_SCN_ALIGN_XXXBYTES у секции,
+  /// которые выставляют индивидуальное выравнивание, но лениво...
+  /// </remarks>
   function AlignedSectionSize(const ImageInfo: LOADED_IMAGE;
     const Value: NativeUInt): NativeUInt;
+
   function CheckAddr(Value: NativeUInt): Boolean; overload;
   function CheckAddr(Value: Pointer): Boolean; overload;
+
+  /// <summary>
+  /// The function checks the characteristics of a section and returns a flag
+  /// indicating whether the section contains executable code
+  /// </summary>
+  /// <remarks>
+  /// [ru] Функция проверяет характеристики секции и возвращает флаг,
+  /// содержит ли секция исполняемый код
+  /// </remarks>
   function IsExecute(const Value: DWORD): Boolean;
+
+  /// <summary>
+  /// This function checks the properties of a section and returns a flag
+  /// indicating whether the section is writable or contains uninitialized data
+  /// </summary>
+  /// <remarks>
+  /// [ru] Функция проверяет характеристики секции и возвращает флаг, доступна
+  /// ли секция на запись или содержит ли секция неинициализированные данные
+  /// </remarks>
   function IsWrite(const Value: DWORD): Boolean;
+
   function CheckPEImage(hProcess: THandle; ImageBase: Pointer): Boolean; overload;
   function CheckPEImage(hProcess: THandle; ImageBase: Pointer;
     out Image64: Boolean): Boolean; overload;
@@ -99,25 +149,39 @@ begin
 
   if not Value.StartsWith(DosDeviceName, True) then
   begin
-    // Подготавливаем параметры для вызова ZwOpenFile
     RtlInitUnicodeString(@US, StringToOleStr(Value));
-    // Аналог макроса InitializeObjectAttributes
+
+    // The equivalent of the InitializeObjectAttributes macro
+    // [ru] Аналог макроса InitializeObjectAttributes
+
     FillChar(OA, SizeOf(OBJECT_ATTRIBUTES), #0);
     OA.Length := SizeOf(OBJECT_ATTRIBUTES);
     OA.ObjectName := @US;
     OA.Attributes := OBJ_CASE_INSENSITIVE;
-    // Функция ZwOpenFile спокойно открывает файлы, путь к которым представлен
-    // с использованием символьных ссылок, например:
+
+    // The ZwOpenFile function easily opens files whose paths are specified
+    // using symbolic links, for example:
+    // \SystemRoot\System32\ntdll.dll
+    // \??\C:\Windows\System32\ntdll.dll
+    // \Device\HarddiskVolume1\WINDOWS\system32\ntdll.dll
+    // Therefore, we will use it to obtain a handle
+
+    // [ru] Функция ZwOpenFile спокойно открывает файлы, путь к которым
+    // представлен с использованием символьных ссылок, например:
     // \SystemRoot\System32\ntdll.dll
     // \??\C:\Windows\System32\ntdll.dll
     // \Device\HarddiskVolume1\WINDOWS\system32\ntdll.dll
     // Поэтому будем использовать ее для получения хэндла
+
     NTSTAT := ZwOpenFile(@hFile, FILE_READ_DATA or SYNCHRONIZE, @OA, @IO,
       FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE,
       FILE_SYNCHRONOUS_IO_NONALERT);
     if NTSTAT = STATUS_SUCCESS then
     try
-      // Файл открыт, теперь смотрим его формализованный путь
+
+      // the file is open, now we look at its formalized path
+      // [ru] файл открыт, теперь смотрим его формализованный путь
+
       NTSTAT := NtQueryObject(hFile, ObjectNameInformation,
         @ObjectNameInfo, MAX_PATH * 2, @dwReturn);
       if NTSTAT = STATUS_SUCCESS then
@@ -135,17 +199,27 @@ begin
     end;
   end;
 
-  // Путь на открытый через ZwOpenFile файл
-  // возвращается в виде \Device\HarddiskVolumeХ\бла-бла
+  // The path to a file opened via ZwOpenFile
+  // is returned in the format \Device\HarddiskVolumeX\blah-blah
+  // All that's left is to map it to the actual disk
+
+  // [ru] путь на открытый через ZwOpenFile файл
+  // возвращается в виде \Device\HarddiskVolumeX\бла-бла
   // Осталось только его сопоставить с реальным диском
+
   SetLength(Buff, DriveTotalSize);
   Count := GetLogicalDriveStrings(DriveTotalSize, @Buff[1]) div DriveNameSize;
   for I := 0 to Count - 1 do
   begin
     Volume := PChar(@Buff[(I * DriveNameSize) + 1]);
     Volume[3] := #0;
-    // Преобразуем имя каждого диска в символьную ссылку и
-    // сравниваем с формализированным путем
+
+    // We convert each drive letter to a symbolic link and
+    // compare it to the formalized path
+
+    // [ru] преобразуем имя каждого диска в символьную ссылку и
+    // сравниваем с формализованным путем
+
     QueryDosDevice(PChar(Volume), @lpQuery[0], MAX_PATH);
     dwQueryLength := Length(string(lpQuery));
     if Copy(Result, 1, dwQueryLength) = string(lpQuery) then
@@ -161,11 +235,6 @@ begin
 
 end;
 
-//  Функция возвращает размер секции с учетом выравнивания,
-//  указанного в PE заголовка.
-//  Вообще, правильней еще смотреть флаги IMAGE_SCN_ALIGN_ХХХBYTES у секции,
-//  которые выставляют индивидуальное выравнивание, но лениво...
-// =============================================================================
 function AlignedSectionSize(const ImageInfo: LOADED_IMAGE;
   const Value: NativeUInt): NativeUInt;
 begin
@@ -197,9 +266,6 @@ begin
   Result := CheckAddr(NativeUInt(Value));
 end;
 
-//  Функция проверяет характеристики секции и возвращает флаг,
-//  содержит ли секция исполяемый код
-// =============================================================================
 function IsExecute(const Value: DWORD): Boolean;
 begin
   Result := False;
@@ -209,10 +275,6 @@ begin
     IMAGE_SCN_MEM_EXECUTE then Result := True;
 end;
 
-//  Функция проверяет характеристики секции и возвращает флаг,
-//  доступна ли секция на запись или
-//  содержит ли секция неинициализированные данные
-// =============================================================================
 function IsWrite(const Value: DWORD): Boolean;
 begin
   Result := False;

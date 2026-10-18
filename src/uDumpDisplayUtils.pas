@@ -1,18 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uDumpDisplayUtils.pas
-//  * Purpose   : Вспомогательный модуль для отображения содержимого
-//  *           : памяти в свойствах региона и размапленных структур
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Helper unit for displaying memory contents in region
+//  *           : properties and parsed structures
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.51
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -37,9 +53,11 @@ uses
   RawScanner.Types,
   RawScanner.LoaderData,
   RawScanner.Image.Pe,
+  RawScanner.Pdb,
   RawScanner.SymbolStorage,
   RawScanner.Disassembler,
   RawScanner.CoffDwarf,
+  RawScanner.Utils,
   MemoryMap.DebugMapData,
   distorm,
   mnemonics;
@@ -49,9 +67,6 @@ const
     ('Export', 'Import', 'Resource', 'Exception', 'Security', 'BaseReloc',
     'Debug', 'Copyright', 'GlobalPTR', 'TLS', 'Load config', 'Bound import',
     'Iat', 'Delay import', 'COM', 'Reserved');
-
-  // Process Parameters (32) под Xp кривой
-  // EnvironmentSize в конце соответствует началу блока данных из CurrentDirectory.DosPath = [20290]
 
   function ByteToHexStr(Base: NativeUInt; Data: Pointer;
     Len: Integer; const Comment: string = ''): string;
@@ -109,9 +124,6 @@ uses
   uPluginManager,
   RawScanner.ActivationContext,
   uSettings;
-
-// Добавить гиперссылки
-// {\field{\*\fldinst HYPERLINK "http://www.microsoft.com"}{\fldrslt Microsoft}}
 
 const
   MemoryDumpHeader =
@@ -399,7 +411,8 @@ var
   CurerntAddr: Pointer;
   MaxSize: NativeUInt;
 
-// не вызывать напрямую - делать обертки
+// do not call directly - use wrapper functions instead
+// [ru] не вызывать напрямую - использовать обертки
 procedure InternalAddString(
   Address: PByte;
   RvaRecalculate: ULONG64;
@@ -413,8 +426,13 @@ var
   UString: string;
   AString: AnsiString;
 begin
-  // для известных типов отсечку сделаем здесь
+
+  // for known types we'll do the clipping here
+  // and the buffer will be controlled by size
+
+  // [ru] для известных типов отсечку сделаем здесь
   // а буфер будем контролировать размером
+
   if (DataType <> dtBuff) and (Cursor + Uint(Size) > MaxSize) then
     raise ENoMoreDataException.CreateWithParam(True);
   UString := EmptyStr;
@@ -515,10 +533,16 @@ var
 begin
   Result := EmptyStr;
   MaxSize := 8192;
-  // смотрим, известен ли размер страницы?
+
+  // we check if the page size is known
+  // [ru] смотрим, известен ли размер страницы
+
   if SymbolStorage.GetDataAtAddr(UInt64(Address), Data) then
     case Data.DataType of
-      // если известен, запрашиваем столько, сколько требуется
+
+      // if known, we request as much as required
+      // [ru] если известен, запрашиваем столько, сколько требуется
+
       sdtCtxProcess, sdtCtxSystem:
         MaxSize := Data.Ctx.TotalSize;
       sdtApiSetNS:
@@ -1289,7 +1313,8 @@ begin
       DumpMemoryFromBuffWithCheckRawData(Result, Process, Address,
         Buff, Cursor, ValueBuff);
     except
-      on E: ENoMoreDataException do ; // штатный выход по достижению лимита
+      on E: ENoMoreDataException do ; // normal exit upon reaching the limit
+                                      // [ru] штатный выход по достижению лимита
     end;
   finally
     MaxSize := SavedMaxSize;
@@ -1392,7 +1417,9 @@ begin
     DumpSection(I);
   end;
 
-  // Остальные данные
+  // Remaining data
+  // [ru] Остальные данные
+
   DumpMemoryFromBuffWithCheckRawData(Result, Process, Address, Buff, Cursor);
 end;
 
@@ -2427,9 +2454,9 @@ var
   RegionSize, Cursor: NativeUInt;
 begin
 
-  // tagSOleTlsData из "E:\Windows Sources\XPSP1\NT\com\ole32\ih\tls.h"
-  // она мапится на TEB::ReservedForOle
-  // подробнее тут https://dennisbabkin.com/blog/?t=things-you-thought-you-knew-how-to-get-com-concurrency-model-for-current-thread
+  // tagSOleTlsData from "\XPSP1\NT\com\ole32\ih\tls.h"
+  // mapped to TEB::ReservedForOle
+  // https://dennisbabkin.com/blog/?t=things-you-thought-you-knew-how-to-get-com-concurrency-model-for-current-thread
 
   Result := EmptyStr;
   CurerntAddr := Address;
@@ -2474,7 +2501,7 @@ begin
   AddString(Result, 'pvPendingCallsBack', @Buff[Cursor], dtDword, Cursor);
   AddString(Result, 'pCallCtrl', @Buff[Cursor], dtDword, Cursor, 'call control for RPC for this apartment');
 
-{$REGION ' это уже все плывет, оставляю как напоминалку '}
+{$REGION ' this is already garbled past this point, leaving it as a reminder '}
 
 //  AddString(Result, 'pTopSCS', @Buff[Cursor], dtDword, Cursor, 'top server-side callctrl state');
 //  AddString(Result, 'pMsgFilter', @Buff[Cursor], dtDword, Cursor, 'temp storage for App MsgFilter');
@@ -2525,7 +2552,6 @@ begin
 //  AddString(Result, 'pFirstFreeSpyReg', @Buff[Cursor], dtDword, Cursor, 'First available spy registration');
 //  AddString(Result, 'dwMaxSpy', @Buff[Cursor], dtDword, Cursor, 'First free IInitializeSpy cookie');
 //
-//  // только для ч86
 //  if IsWow64 then
 //    AddString(Result, 'punkStateWx86', @Buff[Cursor], dtDword, Cursor, 'Per thread "state" object for Wx86');
 //
@@ -3027,6 +3053,39 @@ begin
   end;
 end;
 
+function DebugDirTypeToString(Value: DWORD): string;
+const
+  DDT: array [0..21] of string = (
+    'IMAGE_DEBUG_TYPE_UNKNOWN',
+    'IMAGE_DEBUG_TYPE_COFF',
+    'IMAGE_DEBUG_TYPE_CODEVIEW',
+    'IMAGE_DEBUG_TYPE_FPO',
+    'IMAGE_DEBUG_TYPE_MISC',
+    'IMAGE_DEBUG_TYPE_EXCEPTION',
+    'IMAGE_DEBUG_TYPE_FIXUP',
+    'IMAGE_DEBUG_TYPE_OMAP_TO_SRC',
+    'IMAGE_DEBUG_TYPE_OMAP_FROM_SRC',
+    'IMAGE_DEBUG_TYPE_BORLAND',
+    'IMAGE_DEBUG_TYPE_RESERVED10',
+    'IMAGE_DEBUG_TYPE_CLSID',
+    'IMAGE_DEBUG_TYPE_VC_FEATURE',
+    'IMAGE_DEBUG_TYPE_POGO',
+    'IMAGE_DEBUG_TYPE_ILTCG',
+    'IMAGE_DEBUG_TYPE_MPX',
+    'IMAGE_DEBUG_TYPE_REPRO',
+    'IMAGE_DEBUG_TYPE_EMBEDDED_PORTABLE_PDB',
+    'IMAGE_DEBUG_TYPE_SPGO',
+    'IMAGE_DEBUG_TYPE_PDBCHECKSUM',
+    'IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS',
+    'IMAGE_DEBUG_TYPE_PERFMAP'
+  );
+begin
+  if Value in [0..21] then
+    Result := DDT[Value]
+  else
+    Result := '';
+end;
+
 procedure DumpModulesKnownStruct(var OutString: string; Process: THandle;
   const Data: TSymbolData; AllocationBase: ULONG64;
   const Buff: TMemoryDump; var Cursor: NativeUInt);
@@ -3177,6 +3236,26 @@ begin
       AddString(OutString, 'AddressOfCallBacks', @Buff[Cursor], dtInt64, Cursor);
       AddString(OutString, 'SizeOfZeroFill', @Buff[Cursor], dtDword, Cursor);
       AddString(OutString, 'Characteristics', @Buff[Cursor], dtDword, Cursor);
+    end;
+    sdtDebugDir:
+    begin
+      AddString(OutString, MakeHeader('IMAGE_DEBUG_DIRECTORY'));
+      AddString(OutString, 'Characteristics', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'TimeDateStamp', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'MajorVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'MinorVersion', @Buff[Cursor], dtWord, Cursor);
+      AddString(OutString, 'Type', @Buff[Cursor], dtDword, Cursor, DebugDirTypeToString(PDWORD(@Buff[Cursor])^));
+      AddString(OutString, 'SizeOfData', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'AddressOfRawData', @Buff[Cursor], dtDword, Cursor, AllocationBase);
+      AddString(OutString, 'PointerToRawData', @Buff[Cursor], dtDword, Cursor);
+    end;
+    sdtDbgTypeCodeView:
+    begin
+      AddString(OutString, MakeHeader('CV_INFO_PDB70'));
+      AddString(OutString, 'Signature', @Buff[Cursor], dtDword, Cursor, 'RSDS');
+      AddString(OutString, 'Guid', @Buff[Cursor], dtGUID, Cursor);
+      AddString(OutString, 'Age', @Buff[Cursor], dtDword, Cursor);
+      AddString(OutString, 'PdbFileName', @Buff[Cursor], dtAnsiString, Data.Binary.Param, Cursor);
     end;
   end;
 end;
@@ -3350,6 +3429,7 @@ var
   DwarfLinesUnit: TDwarfLinesUnit;
   DwarfInfoUnit: TDwarfInfoUnit;
   DebugMapItem: TDebugMapItem;
+  Pdb: TPdb;
 begin
   case ASymbol.DataType of
     sdtPluginDescriptor:
@@ -3367,7 +3447,9 @@ begin
     end;
   end;
 
-  // Обработка данных с типом Binary
+  // Processing data with the Binary type
+  // [ru] Обработка данных с типом Binary
+
   if not (ASymbol.DataType in [sdtBinaryFirst..sdtBinaryLast]) then Exit;
 
   Module := RawScannerCore.Modules.Items[ASymbol.Binary.ModuleIndex];
@@ -3442,6 +3524,16 @@ begin
       Result := 'IMAGE_LOAD_CONFIG_DIRECTORY';
     sdtTLSDir32, sdtTLSDir64:
       Result := 'IMAGE_TLS_DIRECTORY';
+    sdtDebugDir:
+      Result := 'IMAGE_DEBUG_DIRECTORY';
+    sdtDbgTypeCodeView:
+      Result := 'CV_INFO_PDB70';
+    sdtPdbFunc, sdtPdbStub, sdtPdbData:
+    begin
+      with Module.CodeViewInfo do
+        Pdb := RawScannerCore.PdbStorage.QueryPDB(UincalId, Age, PdbFileName);
+      Result := '[PDB] ' + UnDecorateSymbolName2(Pdb.Symbol[Index].Name);
+    end;
   end;
   if IncludeModuleName and not Result.IsEmpty and not AnsiSameText(Module.ImageName, _CurrentModuleName) then
     Result := ModuleName + Result;
@@ -3458,7 +3550,10 @@ var
   PluginData: TDescriptorData;
   PluginHeader: string;
 begin
-  // Ищем конец таблицы соответствующий переданому типу элемента
+
+  // We look for the end of the table corresponding to the passed item type
+  // [ru] Ищем конец таблицы, соответствующий переданному типу элемента
+
   ListCount := 1;
   for I := 0 to DataList.Count - 1 do
     if DataList.List[I].DataType <> ptrData.DataType then
@@ -3466,7 +3561,9 @@ begin
     else
       Inc(ListCount);
 
-  // заголовок
+  // header
+  // [ru] заголовок
+
   RvaRecalc := 0;
   PluginHeader := EmptyStr;
   case ptrData.DataType of
@@ -3497,7 +3594,9 @@ begin
       AddString(OutString, MakeHeader('Thread Local Storage Callback Array'));
   end;
 
-  // размер элемента
+  // item size
+  // [ru] размер элемента
+
   case ptrData.DataType of
     sdtEATOrdinal:
       ItemType := dtWord;
@@ -3510,12 +3609,19 @@ begin
   end;
   ItemSize := 1 shl Byte(ItemType);
 
-  // вывод табличных данных
+  // output of tabular data
+  // [ru] вывод табличных данных
+
   repeat
 
-    // конкретно у таблицы имен отложеного импорта запись может идти без
-    // указания на структуру, просто ввиде ординала, в этом случае
+    // specifically for the delayed import name table an entry may come without
+    // a reference to a structure, simply as an ordinal, in this case
+    // there is no need to convert to RVA, but it should be output as is.
+
+    // [ru] конкретно у таблицы имен отложенного импорта запись может идти без
+    // указания на структуру, просто в виде ординала, в этом случае
     // не нужно делать преобразование в RVA, а нужно выводить как есть.
+
     if ptrData.DataType in [sdtDelayedImportNameTable, sdtDelayedImportNameTable64] then
     begin
       if ptrData.Binary.Param <> 0 then
@@ -3546,14 +3652,18 @@ begin
     if ListCount = 0 then Exit;
     ptrData := DataList.List[0];
 
-    // детект разрывов в списке данных
+    // detection of gaps in the data list
+    // [ru] детект разрывов в списке данных
+
     UnknownSize := ptrData.AddrVA - (ULONG_PTR(Address) + Cursor);
     if UnknownSize > 0 then
     begin
       if UnknownSize <> ItemSize then
         Exit;
 
-      // разделители в списке могут быть только у таблиц импорта
+      // separators in the list can only occur in import tables
+      // [ru] разделители в списке могут быть только у таблиц импорта
+
       case ptrData.DataType of
         sdtImportTable, sdtImportNameTable,
         sdtDelayedImportTable, sdtDelayedImportNameTable:
@@ -3683,13 +3793,22 @@ begin
         ASymbol := Tmp;
         Exit(True);
       end;
-      // из этих типов можно вытащить данные по модулю
+
+      // from these types data on the unit can be extracted
+      // [ru] из этих типов можно вытащить данные по модулю
+
       sdtDwarfLine, sdtDwarfProc, sdtDwarfEndProc, sdtDwarfData:
       begin
         Module := RawScannerCore.Modules.Items[Tmp.Binary.ModuleIndex];
-        // линии мапятся на аналогичный модуль из .debug_info
-        // но через MappedUnitIndex, т.к. предполагается что при ошибке
+
+        // lines are mapped to the equivalent unit from .debug_info,
+        // but via MappedUnitIndex, since it is assumed that on a parsing error,
+        // TDwarfInfoUnit will simply not be loaded into the list
+
+        // [ru] линии мапятся на аналогичный модуль из .debug_info,
+        // но через MappedUnitIndex, т.к. предполагается, что при ошибке
         // парсинга, TDwarfInfoUnit просто не будет загружен в список
+
         if Tmp.DataType = sdtDwarfLine then
         begin
           Tmp.Binary.ListIndex :=
@@ -3728,11 +3847,15 @@ begin
   dwLength := SizeOf(TMemoryBasicInformation);
   VirtualQueryEx(Process, Address, MBI, dwLength);
 
-  // проверка всех известных данных, полученых от RawScanner-а
+  // checking all known data received from RawScanner
+  // [ru] проверка всех известных данных, полученных от RawScanner-а
+
   SkipHeader := False;
   DataList := SymbolStorage.GetKnownAddrList(ULONG_PTR(Address) + Cursor, MaxSize - Cursor);
 
-  // вывод имени модуля, если в наличии есть информация от DWARF
+  // output of the unit name, if DWARF information is available
+  // [ru] вывод имени модуля, если в наличии есть информация от DWARF
+
   for I := 0 to DataList.Count - 1 do
     if DataList.List[I].DataType in [sdtDwarfFirst..sdtDwarfLast] then
     begin
@@ -3750,11 +3873,15 @@ begin
     ptrData := DataList.List[0];
     DataList.Delete(0);
 
-    // проверка рассинхронизации (на всякий случай)
+    // check for desynchronization (just in case)
+    // [ru] проверка рассинхронизации (на всякий случай)
+
     if ptrData.AddrVA < ULONG_PTR(Address) + Cursor then
       Continue;
 
-    // первым делом заполняем неизвестные области памяти дампом
+    // first of all we fill unknown memory areas with a dump
+    // [ru] первым делом заполняем неизвестные области памяти дампом
+
     UnknownSize := ptrData.AddrVA - (ULONG_PTR(Address) + Cursor);
     if UnknownSize > 0 then
     begin
@@ -3766,7 +3893,9 @@ begin
 
     SkipHeader := False;
 
-    // дальше вызываем обработчик под каждый конкретный тип блока
+    // next we call a handler for each specific block type
+    // [ru] дальше вызываем обработчик под каждый конкретный тип блока
+
     case ptrData.DataType of
       sdtLdrData32..sdtLdrEntry64:
         DumpLoaderData(OutString, Process, ptrData.DataType, Address, RawBuff, Cursor);
@@ -3774,22 +3903,29 @@ begin
         DumpActivationContext(OutString, Process, ptrData, Address, RawBuff, Cursor);
       sdtPluginDescriptor:
       begin
-        // пока что вывод информации от плагина будет через таблицы
+
+        // for now the output of plugin information will be through tables
+        // [ru] пока что вывод информации от плагина будет через таблицы
+
         DumpTables(OutString, Address, ULONG64(MBI.AllocationBase),
           ptrData, DataList, RawBuff, Cursor);
       end;
       sdtExport, sdtEntryPoint,
       sdtCoffFunction, sdtCoffData,
       sdtDwarfLine, sdtDwarfProc, sdtDwarfEndProc, sdtDwarfData,
-      sdtDebugMapFunction, sdtDebugMapData:
+      sdtDebugMapFunction, sdtDebugMapData, sdtPdbFunc, sdtPdbStub, sdtPdbData:
       begin
         FuncName := GetSymbolDescription(ptrData);
         if OutString = EmptyStr then
           AddString(OutString, MemoryDumpHeader);
         AddBlockComment(ULONG_PTR(Address) + Cursor, OutString, FuncName);
 
-        // имя экспортируемой функции или точки входа просто заменяет заголовок
-        // поэтому нужно выставить флаг о том что заголовок уже добавлен
+        // the name of the exported function or entry point simply replaces the header,
+        // so a flag needs to be set indicating that the header has already been added
+
+        // [ru] имя экспортируемой функции или точки входа просто заменяет заголовок,
+        // поэтому нужно выставить флаг о том, что заголовок уже добавлен
+
         SkipHeader := True;
       end;
       sdtDwarfUnit:
@@ -3802,7 +3938,7 @@ begin
       sdtEATAddr..sdtTlsCallback64:
         DumpTables(OutString, Address, ULONG64(MBI.AllocationBase),
           ptrData, DataList, RawBuff, Cursor);
-      sdtExportDir..sdtTLSDir64:
+      sdtExportDir..sdtTLSDir64, sdtDebugDir, sdtDbgTypeCodeView:
         DumpModulesKnownStruct(OutString, Process, ptrData,
           ULONG64(MBI.AllocationBase), RawBuff, Cursor);
       sdtBoundImportDescriptor, sdtBoundImportForwardRef:
@@ -3832,7 +3968,9 @@ begin
     end;
   end;
 
-  // ну и в завершение выводим все что остается
+  // and finally we output everything that remains
+  // [ru] ну и в завершение выводим все, что остается
+
   if Cursor < MaxSize then
   begin
     if not SkipHeader then
@@ -3888,7 +4026,7 @@ function GetAddrDescription(AddrVa: ULONG_PTR; ASymbolType: TSymbolType;
 var
   I, Count: Integer;
   ExpData: TSymbolData;
-  Dwarf, Coff, Map, Line, CloseLine: string;
+  Dwarf, Coff, Map, Exp, Line, CloseLine: string;
 
   function CheckAddrEqual: string;
   begin
@@ -3903,9 +4041,14 @@ begin
   KnownTypes := [];
   Count := SymbolStorage.GetDataCountAtAddr(AddrVa);
 
-  // если адрес в середине функции и нам нужно вытащить её название
+  // if the address is in the middle of a function and we need to get its name,
+  // then we forcibly run one data request,
+  // GetExportAtAddr will return data from which the offset can be extracted
+
+  // [ru] если адрес в середине функции и нам нужно вытащить её название,
   // тогда принудительно запускаем один запрос данных,
-  // GetExportAtAddr вернет данные по которым можно вытянуть оффсет
+  // GetExportAtAddr вернет данные, по которым можно вытянуть смещение
+
   if (Count = 0) and (ASymbolType = stExport) then
     Count := 1;
 
@@ -3915,11 +4058,18 @@ begin
   for I := 0 to Count - 1 do
   begin
     Include(KnownTypes, SymbolStorage.GetDataTypeAtAddr(AddrVa, I));
-    // в случае stExportExactMatch вернутся только записи на функции
+
+    // in the case of stExportExactMatch only function entries will be returned
+    // without data blocks, so no additional check is needed
+
+    // [ru] в случае stExportExactMatch вернутся только записи на функции
     // без блоков данных, поэтому дополнительный контроль не нужен
+
     if SymbolStorage.GetExportAtAddr(AddrVa, ASymbolType, ExpData, I) then
     begin
       case ExpData.DataType of
+        sdtExport:
+          Exp := GetSymbolDescription(ExpData, IncludeModuleName) + CheckAddrEqual;
         sdtCoffFunction,
         sdtCoffData:
         begin
@@ -3931,7 +4081,8 @@ begin
         sdtDwarfLine: Line := GetSymbolDescription(ExpData, False) + CheckAddrEqual;
         sdtDwarfProc,
         sdtDwarfData: Dwarf := GetSymbolDescription(ExpData, IncludeModuleName) + CheckAddrEqual;
-        sdtDwarfUnit, sdtDwarfEndProc: ; // игнорируемые типы
+        sdtDwarfUnit, sdtDwarfEndProc: ; // ignored types
+                                         // [ru] игнорируемые типы
         sdtDebugMapFunction,
         sdtDebugMapData: Map := GetSymbolDescription(ExpData, IncludeModuleName) + CheckAddrEqual;
       else
@@ -3940,12 +4091,17 @@ begin
     end;
   end;
 
-  // приоритет вывода Dwarf, DebugMap, other, Coff, Line
+  // output priority is Dwarf, DebugMap, other, Coff, Line
+  // [ru] приоритет вывода Dwarf, DebugMap, other, Coff, Line
+
   if Dwarf <> '' then
     Exit(Dwarf);
 
   if Map <> '' then
     Exit(Map);
+
+  if Exp <> '' then
+    Exit(Exp);
 
   if Result = '' then
     if Coff <> '' then
@@ -3970,9 +4126,11 @@ const
     Result := EmptyStr;
     if AddrVa <> 0 then
     begin
-      // получение данных из символов
       Result := GetAddrDescription(AddrVa, stAll, KnownTypes, True);
-      // в противном случае просто вывод имени файла на который идет ссылка
+
+      // if there is no symbol data, then we output the name of the file the address belongs to
+      // [ru] если нет данных от символов, то выводим имя файла, которому принадлежит адрес
+
       if Result = '' then
       begin
         dwLength := SizeOf(TMemoryBasicInformation);
@@ -4025,9 +4183,14 @@ const
         end;
       end;
 
-    // Детект линий из МАР файла если они загружены
+    // Detection of lines from the MAP file, if they are loaded.
+    // This information is not placed in SymbolStorage, since there is no point
+    // in duplicating, as the lines in the MAP file also work through a dictionary
+
+    // [ru] Детект линий из MAP-файла, если они загружены.
     // Эта информация не помещается в SymbolStorage, т.к. нет смысла
-    // дублировать, ибо линии в МАР файле тоже работают через словарь
+    // дублировать, ибо линии в MAP-файле тоже работают через словарь
+
     if MemoryMapCore.DebugMapData.LoadLines then
     begin
       LineNumber := MemoryMapCore.DebugMapData.GetLineNumberAtAddr(inst.AddrVa, Line);
@@ -4050,12 +4213,17 @@ const
     DwarfInfoUnit: TDwarfInfoUnit;
     Die: TDebugInformationEntry;
   begin
-    // вывод описания функции
+
+    // output of the function description
+    // [ru] вывод описания функции
+
     if (AKnownTypes * [sdtCoffFunction, sdtDwarfProc] = [sdtCoffFunction]) and Settings.DemangleNames then
       FirstLine := DemangleName(FirstLine, True);
     AddBlockComment(inst.AddrVa, Result, FirstLine);
 
-    // вывод дополнительных данных по функции (скорее всего это будет COFF)
+    // output of additional data on the function (most likely it will be COFF)
+    // [ru] вывод дополнительных данных по функции (скорее всего это будет COFF)
+
     ExtendInfoAdded := False;
     DwarfFound := False;
     if sdtCoffFunction in AKnownTypes then
@@ -4090,7 +4258,9 @@ const
       LastLineIsEmpty := True;
     end;
 
-    // вывод локального стека функции
+    // output of the function's local stack
+    // [ru] вывод локального стека функции
+
     if DwarfFound then
     begin
       Module := RawScannerCore.Modules.Items[DwarfData.Binary.ModuleIndex];
@@ -4114,7 +4284,9 @@ const
       LastLineIsEmpty := True;
     end;
 
-    // вывод строки с которо начинается функция
+    // output of the line the function starts with
+    // [ru] вывод строки, с которой начинается функция
+
     CheckSourceLine(inst);
   end;
 
@@ -4162,7 +4334,9 @@ begin
     for I := 0 to Length(inst) - 1 do
     begin
 
-      // вывод адреса джампа
+      // output of the jump address
+      // [ru] вывод адреса джампа
+
       if LabelList.TryGetValue(inst[I].AddrVa, Line) then
       begin
         HintStr := 'loc_' + IntToHex(inst[I].AddrVa, 8) + ':';
@@ -4246,10 +4420,14 @@ begin
 
       LastInsruction := inst[I].InstType;
 
-      // детект начала функции
+      // detection of the function start
+      // [ru] детект начала функции
+
       Line := GetAddrDescription(inst[I].AddrVa, stExportExactMatch, KnownTypes, False);
 
-      // детект начала модуля
+      // detection of the unit start
+      // [ru] детект начала модуля
+
       if (sdtDwarfUnit in KnownTypes) or (CurrentDwarfUnitVA = 0) then
       begin
         if GetDwarfUnitAtAddr(inst[I].AddrVa, ASymbol) then
@@ -4276,7 +4454,10 @@ begin
         ProcessSubProgramm(inst[I], Line, KnownTypes);
       end
       else
-        // детект линии через символы загруженные из DWARF
+
+        // detection of the line through symbols loaded from DWARF
+        // [ru] детект линии через символы, загруженные из DWARF
+
         CheckSourceLine(inst[I]);
 
       if inst[I].InstType = itZero then

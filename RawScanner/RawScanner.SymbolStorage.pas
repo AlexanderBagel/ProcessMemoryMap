@@ -1,17 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.SymbolStorage.pas
-//  * Purpose   : Класс для хранения адресов всех известных RawScanner структур
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : A class for storing the addresses of
+//  *           : all known RawScanner structures
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.29
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -34,52 +51,96 @@ uses
 type
   TSymbolDataType = (
     sdtNone,
-    // типы адресов полученые от таблиц загрузчика
+
+    // data received from the loader tables
+    // [ru] данные полученные от таблиц загрузчика
+
     sdtLdrData32, sdtLdrEntry32, sdtLdrData64, sdtLdrEntry64,
 
-    // типы адресов полученые от таблиц контекста активации
+    // data received from the activation context tables
+    // [ru] данные полученные от таблиц контекста активации
+
     sdtCtxProcess, sdtCtxSystem, sdtCtxToc, sdtCtxTocEntry,
     sdtCtxExtToc, sdtCtxExtTocEntry, sdtCtxAssemblyRoster,
     sdtCtxAssemblyRosterEntry, sdtCtxStrSecHeader, sdtCtxStrSecEntry,
     sdtCtxStrSecEntryData,
 
-    // отдельный тип под плагины
+    // a separate type for plugins
+    // [ru] отдельный тип под плагины
+
     sdtPluginDescriptor,
 
-    // типы адресов использующие Binary (заполняются в ModulesData)
+    // data using Binary (populated in ModulesData)
+    // [ru] данные использующие Binary (заполняются в ModulesData)
+
     sdtBinaryFirst,
 
     sdtInstance, sdtExport, sdtEntryPoint,
-    sdtUString, sdtAString, // <<< строки только для дизассемблера, в Raw не выводятся
-    // табличные данные экспорта
+
+    sdtUString, sdtAString, // <<< strings only for the disassembler, not displayed in Raw
+
+    // export data
+    // [ru] данные экспорта
+
     sdtEATAddr, sdtEATName, sdtEATOrdinal,
-    // табличные данные импорта
+
+    // import data
+    // [ru] данные импорта
+
     sdtImportTable, sdtImportTable64, sdtImportNameTable, sdtImportNameTable64,
     sdtDelayedImportTable, sdtDelayedImportTable64,
     sdtDelayedImportNameTable, sdtDelayedImportNameTable64,
-    // табличные данные TLS каллбэков
+
+    // TLS callback data
+    // [ru] данные TLS каллбэков
+
     sdtTlsCallback32, sdtTlsCallback64,
-    // заголовки списков релокейшенов
+
+    // relocation list headers
+    // [ru] заголовки списков релокейшенов
+
     sdtRelocation,
-    // данные из COFF
+
+    // data from COFF
+    // [ru] данные из COFF
+
     sdtCoffFunction, sdtCoffData,
-    // данные из DWARF
+
+    // data from DWARF
+    // [ru] данные из DWARF
+
     sdtDwarfFirst,
     sdtDwarfLine, sdtDwarfUnit, sdtDwarfProc, sdtDwarfEndProc, sdtDwarfData,
     sdtDwarfLast,
 
-    // структуры известные ModulesData
+    // data from the debug directory
+    // [ru] данные по отладочной директории
+
+    sdtDebugDir, sdtDbgTypeCodeView,
+
+    // data from PDB
+    // [ru] данные из PDB
+
+    sdtPdbFunc, sdtPdbStub, sdtPdbData,
+
+    // structures known to ModulesData
+    // [ru] структуры известные ModulesData
+
     sdtExportDir, sdtImportDescriptor, sdtDelayedImportDescriptor,
     sdtLoadConfig32, sdtLoadConfig64,
     sdtTLSDir32, sdtTLSDir64,
     sdtBoundImportDescriptor, sdtBoundImportForwardRef,
 
-    // заполняется снаружи, но в формате Binary (через TModuleKey)
+    // populated externally, but in Binary format (via TModuleKey)
+    // [ru] заполняется снаружи, но в формате Binary (через TModuleKey)
+
     sdtDebugMapFunction, sdtDebugMapData,
 
     sdtBinaryLast,
 
-    // структуры ApiSet редиректора
+    // ApiSet redirector structures
+    // [ru] структуры ApiSet редиректора
+
     sdtApiSetNS, sdtApiSetNSEntry, sdtApiSetValueEntry,
     sdtApiSetRedirection, sdtApiSetHashEntry
     );
@@ -105,8 +166,16 @@ type
 
   TApiSetData = record
     Version: Integer;
-    OriginalVA,               // адрес с которого читались реальные данные
-    RemoteVA: ULONG_PTR64;    // адрес по которому нужно пересчитать оффсеты
+
+    // the address from which the actual data was read
+    // [ru] адрес с которого читались реальные данные
+
+    OriginalVA,
+
+    // the address by which the offsets need to be recalculated
+    // [ru] адрес по которому нужно пересчитать оффсеты
+
+    RemoteVA: ULONG_PTR64;
     case TSymbolDataType of
       sdtApiSetNS: (NameSpaceSize: Integer);
   end;
@@ -339,7 +408,7 @@ function TRawScannerSymbolStorage.GetExportAtAddr(AddrVA: ULONG_PTR64;
 const
   ExecutableTypes: TSymbolDataTypes =
     [sdtExport, sdtEntryPoint, sdtTlsCallback32, sdtTlsCallback64,
-      sdtCoffFunction, sdtDwarfProc, sdtDebugMapFunction];
+      sdtCoffFunction, sdtDwarfProc, sdtDebugMapFunction, sdtPdbFunc, sdtPdbStub];
 var
   I, Index: Integer;
   MinLimit: ULONG_PTR64;
@@ -367,9 +436,15 @@ begin
     begin
       Data := Item;
       Result := True;
-      // DWARF данные будут идти самыми первыми
+
+      // DWARF data will come first
+      // so if we caught a COFF match, then DWARF is most likely above,
+      // so we keep looping until we go past the found address
+
+      // [ru] DWARF данные будут идти самыми первыми
       // поэтому если поймали COFF совпадение, то скорее всего DWARF выше,
       // поэтому крутим дальше, пока не выйдем за найденый адрес
+
       if Item.DataType = sdtCoffFunction then
         MinLimit := Item.AddrVA
       else
@@ -426,7 +501,6 @@ end;
 procedure TRawScannerSymbolStorage.PrepareForWork;
 begin
 
-  // сортировка по возрастанию адресов
   FItems.Sort(TComparer<TSymbolData>.Construct(
     function (const L, R: TSymbolData): Integer
 
@@ -436,9 +510,10 @@ begin
           sdtDwarfUnit: Result := 0;
           sdtDwarfData: Result := 1;
           sdtCoffData: Result := 2;
-          sdtDwarfProc: Result := 4;
-          sdtCoffFunction: Result := 5;
-          sdtDwarfLine, sdtDwarfEndProc: Result := 6;
+          sdtPdbFunc, sdtPdbStub: Result := 4;
+          sdtDwarfProc: Result := 5;
+          sdtCoffFunction: Result := 6;
+          sdtDwarfLine, sdtDwarfEndProc: Result := 7;
         else
           Result := 3;
         end;
@@ -464,11 +539,18 @@ begin
 
   FItemIndex.Clear;
 
-  // сейчас все данные отсортированы по адресу
+  // right now all data is sorted by address
+  // and a single address can have many types of information
+  // for example, the name of an exported function and a line number from debug info
+  // so we will remember the very first occurrence
+  // and then work through an enumerator
+
+  // [ru] сейчас все данные отсортированы по адресу
   // причем на один адрес может идти много типов информации
   // например имя экспортированной функции и номер строки из отладочной информации
   // поэтому будем запоминать самое первое вхождение
   // а дальше работать через энумератор
+
   for var I := 0 to FItems.Count - 1 do
     FItemIndex.TryAdd(FItems.List[I].AddrVA, I);
 

@@ -2,8 +2,7 @@
 //
 //  ****************************************************************************
 //  * Unit Name : Shell.TaskBarListProgress
-//  * Purpose   : Реализация отображения прогрессбара на
-//  *           : кнопке приложения в таскбаре
+//  * Purpose   : Implementing a progress bar on an app button in the taskbar
 //  * Author    : Александр (Rouse_) Багель
 //  * Version   : 1.0
 //  ****************************************************************************
@@ -216,7 +215,11 @@ begin
     try
       Thumbnail.PixelFormat := pf32bit;
       Thumbnail.SetSize(Width, Height);
-      // Цвета уплывают при сжатии картинки, восстанавливаем при помощи HALFTONE
+
+      // Colors are lost when the image is compressed, we restore them using HALFTONE
+
+      // [ru] Цвета уплывают при сжатии картинки, восстанавливаем при помощи HALFTONE
+
       SetStretchBltMode(Thumbnail.Canvas.Handle, HALFTONE);
       StretchBlt(Thumbnail.Canvas.Handle, 0, 0, Width, Height,
         Bitmap.Canvas.Handle, 0, 0, Bitmap.Width, Bitmap.Height, SRCCOPY);

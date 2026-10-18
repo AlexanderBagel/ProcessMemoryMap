@@ -1,21 +1,23 @@
+**English** | [Русский](README.RU.md)
+
 Call Stack Converter
 ================
 
-Демонстрация работы с классом TDebugMap на примере конвертации стека вызовов снятого при помощи Process Explorer https://learn.microsoft.com/en-us/sysinternals/downloads/process-explorer
+A demonstration of working with the TDebugMap class, using the conversion of a call stack captured with Process Explorer as an example: https://learn.microsoft.com/en-us/sysinternals/downloads/process-explorer
 
-### Внешний вид:
+### Appearance:
 
-![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/MemoryMap/demos/CallStackConverter/img/1.png?raw=true "Внешний вид")
+![1](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/MemoryMap/demos/CallStackConverter/img/1.png?raw=true "Appearance")
 
-### Принцип работы
+### How it works
 
-1. Выбрать в Process Explorer требуемый процесс.
-2. Перейти в свойства процесса на вкладку Threads, вызвать Stack интересующего потока.
-3. Скопировать выведеный стек в буфер обмена.
+1. Select the required process in Process Explorer.
+2. Open the process properties, go to the Threads tab, and call Stack for the thread of interest.
+3. Copy the displayed stack to the clipboard.
 
 ![2](https://github.com/AlexanderBagel/ProcessMemoryMap/blob/master/MemoryMap/demos/CallStackConverter/img/2.png?raw=true )
 
-* В утилите установить ImageBase исполняемого файла (или библиотеки - смотря что интересует)
-* Открыть исполняемый файл или библиотеку (наличие MAP файла обязательно)
-* Нажать кнопку конвертации
-* Результат можно скопировать через PopupMenu
+* In the utility, set the ImageBase of the executable file (or library, depending on which one you are interested in)
+* Open the executable file or library (a MAP file is required)
+* Click the convert button
+* The result can be copied via the PopupMenu

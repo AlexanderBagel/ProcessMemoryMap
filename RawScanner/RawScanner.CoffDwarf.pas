@@ -1,18 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.CoffDwarf.pas
-//  * Purpose   : Декларация типов используемых для чтения отладочной
-//  *           : информации в форматах COFF и DWARF.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Type declarations used to read debug
+//  *           : information in COFF and DWARF formats.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.26
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -874,6 +890,14 @@ type
 
     minimum_instruction_length: Byte;
 
+    // The maximum number of individual operations that may be encoded in an instruction. Line
+    // number program opcodes that alter the address and op_index registers use this and
+    // minimum_instruction_length in their calculations.
+    // For non-VLIW architectures, this field is 1, the op_index register is always 0, and the
+    // operation pointer is simply the address register.
+
+    maximum_operations_per_instruction: Byte; //  <<< this field only DWARF4
+
     // A simple approach to building line number information when machine instructions are
     // emitted in an order corresponding to the source program is to set default_is_stmt to “true”
     // and to not change the value of the is_stmt register within the line number program. One
@@ -952,6 +976,7 @@ type
     version: Word;
     header_length: UInt64;
     minimum_instruction_length: Byte;
+    maximum_operations_per_instruction: Byte; // <<< this field only DWARF4
     default_is_stmt: Boolean;
     line_base: ShortInt;
     line_range: Byte;
@@ -1027,9 +1052,13 @@ type
   EOverDataStreamException = class(Exception);
 
   /// <summary>
-  ///  Стрим сидит поверх другого стрима и дает читать/писать
-  ///  только в пределах указанной области
+  ///  The stream sits on top of another stream and allows reading/writing
+  ///  only within the specified region
   /// </summary>
+  /// <remarks>
+  ///  [ru] Стрим сидит поверх другого стрима и дает читать/писать
+  ///  только в пределах указанной области
+  /// </remarks>
   TDwarfStream = class(TStream)
   strict private
     FOwnDataStream: Boolean;
@@ -1068,9 +1097,14 @@ type
     property PreviosNativePosition: Int64 read FPreviosNativePosition;
   end;
 
-  // класс хранящий ссылки на отладочные секции
+  // class storing references to debug sections
+  // to support data redirection between sections
+  // and configuration of load parameters
+
+  // [ru] класс, хранящий ссылки на отладочные секции
   // для поддержки редиректов данных между секциями
   // и настройки параметров загрузки
+
   TDwarfContext = class
   strict private const
     KnownSectionCount = 8;
@@ -1204,49 +1238,98 @@ type
 
   TDie = class
   public
-    // Данные для построения дерева
+
+    // Data for building a tree
+    // [ru] Данные для построения дерева
+
     Parent,
     Child,
     LastChild,
     Sibling: TDie;
 
-    // общие для всех свойства
+    // properties common to all
+    // [ru] общие для всех свойства
 
-    // Уникальный индекс элемента (оффсет от начала модуля)
+    // Unique index of the element (offset from the start of the module)
+    // [ru] Уникальный индекс элемента (смещение от начала модуля)
+
     OffsetID: UInt64;
-    // Уникальный индекс элемента (оффсет от начала секции)
+
+    // Unique index of the element (offset from the start of the section)
+    // [ru] Уникальный индекс элемента (смещение от начала секции)
+
     AbsoluteOffset: UInt64;
-    // Идентификатор типа элемента
+
+    // Element type identifier
+    // [ru] Идентификатор типа элемента
+
     Tag: DWORD;
-    // Имя
     AName: PAnsiChar;
-    // ID элемента который содержит описание типа текущего элемента
+
+    // ID of the element that contains the description of the type of the current element
+    // [ru] ID элемента, который содержит описание типа текущего элемента
+
     ATypeID,
-    // индекс в масссиве с типом элемента (массив, базовый тип, ссылка и т.п.)
+
+    // index in the array with the element type (array, base type, reference, etc.)
+    // [ru] индекс в массиве с типом элемента (массив, базовый тип, ссылка и т.п.)
+
     ATypeIndex,
-    // индекс в масссиве с именем элемента (не обязательно будет идти самым первым в дереве)
+
+    // index in the array with the element name (does not necessarily come first in the tree)
+    // [ru] индекс в массиве с именем элемента (не обязательно будет идти самым первым в дереве)
+
     ATypeNameIndex: DWORD;
-    // Флаг что ATypeID зачиталось через DW_FORM_ref_addr и содержит абсолютный офсет от секции а не от модуля
+
+    // Flag that ATypeID was read via DW_FORM_ref_addr
+    // and contains an absolute offset from the section rather than from the module
+
+    // [ru] Флаг, что ATypeID зачитался через DW_FORM_ref_addr
+    // и содержит абсолютное смещение от секции, а не от модуля
+
     ATypeIDIsAbsolute: Boolean;
-    // размер типа (рассчитывается от базового)
+
+    // type size (calculated from the base one)
+    // [ru] размер типа (рассчитывается от базового)
+
     ATypeSize: UInt64;
-    // вспомогательный сет, содержащий из каких типов состоит текущий
+
+    // auxiliary set containing which types the current one consists of
+    // [ru] вспомогательный сет, содержащий из каких типов состоит текущий
+
     ATypeSet: TByteSet;
 
-    // вспомогательные
+    // auxiliary
+    // [ru] вспомогательные
 
-    AddrVA: ULONG_PTR64;    // VA адрес элемента в адресном пространстве
+    AddrVA: ULONG_PTR64;    // VA address of the element in the address space
+                            // [ru] VA адрес элемента в адресном пространстве
+
     EndOfCode: ULONG_PTR64;
+    Artificial: Boolean;    // flag of an implicit parameter
+                            // [ru] флаг неявного параметра
 
-    Artificial: Boolean;    // флаг неявного параметра
-    ByRef: Boolean;         // идущий по ссылке
-    BpOffset: Integer;      // смещение
-    BpRegister: Byte;       // от какого регистра
-    BpLocation: Boolean;    // флаг что используется Bp смещение для записи
+    ByRef: Boolean;         // passed by reference
+                            // [ru] идущий по ссылке
 
-    ByteStride: DWORD;      // размер элемента для масссивов
-                            // если указан ATypeSize то можно рассчитать длину статического масссива
-    LowerBound: Int64;      // начальный индекс массива
+    BpOffset: Integer;      // offset
+                            // [ru] смещение
+
+    BpRegister: Byte;       // from which register
+                            // [ru] от какого регистра
+
+    BpLocation: Boolean;    // flag that the Bp offset is used for writing
+                            // [ru] флаг, что используется Bp смещение для записи
+
+    // element size for arrays
+    // if ATypeSize is specified, the length of a static array can be calculated
+
+    // [ru] размер элемента для массивов
+    // если указан ATypeSize, то можно рассчитать длину статического массива
+
+    ByteStride: DWORD;
+    LowerBound: Int64;      // starting index of the array
+                            // [ru] начальный индекс массива
 
     {$ifdef debug_dump}
     DebugLevel: Integer;
@@ -1254,10 +1337,16 @@ type
 
     procedure CalcTypeParam(AOwner: TDwarfInfoUnit;
       ADieList: TDieList; AAbsoluteAddrDict, AAddrDict: TAddrDict);
-    // имя включая какому классу и неймспейсу принадлежит
+
+    // name including the class and namespace it belongs to
+    // [ru] имя включая какому классу и неймспейсу принадлежит
+
     function GetCaption(AOwner: TDwarfInfoUnit;
       ADieList: TDieList): string; virtual;
-    // приведение типа к строке включая обработку массивов
+
+    // converting the type to a string including array handling
+    // [ru] приведение типа к строке включая обработку массивов
+
     function GetType(AOwner: TDwarfInfoUnit;
       ADieList: TDieList): string;
   end;
@@ -1416,74 +1505,73 @@ begin
   raise EDwarfNotImplemented.CreateFmt('DWARF %d not implemented.', [ADwarfVersion]);
 end;
 
-{$MESSAGE 'выпилить потом'}
 function DbgTagToStr(Value: Integer): string;
 begin
   case Value of
-  DW_TAG_array_type: result := 'DW_TAG_array_type';
-  DW_TAG_class_type: result := 'DW_TAG_class_type';
-  DW_TAG_entry_point: result := 'DW_TAG_entry_point';
-  DW_TAG_enumeration_type: result := 'DW_TAG_enumeration_type';
-  DW_TAG_formal_parameter: result := 'DW_TAG_formal_parameter';
-  DW_TAG_reserved_6: result := 'DW_TAG_reserved_6';
-  DW_TAG_reserved_7: result := 'DW_TAG_reserved_7';
-  DW_TAG_imported_declaration: result := 'DW_TAG_imported_declaration';
-  DW_TAG_reserved_9: result := 'DW_TAG_reserved_9';
-  DW_TAG_label: result := 'DW_TAG_label';
-  DW_TAG_lexical_block: result := 'DW_TAG_lexical_block';
-  DW_TAG_reserved_c: result := 'DW_TAG_reserved_c';
-  DW_TAG_member: result := 'DW_TAG_member';
-  DW_TAG_reserved_e: result := 'DW_TAG_reserved_e';
-  DW_TAG_pointer_type: result := 'DW_TAG_pointer_type';
-  DW_TAG_reference_type: result := 'DW_TAG_reference_type';
-  DW_TAG_compile_unit: result := 'DW_TAG_compile_unit';
-  DW_TAG_string_type: result := 'DW_TAG_string_type';
-  DW_TAG_structure_type: result := 'DW_TAG_structure_type';
-  DW_TAG_reserved_14: result := 'DW_TAG_reserved_14';
-  DW_TAG_subroutine_type: result := 'DW_TAG_subroutine_type';
-  DW_TAG_typedef: result := 'DW_TAG_typedef';
-  DW_TAG_union_type: result := 'DW_TAG_union_type';
-  DW_TAG_unspecified_parameters: result := 'DW_TAG_unspecified_parameters';
-  DW_TAG_variant: result := 'DW_TAG_variant';
-  DW_TAG_common_block: result := 'DW_TAG_common_block';
-  DW_TAG_common_inclusion: result := 'DW_TAG_common_inclusion';
-  DW_TAG_inheritance: result := 'DW_TAG_inheritance';
-  DW_TAG_inlined_subroutine: result := 'DW_TAG_inlined_subroutine';
-  DW_TAG_module: result := 'DW_TAG_module';
-  DW_TAG_ptr_to_member_type: result := 'DW_TAG_ptr_to_member_type';
-  DW_TAG_set_type: result := 'DW_TAG_set_type';
-  DW_TAG_subrange_type: result := 'DW_TAG_subrange_type';
-  DW_TAG_with_stmt: result := 'DW_TAG_with_stmt';
-  DW_TAG_access_declaration: result := 'DW_TAG_access_declaration';
-  DW_TAG_base_type: result := 'DW_TAG_base_type';
-  DW_TAG_catch_block: result := 'DW_TAG_catch_block';
-  DW_TAG_const_type: result := 'DW_TAG_const_type';
-  DW_TAG_constant: result := 'DW_TAG_constant';
-  DW_TAG_enumerator: result := 'DW_TAG_enumerator';
-  DW_TAG_file_type: result := 'DW_TAG_file_type';
-  DW_TAG_friend: result := 'DW_TAG_friend';
-  DW_TAG_namelist: result := 'DW_TAG_namelist';
-  DW_TAG_namelist_item: result := 'DW_TAG_namelist_item';
-  DW_TAG_packed_type: result := 'DW_TAG_packed_type';
-  DW_TAG_subprogram: result := 'DW_TAG_subprogram';
-  DW_TAG_template_type_parameter: result := 'DW_TAG_template_type_parameter';
-  DW_TAG_template_value_parameter: result := 'DW_TAG_template_value_parameter';
-  DW_TAG_thrown_type: result := 'DW_TAG_thrown_type';
-  DW_TAG_try_block: result := 'DW_TAG_try_block';
-  DW_TAG_variant_part: result := 'DW_TAG_variant_part';
-  DW_TAG_variable: result := 'DW_TAG_variable';
-  DW_TAG_volatile_type: result := 'DW_TAG_volatile_type';
-  DW_TAG_dwarf_procedure: result := 'DW_TAG_dwarf_procedure';
-  DW_TAG_restrict_type: result := 'DW_TAG_restrict_type';
-  DW_TAG_interface_type: result := 'DW_TAG_interface_type';
-  DW_TAG_namespace: result := 'DW_TAG_namespace';
-  DW_TAG_imported_module: result := 'DW_TAG_imported_module';
-  DW_TAG_unspecified_type: result := 'DW_TAG_unspecified_type';
-  DW_TAG_partial_unit: result := 'DW_TAG_partial_unit';
-  DW_TAG_imported_unit: result := 'DW_TAG_imported_unit';
-  DW_TAG_reserved_3e: result := 'DW_TAG_reserved_3e';
-  DW_TAG_condition: result := 'DW_TAG_condition';
-  DW_TAG_shared_type: result := 'DW_TAG_shared_type';
+    DW_TAG_array_type: result := 'DW_TAG_array_type';
+    DW_TAG_class_type: result := 'DW_TAG_class_type';
+    DW_TAG_entry_point: result := 'DW_TAG_entry_point';
+    DW_TAG_enumeration_type: result := 'DW_TAG_enumeration_type';
+    DW_TAG_formal_parameter: result := 'DW_TAG_formal_parameter';
+    DW_TAG_reserved_6: result := 'DW_TAG_reserved_6';
+    DW_TAG_reserved_7: result := 'DW_TAG_reserved_7';
+    DW_TAG_imported_declaration: result := 'DW_TAG_imported_declaration';
+    DW_TAG_reserved_9: result := 'DW_TAG_reserved_9';
+    DW_TAG_label: result := 'DW_TAG_label';
+    DW_TAG_lexical_block: result := 'DW_TAG_lexical_block';
+    DW_TAG_reserved_c: result := 'DW_TAG_reserved_c';
+    DW_TAG_member: result := 'DW_TAG_member';
+    DW_TAG_reserved_e: result := 'DW_TAG_reserved_e';
+    DW_TAG_pointer_type: result := 'DW_TAG_pointer_type';
+    DW_TAG_reference_type: result := 'DW_TAG_reference_type';
+    DW_TAG_compile_unit: result := 'DW_TAG_compile_unit';
+    DW_TAG_string_type: result := 'DW_TAG_string_type';
+    DW_TAG_structure_type: result := 'DW_TAG_structure_type';
+    DW_TAG_reserved_14: result := 'DW_TAG_reserved_14';
+    DW_TAG_subroutine_type: result := 'DW_TAG_subroutine_type';
+    DW_TAG_typedef: result := 'DW_TAG_typedef';
+    DW_TAG_union_type: result := 'DW_TAG_union_type';
+    DW_TAG_unspecified_parameters: result := 'DW_TAG_unspecified_parameters';
+    DW_TAG_variant: result := 'DW_TAG_variant';
+    DW_TAG_common_block: result := 'DW_TAG_common_block';
+    DW_TAG_common_inclusion: result := 'DW_TAG_common_inclusion';
+    DW_TAG_inheritance: result := 'DW_TAG_inheritance';
+    DW_TAG_inlined_subroutine: result := 'DW_TAG_inlined_subroutine';
+    DW_TAG_module: result := 'DW_TAG_module';
+    DW_TAG_ptr_to_member_type: result := 'DW_TAG_ptr_to_member_type';
+    DW_TAG_set_type: result := 'DW_TAG_set_type';
+    DW_TAG_subrange_type: result := 'DW_TAG_subrange_type';
+    DW_TAG_with_stmt: result := 'DW_TAG_with_stmt';
+    DW_TAG_access_declaration: result := 'DW_TAG_access_declaration';
+    DW_TAG_base_type: result := 'DW_TAG_base_type';
+    DW_TAG_catch_block: result := 'DW_TAG_catch_block';
+    DW_TAG_const_type: result := 'DW_TAG_const_type';
+    DW_TAG_constant: result := 'DW_TAG_constant';
+    DW_TAG_enumerator: result := 'DW_TAG_enumerator';
+    DW_TAG_file_type: result := 'DW_TAG_file_type';
+    DW_TAG_friend: result := 'DW_TAG_friend';
+    DW_TAG_namelist: result := 'DW_TAG_namelist';
+    DW_TAG_namelist_item: result := 'DW_TAG_namelist_item';
+    DW_TAG_packed_type: result := 'DW_TAG_packed_type';
+    DW_TAG_subprogram: result := 'DW_TAG_subprogram';
+    DW_TAG_template_type_parameter: result := 'DW_TAG_template_type_parameter';
+    DW_TAG_template_value_parameter: result := 'DW_TAG_template_value_parameter';
+    DW_TAG_thrown_type: result := 'DW_TAG_thrown_type';
+    DW_TAG_try_block: result := 'DW_TAG_try_block';
+    DW_TAG_variant_part: result := 'DW_TAG_variant_part';
+    DW_TAG_variable: result := 'DW_TAG_variable';
+    DW_TAG_volatile_type: result := 'DW_TAG_volatile_type';
+    DW_TAG_dwarf_procedure: result := 'DW_TAG_dwarf_procedure';
+    DW_TAG_restrict_type: result := 'DW_TAG_restrict_type';
+    DW_TAG_interface_type: result := 'DW_TAG_interface_type';
+    DW_TAG_namespace: result := 'DW_TAG_namespace';
+    DW_TAG_imported_module: result := 'DW_TAG_imported_module';
+    DW_TAG_unspecified_type: result := 'DW_TAG_unspecified_type';
+    DW_TAG_partial_unit: result := 'DW_TAG_partial_unit';
+    DW_TAG_imported_unit: result := 'DW_TAG_imported_unit';
+    DW_TAG_reserved_3e: result := 'DW_TAG_reserved_3e';
+    DW_TAG_condition: result := 'DW_TAG_condition';
+    DW_TAG_shared_type: result := 'DW_TAG_shared_type';
   else
     Result := 'unknown ' + IntToStr(Value);
   end;
@@ -1492,32 +1580,32 @@ end;
 function DbgNToStr(Value: Integer): string;
 begin
   case value of
-  N_GSYM: Result := 'N_GSYM';
-  N_FNAME: Result := 'N_FNAME';
-  N_FUN: Result := 'N_FUN';
-  N_STSYM: Result := 'N_STSYM';
-  N_LCSYM: Result := 'N_LCSYM';
-  N_MAIN: Result := 'N_MAIN';
-  N_PC: Result := 'N_PC';
-  N_RSYM: Result := 'N_RSYM';
-  N_SLINE: Result := 'N_SLINE';
-  N_DSLINE: Result := 'N_DSLINE';
-  N_BSLINE: Result := 'N_BSLINE';
-  N_SSYM: Result := 'N_SSYM';
-  N_SO: Result := 'N_SO';
-  N_LSYM: Result := 'N_LSYM';
-  N_BINCL: Result := 'N_BINCL';
-  N_SOL: Result := 'N_SOL';
-  N_PSYM: Result := 'N_PSYM';
-  N_EINCL: Result := 'N_EINCL';
-  N_ENTRY: Result := 'N_ENTRY';
-  N_LBRAC: Result := 'N_LBRAC';
-  N_EXCL: Result := 'N_EXCL';
-  N_RBRAC: Result := 'N_RBRAC';
-  N_BCOMM: Result := 'N_BCOMM';
-  N_ECOMM: Result := 'N_ECOMM';
-  N_ECOML: Result := 'N_ECOML';
-  N_LENG: Result := 'N_LENG';
+    N_GSYM: Result := 'N_GSYM';
+    N_FNAME: Result := 'N_FNAME';
+    N_FUN: Result := 'N_FUN';
+    N_STSYM: Result := 'N_STSYM';
+    N_LCSYM: Result := 'N_LCSYM';
+    N_MAIN: Result := 'N_MAIN';
+    N_PC: Result := 'N_PC';
+    N_RSYM: Result := 'N_RSYM';
+    N_SLINE: Result := 'N_SLINE';
+    N_DSLINE: Result := 'N_DSLINE';
+    N_BSLINE: Result := 'N_BSLINE';
+    N_SSYM: Result := 'N_SSYM';
+    N_SO: Result := 'N_SO';
+    N_LSYM: Result := 'N_LSYM';
+    N_BINCL: Result := 'N_BINCL';
+    N_SOL: Result := 'N_SOL';
+    N_PSYM: Result := 'N_PSYM';
+    N_EINCL: Result := 'N_EINCL';
+    N_ENTRY: Result := 'N_ENTRY';
+    N_LBRAC: Result := 'N_LBRAC';
+    N_EXCL: Result := 'N_EXCL';
+    N_RBRAC: Result := 'N_RBRAC';
+    N_BCOMM: Result := 'N_BCOMM';
+    N_ECOMM: Result := 'N_ECOMM';
+    N_ECOML: Result := 'N_ECOML';
+    N_LENG: Result := 'N_LENG';
   else
     Result := 'unknown ' + IntToStr(Value);
   end;
@@ -1663,7 +1751,9 @@ begin
     Exit;
   end;
 
-  // системные функции
+  // we don't touch system functions
+  // [ru] системные функции не трогаем
+
   if AName[1] = '_' then
   begin
     Result := AName;
@@ -1695,7 +1785,9 @@ begin
     end;
   end;
 
-  // не смогли распасить или имя метода отсутствует, значит оставляем как есть
+  // could not parse or the method name is missing, so we leave it as is
+  // [ru] не смогли распарсить или имя метода отсутствует, значит оставляем как есть
+
   if (NextIdentifierType = itUnknown) or (AMethodName = '') then
   begin
     Result := AName;
@@ -1766,8 +1858,13 @@ begin
   Buff[255] := #0;
   for I := 0 to FCoffList.Count - 1 do
   begin
-    // если у символа не указан номер секции, значит мы не можем рассчитать его адрес
+
+    // if the symbol has no section number specified, it means we cannot calculate its address
+    // but then we don't need its name either
+
+    // [ru] если у символа не указан номер секции, значит мы не можем рассчитать его адрес
     // но тогда нам и имя его не нужно
+
     ACoffFunction.SectionIndex := FCoffList.List[I].SectionNumber - 1;
     if ACoffFunction.SectionIndex < 0 then
       Continue;
@@ -1786,7 +1883,10 @@ begin
     if FImage.SectionAtIndex(ACoffFunction.SectionIndex, ASection) then
       ACoffFunction.FuncAddrVA := FCoffList.List[I].Value + ASection.AddressVA
     else
-      // если секции нет, то и работать с таким символом не получится
+
+      // if there is no section, then working with such a symbol won't work either
+      // [ru] если секции нет, то и работать с таким символом не получится
+
       Continue;
 
     ACoffFunction.Executable := ASection.IsExecutable;
@@ -1911,8 +2011,13 @@ begin
       Break;
     ReadBuffer(Chunk, 1);
   end;
-  // выставление знака который хранится в 7 бите
+
+  // setting the sign that is stored in bit 7
+  // of the last read seven-bit chunk
+
+  // [ru] выставление знака, который хранится в 7 бите
   // последнего прочитанного семибитного чанка
+
   ChunkShift := 1 shl (ChunkShift - 1);
   Result := Result or not ((Result and ChunkShift) - 1);
   FPreviosPosition := SavePos;
@@ -2039,9 +2144,15 @@ begin
   for I := 0 to KnownSectionCount - 1 do
     if Image.SectionAtName(SectionName[I], ASection) then
     begin
-      // в целях оптимизации строки читаются как PAnsiChar, поэтому
-      // нужно контролировать что TDwarfStream гарантированно сидит поверх
+
+      // for optimization purposes strings are read as PAnsiChar, so
+      // we need to ensure that TDwarfStream is guaranteed to sit on top of
+      // a TMemoryStream, otherwise the trick will not work.
+
+      // [ru] в целях оптимизации строки читаются как PAnsiChar, поэтому
+      // нужно контролировать, что TDwarfStream гарантированно сидит поверх
       // TMemoryStream, иначе никакого фокуса не получится.
+
       if IsMemoryStream then
         FStreams[I] := TDwarfStream.Create(AImageStream, ASection.AddressRaw, ASection.SizeOfRawData)
       else
@@ -2076,7 +2187,10 @@ var
   LineData: TLineData;
   SymbolData: TSymbolData;
 begin
-  // учитываем rebase
+
+  // we take rebase into account
+  // [ru] учитываем rebase
+
   AAddrVA := ACtx.Image.Rebase(AAddrVA);
   SymbolData := MakeItem(AAddrVA, sdtDwarfLine);
   SymbolData.Binary.ModuleIndex := FModuleIndex;
@@ -2150,6 +2264,9 @@ begin
     Exit;
   end;
 
+  Header32 := Default(TDwarfLineNumberProgramHeader32);
+  Header64 := Default(TDwarfLineNumberProgramHeader64);
+
   UnitStream := TDwarfStream.Create(ACtx.debug_line, ACtx.debug_line.Position, 0);
   try
 
@@ -2165,9 +2282,13 @@ begin
     if Magic = Header64Magic then
     begin
       Header64.magic := Header64Magic;
-      ACtx.debug_line.ReadBuffer(Header64.unit_length, SizeOf(Header64) - SizeOf(Magic));
+      ACtx.debug_line.ReadBuffer(Header64.unit_length, 19);
       if Header64.unit_length = 0 then
         Exit(False);
+      if Header64.version >= 4 then
+        ACtx.debug_line.ReadBuffer(Header64.maximum_operations_per_instruction, 6)
+      else
+        ACtx.debug_line.ReadBuffer(Header64.default_is_stmt, 5);
       Inc(Header64.unit_length, SizeOf(Header64.unit_length) + SizeOf(Magic));
       HeaderLength := SizeOf(Header64);
     end
@@ -2176,12 +2297,17 @@ begin
       Header32.unit_length := Magic;
       if Header32.unit_length = 0 then
         Exit(False);
-      ACtx.debug_line.ReadBuffer(Header32.version, SizeOf(Header32) - SizeOf(Magic));
+      ACtx.debug_line.ReadBuffer(Header32.version, 7);
+      if Header32.version >= 4 then
+        ACtx.debug_line.ReadBuffer(Header32.maximum_operations_per_instruction, 6)
+      else
+        ACtx.debug_line.ReadBuffer(Header32.default_is_stmt, 5);
       Header64.Magic := 0;
       Header64.unit_length := Header32.unit_length + SizeOf(Header32.unit_length);
       Header64.version := Header32.version;
       Header64.header_length := Header32.header_length;
       Header64.minimum_instruction_length := Header32.minimum_instruction_length;
+      Header64.maximum_operations_per_instruction := Header32.maximum_operations_per_instruction;
       Header64.default_is_stmt := Header32.default_is_stmt;
       Header64.line_base := Header32.line_base;
       Header64.line_range := Header32.line_range;
@@ -2198,35 +2324,49 @@ begin
       Exit;
     end;
 
-    // читаем размеры LEB128 операндов для каждого опкода
+    // we read the sizes of LEB128 operands for each opcode
+    // [ru] читаем размеры LEB128 операндов для каждого опкода
+
     SetLength(OpcodeLen, Header64.opcode_base);
     UnitStream.ReadBuffer(OpcodeLen[1], Header64.opcode_base - 1);
 
-    // начиная с пятого в заголовке пошли изменения, надо тестировать
+    // starting from the fifth one, changes appeared in the header, needs testing
+    // [ru] начиная с пятого в заголовке пошли изменения, надо тестировать
+
     if Header64.version >= 5 then
       RaiseNotImplemented(Header64.version);
 
-    // читаем директории
+    // we read the directories
+    // [ru] читаем директории
+
     repeat
       TmpString := UnitStream.ReadString;
       if TmpString <> '' then
         FDirList.Add(TmpString);
     until TmpString = '';
 
-    // читаем список файлов
+    // we read the list of files
+    // [ru] читаем список файлов
+
     repeat
       FileEntry := ReadFileEntry(UnitStream);
       if FileEntry.FileName <> '' then
         FFiles.Add(FileEntry);
     until FileEntry.FileName = '';
 
-    // через машину состояний парсим информацию о линиях
+    // we parse the line information through a state machine
+    // [ru] через машину состояний парсим информацию о линиях
+
     SmRegisters := InitStateMachineRegisters(Header64.default_is_stmt);
     AddrVAInited := False;
     AddToMatrix := False;
 
-    // могут быть пустые модули, просто задекларированые, но не содержащие кода
+    // there may be empty modules, merely declared but containing no code
+    // so I'll add a check
+
+    // [ru] могут быть пустые модули, просто задекларированные, но не содержащие кода
     // поэтому добавлю проверку
+
     if UnitStream.EOF then
     begin
       UnitStream.SeekToEnd;
@@ -2237,10 +2377,16 @@ begin
     while not UnitStream.EOF do
     begin
       case opcode of
-        // обработка расширенных опкодов, начинающихся с нуля
+
+        // handling extended opcodes that start with zero
+        // [ru] обработка расширенных опкодов, начинающихся с нуля
+
         0:
         begin
-          // минус один т.к. включает размер опкода
+
+          // minus one, since it includes the opcode size
+          // [ru] минус один, т.к. включает размер опкода
+
           ExtendedLength := UnitStream.ReadULEB128 - 1;
           opcode := UnitStream.ReadByte;
 
@@ -2314,15 +2460,23 @@ begin
             DW_LNE_set_discriminator:
             begin
 
-              // используется для многострочных инструкций чтобы отделять
-              // строки друг от друга, читай оффсет к изначальному номеру строки
+              // used for multi-line statements to separate
+              // the lines from each other, i.e. the offset to the original line number
+              // something like this:
+              //
+              // 100: if (a = 1) and
+              // 101:    (b = 2) and // -> 100 + discriminator 1
+              // 102:    (c = 3) and // -> 100 + discriminator 2
+
+              // [ru] используется для многострочных инструкций, чтобы отделять
+              // строки друг от друга, читай смещение к изначальному номеру строки
               // типа такого:
               //
               // 100: if (a = 1) and
               // 101:    (b = 2) and // -> 100 + discriminator 1
               // 102:    (c = 3) and // -> 100 + discriminator 2
 
-              if Header64.version >= 5 then
+              if Header64.version >= 4 then
                 SmRegisters.discriminator := UnitStream.ReadULEB128
               else
                 UnitStream.Seek(ExtendedLength, soFromCurrent);
@@ -2565,11 +2719,18 @@ begin
       begin
         AddToMatrix := False;
 
-        // если база не выставлена, (а это может быть когда код тупо не вкомпилен)
+        // if the base is not set (this can happen when the code is simply not compiled in),
+        // then there is no point in adding such information to the dictionary
+        // also the address from the end of the sequence is not added
+        // it usually means the end of a function, but there is
+        // .debug_info for that with more complete information
+
+        // [ru] если база не выставлена (а это может быть, когда код тупо не вкомпилен),
         // то смысла добавлять такую информацию в словарь нет
         // также не добавляется адрес из конца последовательности
         // он как правило означает конец функции, но для этого есть
         // .debug_info с более полной информацией
+
         if AddrVAInited and not SmRegisters.end_sequence then
           AddLine(ACtx, SmRegisters.address, SmRegisters.file_id,
             SmRegisters.line, SmRegisters.is_stmt);
@@ -2800,7 +2961,10 @@ begin
         ATypeSize := Cursor.ATypeSize;
     end;
   until Cursor.ATypeID = 0;
-  // все ссылочные типы равны размеру указателя
+
+  // all reference types are equal to the pointer size
+  // [ru] все ссылочные типы равны размеру указателя
+
   if ByRef or (DW_TAG_pointer_type in ATypeSet) then
     ATypeSize := AOwner.Header64.address_size;
 end;
@@ -3010,9 +3174,15 @@ var
           Param.ByRef := ADie.ByRef;
           Param.ATypeSize := ADie.ATypeSize;
           AEntry.AddParam(Param);
-          // для открытых массивов следующим идет размер
+
+          // for open arrays the size comes next
+          // it comes as a hidden parameter, but has no Artificial mark
+          // so we make a correction
+
+          // [ru] для открытых массивов следующим идет размер
           // он идет как скрытый параметр, но метки Artificial не имеет
           // поэтому делаем коррекцию
+
           if DW_TAG_array_type = ADieList.List[ADie.ATypeIndex].Tag then
           begin
             if Assigned(ADie.Sibling) and (ADie.Sibling.Tag = DW_TAG_formal_parameter) then
@@ -3042,7 +3212,10 @@ var
 begin
   AddrDict := TAddrDict.Create;
   try
-    // локальный словарь текущего модуля для быстрого поиска
+
+    // local dictionary of the current module for fast lookup
+    // [ru] локальный словарь текущего модуля для быстрого поиска
+
     for I := AFromIndex to AFromIndex + FLoadedCount - 1 do
       AddrDict.Add(ADieList.List[I].OffsetID, I);
 
@@ -3093,7 +3266,9 @@ begin
             OutSubProgramm.AType := Die.GetType(Self, ADieList);
             Inc(I, FillParams(OutSubProgramm, Die));
 
-            // начало функции
+            // start of the function
+            // [ru] начало функции
+
             if Die.AddrVA <> 0 then
             begin
               SymbolData := MakeItem(OutSubProgramm.AddrVA, sdtDwarfProc);
@@ -3105,7 +3280,9 @@ begin
 
             FData.Add(OutSubProgramm);
 
-            // конец функции
+            // end of the function
+            // [ru] конец функции
+
             if Die.AddrVA <> 0 then
             begin
               SymbolData.AddrVA := OutSubProgramm.EndOfCode;
@@ -3271,8 +3448,12 @@ begin
     begin
       FStream.Position := HeaderLength;
 
-      // информация о том что и в каком формате записано содержится
+      // information about what is written and in which format is contained
+      // in the debug_abbrev section, so it must be read first
+
+      // [ru] информация о том, что и в каком формате записано содержится
       // в секции debug_abbrev, поэтому сначала нужно прочесть её
+
       Ctx.debug_abbrev.Position := FHeader64.debug_abbrev_offset;
       LoadAbbrev(Ctx.debug_abbrev);
 
@@ -3332,10 +3513,17 @@ begin
       DW_AT_name:
       begin
         ReadAttribute(Attribute, @TmpStrAttr, SizeOf(TmpStrAttr));
-        // для юнита сразу получаем финальные данные
+
+        // for the unit we immediately get the final data
+        // so the pointer must be converted to a string
+        // otherwise, when the dwarf context is destroyed, the pointers
+        // will become garbage
+
+        // [ru] для юнита сразу получаем финальные данные
         // поэтому указатель необходимо преобразовать в строку
         // иначе, по разрушению дварф контекста, указатели
         // станут мусором
+
         FUnitName := string(TmpStrAttr);
       end;
       DW_AT_producer:
@@ -3425,21 +3613,44 @@ begin
   if ASize = 0 then
     RaiseInternal('Unexpected location zero size');
 
-  // такое пока не умеем читать
+  // we don't know how to read this yet
+  // [ru] такое пока не умеем читать
+
   if Assigned(FCtx.debug_loc) then
   begin
+
+  // = [EN] ====================================================================
+
+    // technically we need to read 4 bytes from FLocationStream
+    // this will be an offset from where to read structures from the debug_loc stream,
+    // which look something like this
+    {
+    DWORD - offset from DW_TAG_compile_unit -> DW_AT_low_pc (start of the variable)
+    DWORD - offset from DW_TAG_compile_unit -> DW_AT_low_pc (end of the variable)
+    Word - size of the Location itself
+    and then the location is read by the algorithm below,
+    after which we start reading the next structure.
+    The end of the chain comes when the first two offsets are zero.
+    It is not yet clear where to apply this
+    }
+
+  // = [RU] ====================================================================
+
     // технически нужно прочитать 4 байта из FLocationStream
-    // это будет оффсет, откуда нужно читать структуры из стрима debug_loc
+    // это будет смещение, откуда нужно читать структуры из стрима debug_loc,
     // которые выглядят примерно так
     {
-    DWORD - оффсет от DW_TAG_compile_unit -> DW_AT_low_pc (начало переменной)
-    DWORD - оффсет от DW_TAG_compile_unit -> DW_AT_low_pc (конец переменной)
+    DWORD - смещение от DW_TAG_compile_unit -> DW_AT_low_pc (начало переменной)
+    DWORD - смещение от DW_TAG_compile_unit -> DW_AT_low_pc (конец переменной)
     Word - размер самой Location
     а далее вычитывается локейшен алгоритмом ниже,
     после чего начинаем читать следующую структуру.
-    Конец цепочки наступит когда первые два оффсета равны нулю.
-    Куда это применять пока не понятно
+    Конец цепочки наступит, когда первые два смещения равны нулю.
+    Куда это применять - пока не понятно
     }
+
+  // ===========================================================================
+
     Exit;
   end;
 
@@ -3449,19 +3660,25 @@ begin
     Include(Result.OperandSet, Opcode);
     case Opcode of
 
-      // отсутствующие опкоды, если попали сюда - значит что-то пошло не так
+      // missing opcodes, if we ended up here - it means something went wrong
+      // [ru] отсутствующие опкоды, если попали сюда - значит что-то пошло не так
+
       DW_OP_reserved0..DW_OP_reserved2,
       DW_OP_reserved4, DW_OP_reserved5, DW_OP_reserved7,
       DW_OP_reserved170..DW_OP_reserved255:
         RaiseInternal(Format('Unexpected DW_OP opcode %d', [Opcode]));
 
-      // обрабатываемые опкоды
+      // handled opcodes
+      // [ru] обрабатываемые опкоды
+
       DW_OP_addr:
       begin
         Result.AddrVA := 0;
         FLocationStream.ReadBuffer(Result.AddrVA, FHeader64.address_size);
       end;
-      DW_OP_deref: ; // просто флаг что парамметр идет по ссылке
+      DW_OP_deref: ; // just a flag that the parameter is passed by reference
+                     // [ru] просто флаг, что параметр идет по ссылке
+
       DW_OP_breg0..DW_OP_breg31:
       begin
         Result.BpRegister := Opcode - DW_OP_breg0;
@@ -3470,7 +3687,8 @@ begin
       DW_OP_regx:
         Result.BpRegister := FLocationStream.ReadULEB128;
 
-      // пропускаемые опкоды
+      // skipped opcodes
+      // [ru] пропускаемые опкоды
 
         // Opcodes with a single 1 byte arguments
       DW_OP_const1u,     // 0x08 1 1-byte constant
@@ -3547,7 +3765,10 @@ begin
       end;
 
     else
-      // опкоды без параметров
+
+      // opcodes without parameters
+      // [ru] опкоды без параметров
+
     end;
   until FLocationStream.EOF;
 end;
@@ -3579,8 +3800,13 @@ begin
 
       if AbbrevDescr.Tag = DW_TAG_compile_unit then
       begin
-        // этот тэг должен идти самым первым и единственным
+
+        // this tag must come first and be the only one
+        // in the entire sequence
+
+        // [ru] этот тэг должен идти самым первым и единственным
         // на всей последовательности
+
         if FUnitName <> '' then
           RaiseInternal('Unexpected DW_TAG_compile_unit');
         LoadCompileUnit(AbbrevDescr);
@@ -3598,10 +3824,15 @@ begin
     if AbbrevDescr.Children > 0 then
       DieCurrent := DieNew;
 
-    // проверка на пустой юнит представленый только именем модуля
+    // check for an empty unit represented only by the module name
+    // [ru] проверка на пустой юнит представленный только именем модуля
+
     if FStream.EOF and (FAbbrevDescrList.Count = 1) then
     begin
-      // на всякий случай проверим что DW_TAG_compile_unit был загружен
+
+      // just in case we'll check that DW_TAG_compile_unit was loaded
+      // [ru] на всякий случай проверим, что DW_TAG_compile_unit был загружен
+
       if FUnitName = '' then
         RaiseInternal('Unexpected EOF');
       Break
@@ -3634,9 +3865,8 @@ function TDwarfInfoUnit.ReadAttribute(const Attribute: TAttribute;
       Result := Int64(NeedSize);
   end;
 
-  // данные могут сидеть в другой секции
-  // пока что такая ситуация не обрабатывается
-  // но чтобы не забыть - вынесено в отдельную процедуру
+  // the data may sit in another section
+  // [ru] данные могут сидеть в другой секции
   procedure LoadRelocated(ASize: UInt64; ARelocStream: TDwarfStream = nil);
   var
     ULeb: UInt64;
@@ -3669,7 +3899,9 @@ begin
   repeat
     Indirect := False;
 
-    // первичная проверка, вообще мы влезем или нет?
+    // initial check, will we fit at all or not
+    // [ru] первичная проверка, вообще мы влезем или нет
+
     NeedSize := FixedFormByteSize(AForm);
     CheckBuffSize(NeedSize);
 
@@ -3780,10 +4012,19 @@ begin
   if Assigned(ACurrent) then
     ACurrent := ACurrent.Parent
   else
-    // это пока для проверки что дерево построилось правильно
+  begin
+
+    // this is for now to check that the tree was built correctly
+    // otherwise reaching nil will happen BEFORE the completion
+    // of reading all data
+
+    // [ru] это пока для проверки, что дерево построилось правильно
     // в противном случае выход на nil произойдет ДО завершения
     // чтения всех данных
+
     RaiseInternal('Unexpected zero tag index');
+  end;
+
   Result := Assigned(ACurrent);
 end;
 
@@ -3952,7 +4193,10 @@ begin
   DoCallback(lcsLoadInfo, 0, Ctx.debug_info.Size);
   DieList := TDieList.Create;
   try
-    // загружаем все данные в общий список без их обработки
+
+    // we load all data into a common list without processing it
+    // [ru] загружаем все данные в общий список без их обработки
+
     while not Ctx.debug_info.EOF do
     begin
       AUnit := TDwarfInfoUnit.Create(FImage.ModuleIndex, FUnitInfos.Count);
@@ -3977,8 +4221,12 @@ begin
     end;
     DoCallback(lcsLoadInfo, Ctx.debug_info.Size, Ctx.debug_info.Size);
 
-    // теперь переносим найденые процедуры в модули
-    // с обработкой типов через словарь абсолютных смещений
+    // now we move the found procedures into modules
+    // with type processing through a dictionary of absolute offsets,
+    // which can only be built after the data is fully loaded
+
+    // [ru] теперь переносим найденные процедуры в модули
+    // с обработкой типов через словарь абсолютных смещений,
     // который можно построить только после полной загрузки данных
 
     DoCallback(lcsProcessInfo, 0, DieList.Count);
@@ -4060,7 +4308,10 @@ function TDwarfDebugInfo.LoadStub(Ctx: TDwarfContext): Boolean;
 var
   Loader: TStabLoader;
 begin
-  // стабы присутствуют только у 32 битных программ со вторым дварфом
+
+  // stabs are present only in 32-bit programs with the second dwarf
+  // [ru] стабы присутствуют только у 32-битных программ со вторым дварфом
+
   if (Ctx.stab = nil) or (Ctx.stabstr = nil) then
     Exit(False);
 
@@ -4151,9 +4402,15 @@ var
     DirIndex, FileIndex: Integer;
     FileEntry: TFileEntry;
   begin
-    // пакуем строковые данные по директориям и файлам
-    // причем учитываем особенность что индексы идут от единицы и нулевой
-    // означает что индекса нет
+
+    // we pack string data by directories and files
+    // while taking into account the peculiarity that indexes start from one and the zero one
+    // means there is no index
+
+    // [ru] пакуем строковые данные по директориям и файлам
+    // причем учитываем особенность, что индексы идут от единицы и нулевой
+    // означает, что индекса нет
+
     DirIndex := 0;
     if AUnitDir <> '' then
     begin
@@ -4189,7 +4446,9 @@ begin
   AUnitListIndex := FDwarf.UnitInfos.Count;
   ALineListIndex := FDwarf.UnitLines.Count;
 
-  // стабы не самостоятельны и будут добавлены отдельной записью в общий пул
+  // stabs are not standalone and will be added as a separate entry to the common pool
+  // [ru] стабы не самостоятельны и будут добавлены отдельной записью в общий пул
+
   AInfoUnit := TDwarfInfoUnit.Create(AModuleIndex, AUnitListIndex);
   ALineUnit := TDwarfLinesUnit.Create(AModuleIndex, ALineListIndex,
     FDwarf.UnitInfos.Add(AInfoUnit));
@@ -4202,7 +4461,9 @@ begin
         if AStubs[I].n_value <> 0 then
         begin
           if Assigned(OutSubProgramm) then
-            PushSubProgramm; // такого по идее быть не должно!
+            PushSubProgramm; // this should not happen in theory!
+                             // [ru] такого по идее быть не должно!
+
           AUnitName := '';
           AUnitDir := '';
           OutSubProgramm := TStabSubProgramm.Create(FCtx.Image.GetIs64Image);

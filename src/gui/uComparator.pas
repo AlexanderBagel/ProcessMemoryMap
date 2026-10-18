@@ -1,17 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uComparator.pas
-//  * Purpose   : Диалог отображает результаты сравнения двух карт памяти процесса
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : The dialog box displays the results of a comparison
+//  *           : between two process memory maps
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.47
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -106,8 +123,10 @@ procedure TdlgComparator.AddData(Value: string; ChangeType: TChangeType);
 const
   ChangeTypeColor: array [TChangeType] of string = ('\cf1 ', '\cf2 ', '\cf3 ');
 begin
-  // RTF формируем самостоятельно, бо построчное добавление
-  // в RichEdit тормозит шибко
+
+  // We generate the RTF ourselves, since adding it line by line too slow
+  // [ru] RTF формируем самостоятельно, т.к. построчное добавление тормозит
+
   Value := StringReplace(Value, '\', '\\', [rfReplaceAll]);
   if RTF = '' then
   begin
@@ -166,8 +185,13 @@ begin
   if SaveDialog.Execute then
   begin
     edChanges.Lines.SaveToFile(SaveDialog.FileName);
-    // помимо результатов сравнения сохраняем также обе карты памяти
+
+    // In addition to the comparison results, we also save both memory cards
+    // so that we can examine the changes in more detail later
+
+    // [ru] помимо результатов сравнения сохраняем также обе карты памяти
     // дабы можно было потом поизучать изменения более подробно
+
     SavePath := SaveDialog.FileName;
     TempPath := ChangeFileExt(SavePath, '.oldmap.pmm');
     FOldMM.SaveToFile(TempPath);
@@ -219,15 +243,22 @@ begin
   Address := 0;
   Dict := TDictionary<string, TContainItem>.Create(NewValue.Count);
   try
-    // сначала собираем данные по новым значениям
+
+    // first, we collect data on the new values
+    // [ru] сначала собираем данные по новым значениям
+
     for NewCont in NewValue do
       Dict.Add(NewCont.Hash, NewCont);
 
-    // теперь делаем сверку по старым значениям
+    // then we compare the results with the old values
+    // [ru] теперь делаем сверку по старым значениям
+
     for OldCont in OldValue do
     begin
 
-      // если значение из старого листа присутствует в новом, удаляем его из списка
+      // if a value from the old list is present in the new one, remove it from the list
+      // [ru] если значение из старого листа присутствует в новом, удаляем его из списка
+
       if Dict.TryGetValue(OldCont.Hash, NewCont) then
       begin
         case OldCont.ItemType of
@@ -239,7 +270,9 @@ begin
         Continue;
       end;
 
-      // в противном случае говорим что значение удалено
+      // otherwise, we say that the value has been deleted
+      // [ru] в противном случае говорим что значение удалено
+
       case OldCont.ItemType of
         itHeapBlock: Address := OldCont.Heap.Entry.Address;
         itThreadData: Address := NativeUInt(OldCont.ThreadData.Address);
@@ -251,7 +284,9 @@ begin
 
     end;
 
-    // все что осталось в словаре - добавленные значения
+    // all that's left in the dictionary are the added values
+    // [ru] все что осталось в словаре - добавленные значения
+
     for NewCont in Dict.Values do
     begin
       case NewCont.ItemType of
@@ -276,15 +311,22 @@ var
 begin
   Dict := TDictionary<ShortString, TDirectory>.Create(NewValue.Count);
   try
-    // сначала собираем данные по новым директориям
+
+    // first, we collect data on the new directories
+    // [ru] сначала собираем данные по новым директориям
+
     for NewDir in NewValue do
       Dict.Add(NewDir.Caption, NewDir);
 
-    // теперь делаем сверку по старым
+    // then we compare the figures with the old ones
+    // [ru] теперь делаем сверку по старым
+
     for OldDir in OldValue do
     begin
 
-      // если директория из старого листа присутствует в новом, удаляем ее из списка
+      // if a directory from the old list is present in the new one, remove it from the list
+      // [ru] если директория из старого листа присутствует в новом, удаляем ее из списка
+
       if Dict.TryGetValue(OldDir.Caption, NewDir) then
       begin
         CompareValues('Directory "' + string(OldDir.Caption) + '" address',
@@ -297,14 +339,18 @@ begin
         Continue;
       end;
 
-      // в противном случае говорим что директория удалена
+      // otherwise, we say that the directory has been deleted
+      // [ru] в противном случае говорим что директория удалена
+
       AddChanged('Directory "' + string(OldDir.Caption) +
         '" removed at address: ' + UInt64ToStr(OldDir.Address), ctDel);
       AddChanged('Directory size: ' + SizeToStr2(OldDir.Size), ctDel);
 
     end;
 
-    // все что осталось в словаре - добавленные директории
+    // all that's left in the dictionary are the added directories
+    // [ru] все что осталось в словаре - добавленные директории
+
     for NewDir in Dict.Values do
     begin
       AddChanged('Directory "' + string(NewDir.Caption) +
@@ -368,7 +414,9 @@ begin
       IncSearchPos(OldIndex);
       OldRegion := OldMM.GetRegionAtUnfilteredIndex(OldIndex);
 
-      // если новых регионов больше нет, значит все старые удалены
+      // if there are no more new regions, that means all the old ones have been deleted
+      // [ru] если новых регионов больше нет, значит все старые удалены
+
       if NewIndex >= NewMM.TotalCount then
       begin
         RegionChanged(OldRegion, ctDel);
@@ -379,13 +427,23 @@ begin
       NewRegion := NewMM.GetRegionAtUnfilteredIndex(NewIndex);
 
       case ComparePtr(OldRegion.MBI.BaseAddress, NewRegion.MBI.BaseAddress) of
-        // Если адреса регионов совпали - сравниваем их
+
+        // If the region addresses match, we compare them
+        // [ru] Если адреса регионов совпали - сравниваем их
+
         0: CompareRegion;
 
-        // если адрес нового региона больше текущего - текущий удален
+        // if the address of the new region is greater than the current one,
+        // the current one is removed
+
+        // [ru] если адрес нового региона больше текущего - текущий удален
+
        -1:
         begin
-          // и все регионы, которые были расположены до этого адреса тоже удалены
+
+          // and all regions that were located before this address have also been removed
+          // [ru] и все регионы, которые были расположены до этого адреса тоже удалены
+
           repeat
             RegionChanged(OldRegion, ctDel);
             Inc(OldIndex);
@@ -394,10 +452,17 @@ begin
           Continue;
         end;
 
-        // а если адрес нового региона меньше текущего - то добавился новый регион
+        // and if the address of the new region is shorter than the current one,
+        // then a new region has been added
+
+        // [ru] а если адрес нового региона меньше текущего - то добавился новый регион
+
         1:
         begin
-          // причем добавленных может быть также несколько
+
+          // and there can also be several of them
+          // [ru] причем добавленных может быть также несколько
+
           repeat
             RegionChanged(NewRegion, ctAdd);
             Inc(NewIndex);
@@ -410,7 +475,9 @@ begin
       Inc(NewIndex);
     end;
 
-    // если остались новые регионы, то они все добавленные
+    // if there are any new regions left, they have all been added
+    // [ru] если остались новые регионы, то они все добавленные
+
     while NewIndex < NewMM.TotalCount do
     begin
       NewRegion := NewMM.GetRegionAtUnfilteredIndex(NewIndex);
@@ -424,8 +491,13 @@ begin
     begin
       dlgProgress.lblProgress.Caption :=
         dlgProgress.lblProgress.Caption + '. Loading...';
-      // загружаем RTF руками через API, ибо Lines.LoadFromStream
+
+      // We load the RTF file manually via the API, since Lines.LoadFromStream
+      // occasionally loads the data incorrectly
+
+      // [ru] загружаем RTF руками через API, т.к. Lines.LoadFromStream
       // периодически грузит данные криво
+
       RTF := RTF + '}' + #0;
       M := TMemoryStream.Create;
       try

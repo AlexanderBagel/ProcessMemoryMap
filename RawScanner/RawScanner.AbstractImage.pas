@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.AbstractImage.pas
-//  * Purpose   : Базовый класс образа файла с которым умеет работать RawScanner
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Base class for a file image that RawScanner can work with.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.28
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -42,7 +58,10 @@ type
 
   TImageType = (itUnknown,
     itPE32, itPE64, itELF32, itELF64, itCOFF32, itCOFF64,
-    // OMF пока что не поддерживается, т.к. не понятно где его взять с DWARF отладочными
+
+    // OMF is not supported yet, since it is unclear where to get it with DWARF debug info.
+    // [ru] OMF пока что не поддерживается, т.к. не понятно где его взять с DWARF отладочными
+
     itOMF32, itOMF64);
 
   TAbstractImage = class

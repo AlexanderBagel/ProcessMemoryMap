@@ -1,217 +1,230 @@
-﻿1.7.53 от 16.08.2026
-* Добавлен новый режим работы с окнами удаленного процесса
-* Исправлена давняя ошибка работы с кучей в 64 битах
-* Восстановлена корректная работа фильтров
-* Исправлена ошибка с алигном при чтении версиооного стрима, которая могла привести к выходу за размеры стрима.
-* Добавлены проверки чтения параметров процесса в TMemoryMap.AddPEBData ранее приводявшие к невозможности открытия процесса.
-* Завершен режим работы с ресурсами, добавлено отображение групп иконок и курсоров, SVG и сохранение ресурса на диск
-* Возвращена совместимость с Windows XP
-* Иправлена проблема с DPI у VirtualStringTree контрола
+1.7.54 from 18.10.2026
+* Added support for debug directories to the TRawPEImage class, property DebugDirList<>
+* Added output of IMAGE_DEBUG_DIRECTORY information, including extended information for IMAGE_DEBUG_TYPE_CODEVIEW, with PDB symbol configuration.
+* Added support for PDB debug files. In the settings you can choose the loading mode: on attaching to a process, or manually via the storage manager.
+* The new PDB symbol storage manager allows cleaning up outdated data and refreshing debug symbols after OS updates.
+* Fixed an error reading the "Line Number Program Header" for DWARF4 debug information
+* Fixed an error processing R_X86_64_IRELATIVE records when reading .rela.plt in ELF files
+* Added checking for new versions of Process Memory Map
+* Added English comments
+* Cleaned up debug code in the animation control
+* The correct file extension is now used when saving animated resources
+* For class/dialog/window procedures, the module they reside in is now displayed
 
-1.6.52 от 28.07.2026
-* Отключен забытый отладочный код в диалоге ресурсов
+1.7.53 from 16.08.2026
+* Added a new mode for working with windows of a remote process
+* Fixed a long-standing bug in 64-bit heap handling
+* Restored correct operation of filters
+* Fixed an alignment error when reading the version stream, which could cause reading beyond the stream bounds.
+* Added checks when reading process parameters in TMemoryMap.AddPEBData, whose absence previously made it impossible to open some processes.
+* Completed the resources mode: added display of icon and cursor groups and SVG, and saving resources to disk
+* Restored Windows XP compatibility
+* Fixed a DPI issue with the VirtualStringTree control
 
-1.6.51 от 26.06.2026
-* Исправлена критическая ошибка в GetDwarfUnitAtAddr, приводящая к "List index out of bounds"
+1.6.52 from 28.07.2026
+* Disabled forgotten debug code in the resources dialog
 
-1.6.50 от 15.06.2026
-* Добавлен поиск ссылок на указаный адрес
-* Добавлен поиск по маске
-* Сохранение результатов поиска в файл
+1.6.51 from 26.06.2026
+* Fixed a critical error in GetDwarfUnitAtAddr that caused "List index out of bounds"
 
-1.6.49 от 04.06.2026
-* Добавлен механизм отката патчей в удаленном процессе
+1.6.50 from 15.06.2026
+* Added search for references to a specified address
+* Added search by mask
+* Added saving search results to a file
 
-1.6.48 от 30.05.2026
-* Исправлены некоторые мемлики и опечатки в коде.
-* Добавлен отсутствующий флаг PAGE_EXECUTE_WRITECOPY при детектировании возможности чтения из страницы при поиске.
+1.6.49 from 04.06.2026
+* Added a patch rollback mechanism in a remote process
 
-1.6.47 от 10.05.2026
-* Добавлен вывод информации по ресурсам процесса с просмотром содержимого
-* В список экспортируемых функций добавлена фильтрация
-* В диалоги поиска, экспорта и строк добавлено открытие выбраного модуля в проводнике
-* Доработан вывод импорта/экспорта ELF файлов в плагине dwarfreader
-* Для части модулей (ELF) добавлена поддержка Lazarus для использования в Linux
-* Загрузка отладочной информации теперь настраиваемая через TImageLoadType
+1.6.48 from 30.05.2026
+* Fixed some memory leaks and typos in the code.
+* Added the missing PAGE_EXECUTE_WRITECOPY flag when detecting whether a page can be read during search.
 
-1.5.46 от 28.02.2025
-* Исправлена ошибка "Division by zero." при чтении DWARF у исполняемых файлов с малым обьемом отладочной информации.
+1.6.47 from 10.05.2026
+* Added output of process resource information with content viewing
+* Added filtering to the exported functions list
+* Added opening the selected module in Explorer to the search, export and strings dialogs
+* Improved the output of ELF file imports/exports in the dwarfreader plugin
+* Added Lazarus support for some modules (ELF) for use on Linux
+* Loading of debug information is now configurable via TImageLoadType
 
-1.5.45 от 10.11.2024
-* В анализаторе хуков расширен warning при проверке ImgDelayDescr.ModuleInstance. Добавлена информация об адресе дескриптора.
-* В свойствах региона ImgDelayDescr.ModuleInstance теперь дополнительно выводит адрес и имя модуля.
-* Изменен диалог поиска, предыдущие поисковые запросы сохраняются в течении сессии.
-* Новый диалог результатов поиска.
-* В настройки добавлен лимит выводимых поисковых запросов (максимум 1000).
-* Исправлена неверная работа с флагом PAGE_WRITECOPY при чтении
-* Исправлена неверная работа якорей при смене DPI у нижнего вьювера страниц на главной форме.
+1.5.46 from 28.02.2025
+* Fixed a "Division by zero." error when reading DWARF in executable files with a small amount of debug information.
 
-1.5.44 от 07.11.2024
-* В настройки добавлен таймер автообновления окна свойств региона. По умолчанию отключен.
+1.5.45 from 10.11.2024
+* In the hook analyzer, extended the warning when checking ImgDelayDescr.ModuleInstance. Added information about the descriptor address.
+* The region properties for ImgDelayDescr.ModuleInstance now additionally show the module address and name.
+* Changed the search dialog; previous search queries are now kept for the duration of the session.
+* New search results dialog.
+* Added a limit on the number of displayed search queries to the settings (maximum 1000).
+* Fixed incorrect handling of the PAGE_WRITECOPY flag when reading
+* Fixed incorrect behavior of anchors on DPI change in the bottom page viewer on the main form.
 
-1.5.43 от 30.10.2024
-* Исправлен некорректный контроль результата в GetDwarfLineAtAddr, приводящий к "Argument out of range".
+1.5.44 from 07.11.2024
+* Added an auto-refresh timer for the region properties window to the settings. Disabled by default.
 
-1.5.42 от 20.09.2024
-* Исправлено падение на чтении отладочной COFF в упакованных через UPX исполяемых файлах.
+1.5.43 from 30.10.2024
+* Fixed incorrect result checking in GetDwarfLineAtAddr that caused "Argument out of range".
 
-1.5.41 от 15.09.2024
-* Исправлена работа калбэка при загрузке DWARF. Сейчас работа разнесена на два этапа (загрузка и обработка), отображение шло только по первой части.
+1.5.42 from 20.09.2024
+* Fixed a crash when reading debug COFF in UPX-packed executable files.
 
-1.5.40 от 08.09.2024
-* Добавлена настройка для отключения проверки адреса возврата в CallStack на принадлежность к исполняемой области памяти.
+1.5.41 from 15.09.2024
+* Fixed the callback behavior when loading DWARF. The work is now split into two stages (loading and processing); previously only the first part was displayed.
 
-1.5.39 от 31.08.2024
-* при чтении DWARF учитывается форма DW_FORM_ref_addr содержащая оффсет в абсолютной адресации.
-* добавлены модули для работы с ELF файлами
-* добавлен модуль генерации МАР файла на основе DWARF информации
-* добавлена внешняя утилита dwarfreader.exe для получения информации об отладочной информации без создания нового процесса.
+1.5.40 from 08.09.2024
+* Added a setting to disable checking whether the return address in a CallStack belongs to an executable memory area.
 
-1.5.38 от 13.03.2024
-* добавлена настройка поиска номера строки исходного кода относительно адреса возврата в CallStack плюс направление поиска.
-* исправлено некорректное определение загруженой отладочной информации по модулю.
-* исправлена ошибка при перечислении списка потоков 64 битного процесса с некорректным выходом при подключении первого найденого.
+1.5.39 from 31.08.2024
+* When reading DWARF, the DW_FORM_ref_addr form containing an offset in absolute addressing is now taken into account.
+* Added modules for working with ELF files
+* Added a module that generates a MAP file from DWARF information
+* Added the external utility dwarfreader.exe for obtaining debug information without creating a new process.
 
-1.5.37 от 29.01.2024
-* добавлен детект Stack Overflow с настраиваемой глубиной вложенности вызовов.
-* исправлен неверный вывод узла 32 битного стека при отсутствующих данных.
+1.5.38 from 13.03.2024
+* Added a setting for searching the source code line number relative to the return address in a CallStack, plus the search direction.
+* Fixed incorrect detection of loaded debug information for a module.
+* Fixed an error when enumerating the thread list of a 64-bit process that incorrectly exited upon attaching to the first thread found.
 
-1.5.36 от 05.01.2024
-* фикс критической ошибки в RawScaner из-за которой отвалился форвард функций.
+1.5.37 from 29.01.2024
+* Added Stack Overflow detection with a configurable call nesting depth.
+* Fixed incorrect output of a 32-bit stack node when data is missing.
 
-1.5.35 от 29.12.2023
-* добавлен вывод CallStack потоков с поддержкой CallStack снятого утилитой ProcessExplorer
-* исправлена незначительная ошибка вывода пустых блоков при включенном детекте выравниваний
+1.5.36 from 05.01.2024
+* Fix for a critical error in RawScanner that broke function forwarding.
 
-1.4.34 от 19.12.2023
-* в дизассемблере отключен вывод имени текущего модуля, имя модуля указывается только для внешних адресов
-* переделан механизм фильтров страниц для вывода данных по приоритетному фильтру в случае если страница имеет несколько аттрибутов (Shared/Mapped etc...)
-* добавлена обработка загрузки аттрибута DW_AT_location из секции .debug_loc
-* добавлена обработка загрузки модулей из секции .debug_info в которых присутствует только DW_TAG_compile_unit, или только файлы/директории из секции .debug_line.
-* исправлен неверный размер аттрибута DW_AT_language у тэга DW_TAG_compile_unit
-* добавлено детектирование имен секций в отладочном COFF по символу IMAGE_SYM_CLASS_STATIC (и проверку на имя начинающееся с точки). Такие записи исключены из вывода.
+1.5.35 from 29.12.2023
+* Added output of thread CallStacks with support for CallStacks captured by the ProcessExplorer utility
+* Fixed a minor error in the output of empty blocks when alignment detection is enabled
 
-1.4.33 от 06.11.2023
-* исправлена ошибка с фильтрацией приватных страниц
-* косметические исправления с подсветкой страниц второго уровня в списке страниц
+1.4.34 from 19.12.2023
+* The disassembler no longer outputs the name of the current module; the module name is shown only for external addresses
+* Reworked the page filter mechanism so that data is shown according to the priority filter when a page has several attributes (Shared/Mapped etc...)
+* Added handling of loading the DW_AT_location attribute from the .debug_loc section
+* Added handling of loading modules from the .debug_info section that contain only DW_TAG_compile_unit, or only files/directories from the .debug_line section.
+* Fixed the incorrect size of the DW_AT_language attribute of the DW_TAG_compile_unit tag
+* Added detection of section names in debug COFF by the IMAGE_SYM_CLASS_STATIC symbol (and a check that the name starts with a dot). Such entries are excluded from the output.
 
-1.4.32 от 02.11.2023
-* фикс ошибки чтения отладочной информации от FPC RTL из-за неверно указаного размера аттрибута DW_AT_byte_size
+1.4.33 from 06.11.2023
+* Fixed an error with filtering of private pages
+* Cosmetic fixes to the highlighting of second-level pages in the page list
 
-1.4.31 от 24.11.2023
-* добавлена поддержка DWARF версий два и три в интерпретации Lazarus + STUB (обратная развертка типов пока не произведена)
-* в дизассемблер добавлено детектирование выравниваний, для более правильного определения начала функции (отключается в настройках)
-* переработан вывод дизассемблера, расширен вывод RIP адресации, добавлен вывод меток переходов с указанием адресов прыжков на метку
-* исправлена ошибка некорректной очистки TDebugMap при повторном сканировании процесса
-* минорные исправления по дизассемблеру и общему описанию страницы памяти
+1.4.32 from 02.11.2023
+* Fixed an error reading FPC RTL debug information caused by an incorrectly specified DW_AT_byte_size attribute size
 
-1.4.30 от 07.10.2023
-* добавлен деманглинг отладочных COFF символов
-* параметры деманглинга добавлены в диалог настроек
-* в диалог выбора процесса добавлена кнопка запуска нового процесса
-* выделеный текст в свойствах региона не скрывается при потере окном фокуса
-* в заголовок свойств региона добавлен порядковый номер окна (в порядке очередности открытия)
-* добавлена настройка "TopMost Window" в меню свойств региона
-* второстепенные окна теперь могут отображаться отдельной закладкой в TaskBar (Settings -> General -> Show Child Forms on TaskBar)
-* при открытии диалога выбора адреса из свойств региона, в качестве стартового подставляется адрес от выделеного текста
-* в диалоге выбора адреса HEX поле поддерживает минимальную математику (Addr + Addr, Addr - Addr)
-* в диалог отладочной информации добавлен отладочный лог RawScanner
+1.4.31 from 24.11.2023
+* Added support for DWARF versions two and three as interpreted by Lazarus + STUB (reverse type unrolling is not implemented yet)
+* Added alignment detection to the disassembler for more accurate detection of function starts (can be disabled in the settings)
+* Reworked the disassembler output: extended RIP addressing output, added jump labels with the addresses of jumps to each label
+* Fixed an error with incorrect clearing of TDebugMap on repeated process scanning
+* Minor fixes to the disassembler and the general memory page description
 
-1.4.29 от 02.10.2023
-* добавлена поддержка COFF (DWARF в процессе)
-* добавлен размапленый вывод секции .reloc
-* добавлен размапленый вывод директории привязаного импорта
-* добавлен вывод имени секции и директории в свойствах региона
-* исправлен некорректный поиск директории в тех случаях, когда директории перекрывают друг друга
-* добавлено открытие файла в проводнике из главной формы на строках с заполненым путем к файлу
+1.4.30 from 07.10.2023
+* Added demangling of debug COFF symbols
+* Added demangling parameters to the settings dialog
+* Added a button for launching a new process to the process selection dialog
+* Selected text in the region properties is no longer hidden when the window loses focus
+* Added the window's sequence number (in order of opening) to the region properties title
+* Added the "TopMost Window" setting to the region properties menu
+* Secondary windows can now appear as separate tabs in the TaskBar (Settings -> General -> Show Child Forms on TaskBar)
+* When opening the address selection dialog from the region properties, the address from the selected text is used as the starting one
+* In the address selection dialog, the HEX field supports minimal math (Addr + Addr, Addr - Addr)
+* Added the RawScanner debug log to the debug information dialog
 
-1.4.28 от 19.03.2023
-* переработан диалог экспорта функций (Ctrl+E) подсвечиваются перехваченые функции, перенаправленные, неисполняемые и т.д.
-* добавлена поддержка HighDPI
-* в RawScanner добавлена загрузка строковых констант анализируемых РЕ файлов и их вывод в режиме дизассемблера (по умолчанию отключено).
-* в RawScanner добавлена возможность отключения логера и контекста активации через настроечный инклуд (для использования в стороннем ПО)
-* добавлен диалог работы со строками процеса (Ctrl+S)
-* фикс ошибки загрузки импорта при отсутствующем OriginalFirstThunk
-* убран лишний оверхэд на пересчете при чтении TLS, чтение перенесено после применения релоков
-* добавлена дополнительная проверка наличия процесса при реконнекте
-* произведен рефакторинг проекта, модули исходного кода разнесены по новым папкам
+1.4.29 from 02.10.2023
+* Added COFF support (DWARF in progress)
+* Added mapped output of the .reloc section
+* Added mapped output of the bound import directory
+* Added output of the section and directory name in the region properties
+* Fixed incorrect directory lookup in cases where directories overlap
+* Added opening a file in Explorer from the main form on rows with a filled-in file path
 
-1.4.27 от 25.02.2023
-* исправление ошибки открытия TLS при отсутствии подгруженного МАР файла
-* добавлен вывод статистики по отладочной информации
+1.4.28 from 19.03.2023
+* Reworked the function export dialog (Ctrl+E): hooked, forwarded, non-executable functions, etc. are highlighted
+* Added HighDPI support
+* RawScanner now loads string constants of analyzed PE files and shows them in disassembler mode (disabled by default).
+* Added the ability to disable the logger and the activation context in RawScanner via a configuration include (for use in third-party software)
+* Added a dialog for working with process strings (Ctrl+S)
+* Fixed an import loading error when OriginalFirstThunk is missing
+* Removed unnecessary recalculation overhead when reading TLS; reading was moved to after relocations are applied
+* Added an additional check for process existence on reconnect
+* Refactored the project; source code modules were moved into new folders
 
-1.4.26 от 24.02.2023
-* расширен класс TDebugMap, добавлена поддержка номеров строк из МАР файла
-* расширен вывод дизассемблера, добавлены номера строк и имена модулей (при наличии информации из МАР файла)
-* добавлен пример использования TDebugMap при конвертации CallStack снятого при помощи Process Explorer
-* расширен список ProcessorFeatures в KUSER_SHARED_DATA
-* исправления в анализаторе хуков, добавлено детектирование NoReturn функций
-* изменен вывод перехвата в середине функции, отображается адрес начала и количество пропущенных байт.
-* к прогрессу загрузки подключены дополнительные модули с длительной инициализацией
-* добавлен вывод новых процессов в окне выбора процесса
-* добавлено выделение данных по горячей клавише ко всем дополнительным окнам (Select All)
-* оптимизировано сканирование контрольных Memory Map List (MML) файлов
-* при невозможности создания контрольного MML файла для процесса, подключается диалог выбора директории
+1.4.27 from 25.02.2023
+* Fixed an error opening TLS when no MAP file is loaded
+* Added output of debug information statistics
 
-1.3.25 от 15.02.2023
-* Добавлена поддержка обновления Win11 KB5022845 (Build 22621.1265) в котором изменился размер структуры _RTL_HEAP_INFORMATION
-* Добавлена проверка битности плагинов перед их загрузкой
+1.4.26 from 24.02.2023
+* Extended the TDebugMap class; added support for line numbers from the MAP file
+* Extended the disassembler output; added line numbers and module names (when information from the MAP file is available)
+* Added an example of using TDebugMap to convert a CallStack captured with Process Explorer
+* Extended the ProcessorFeatures list in KUSER_SHARED_DATA
+* Fixes in the hook analyzer; added detection of NoReturn functions
+* Changed the output of mid-function hooks: the start address and the number of skipped bytes are displayed.
+* Additional modules with long initialization are now connected to the loading progress
+* Added output of new processes in the process selection window
+* Added a select-all hotkey (Select All) to all additional windows
+* Optimized scanning of control Memory Map List (MML) files
+* When a control MML file cannot be created for a process, a directory selection dialog is shown
 
-1.3.24 от 28.01.2023
-* Добавлен универсальный генератор шлюзов вызова 64 битных API (под перспективу расширения функционала)
+1.3.25 from 15.02.2023
+* Added support for the Win11 update KB5022845 (Build 22621.1265), in which the size of the _RTL_HEAP_INFORMATION structure changed
+* Added a check of plugin bitness before loading them
 
-1.3.23 от 9.01.2023
-* Расширен интерфейс плагинов, добавлен тип дескриптора
+1.3.24 from 28.01.2023
+* Added a universal generator of call gateways for 64-bit APIs (with future expansion of functionality in mind)
 
-1.3.22 от 31.12.2022
-* исправлена ошибка в TMemoryMap.AddImagesData приводящая к выходу за диапазон.
-* исправлен некорректный вывод количества найденных перехватчиков в таблицах отложенного импорта
-* информация от плагинов подключена в вывод дизассемблера
+1.3.23 from 9.01.2023
+* Extended the plugin interface; added a descriptor type
 
-1.3.21 от 12.12.2022
-* добавлен вывод всей строковой информации из ActivationContextData
-* исправлено ошибочное попадание отсутствующего импорта в таблицу символов
-* при отображении первичного диалога в TaskBar добавлена кнопка, для удобства
-* исправлено падение при открытии процесса доступ к которому запрещен (например AVP)
+1.3.22 from 31.12.2022
+* Fixed an error in TMemoryMap.AddImagesData that caused an out-of-range access.
+* Fixed incorrect output of the number of hooks found in delayed import tables
+* Plugin information is now connected to the disassembler output
 
-1.3.20 от 10.12.2022
-* исправлено неверное подключение отладочных директив
-* исправлена ошибка загрузки таблицы релокаций приводящая к Integer Overflow
-* добавлен вывод информации по ApiSet структурам версии 2, 4, 6
-* отключено зависание при вызове RtlQueryProcessDebugInformation на остановленом процессе
-* в диалог с известными структурами добавлены их адреса
+1.3.21 from 12.12.2022
+* Added output of all string information from ActivationContextData
+* Fixed missing imports erroneously ending up in the symbol table
+* Added a button to the TaskBar when the primary dialog is displayed, for convenience
+* Fixed a crash when opening a process to which access is denied (e.g. AVP)
 
-1.3.19 от 23.11.2022
-* добавлена поддержка плагинов
-* два демонстрационных примера плагина производящих парсинг таблицы линкеров (Delphi + MS VC++)
-* добавлены расширеные подсказки из таблицы символов
-* добавлены параметры командной строки для отладки плагинов (см. заголовочные файлы .\plugins\include\)
-* добавлен вывод краткой отладочной информации
+1.3.20 from 10.12.2022
+* Fixed incorrect connection of debug directives
+* Fixed an error loading the relocation table that led to Integer Overflow
+* Added output of information on ApiSet structures of versions 2, 4, 6
+* Fixed the hang when calling RtlQueryProcessDebugInformation on a stopped process
+* Added structure addresses to the known structures dialog
 
-1.2.18 от 14.11.2022
-* добавлен вывод IMAGE_LOAD_CONFIG_DIRECTORY 
-* добавлен вывод IMAGE_TLS_DIRECTORY 
-* добавлен вывод по таблицам экспорта (адреса, ординалы, имена) и дескрипторам импорта (IAT/INT) и отложеного импорта (DIAT/DINT)
-* добавлены подсказки к асм коду, работающему с TEB (GS/FS сегменты)
+1.3.19 from 23.11.2022
+* Added plugin support
+* Two demo plugin examples that parse the linker table (Delphi + MS VC++)
+* Added extended hints from the symbol table
+* Added command-line parameters for debugging plugins (see the header files in .\plugins\include\)
+* Added output of brief debug information
 
-1.2.17 от 07.11.2022
-* подключен новый движок символов на основе RawScanner
-* добавлены символы IAT/EAT + IMAGE_DIRECTORY_ENTRY_IAT
-* добавлено три режима работы анализатора
-* исправлена ошибка неверной работы в RvaToVa при выставленном VirtualSize = 0 в секции
-* исправлена блокирующая ошибка при дампе 64-битного TEB
+1.2.18 from 14.11.2022
+* Added output of IMAGE_LOAD_CONFIG_DIRECTORY
+* Added output of IMAGE_TLS_DIRECTORY
+* Added output for export tables (addresses, ordinals, names) and for import (IAT/INT) and delayed import (DIAT/DINT) descriptors
+* Added hints for asm code that works with the TEB (GS/FS segments)
 
-1.2.16 от 31.10.2022
-* добавлен новый фремворк статического анализа памяти на предмет установленных перехватчиков (F8)
-* добавлен механизм генерации MML файлов на основе МАР файлов (таблица конктрольных сумм процесса)
-* добавлена частичная информация по структуре tagSOleTlsData (Teb->ReservedForOle)
-* добавлен вывод структур загрузчика Peb->LoaderData 
-* добавлен частичный вывод структур контекста активации Peb->ActivationContextData + Peb->SystemDefaultActivationContextData 
-* начат плановый перевод движка символов на новый, основанный на базе RawScanner (будет ускорен вывод дизассемблирования)
+1.2.17 from 07.11.2022
+* Connected the new symbol engine based on RawScanner
+* Added IAT/EAT symbols + IMAGE_DIRECTORY_ENTRY_IAT
+* Added three analyzer operating modes
+* Fixed an error in RvaToVa when VirtualSize = 0 is set in a section
+* Fixed a blocking error when dumping a 64-bit TEB
 
-1.1.14 от 24.07.2022
-* движок дизассемблера DiStorm обновлен до версии 3.5.3
-* добавлена поддержка вывода информации об 32 битных библиотеках в 64 битном процесе и наоборот.
-* оптимизирован вывод дизассемблера, добавлены подсказки к прыжкам по известным адресам
-* добавлен переход по выделенным подсказкам в свойствах региона
-* добавлено оглавление по известным структурам, доступным для отображения (F2)
+1.2.16 from 31.10.2022
+* Added a new framework for static memory analysis for installed hooks (F8)
+* Added a mechanism for generating MML files from MAP files (a process checksum table)
+* Added partial information on the tagSOleTlsData structure (Teb->ReservedForOle)
+* Added output of the loader structures Peb->LoaderData
+* Added partial output of the activation context structures Peb->ActivationContextData + Peb->SystemDefaultActivationContextData
+* Started the planned migration of the symbol engine to a new one based on RawScanner (disassembly output will be faster)
+
+1.1.14 from 24.07.2022
+* The DiStorm disassembler engine was updated to version 3.5.3
+* Added support for displaying information about 32-bit libraries in a 64-bit process and vice versa.
+* Optimized the disassembler output; added hints for jumps to known addresses
+* Added navigation via selected hints in the region properties
+* Added a table of contents of known structures available for display (F2)

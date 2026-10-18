@@ -1,17 +1,33 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uSettings.pas
-//  * Purpose   : Класс настроек
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : PMM Settings
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.6.47
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -20,14 +36,15 @@ unit uSettings;
 interface
 
 uses
-  Windows, Classes, Graphics, SysUtils, Registry;
+  Windows, Classes, Graphics, SysUtils, Registry, RawScanner.Pdb;
 
 type
   TExportStatus = (esNormal, esForvarded, esRebased,
     esNoExecutable, esInvalid,
     esDebug, esDebugData, // MAP
     esCoff, esCoffData,   // COFF
-    esDwarf, esDwarfData  // DWARF
+    esDwarf, esDwarfData, // DWARF
+    esPdb, esPdbData      // PDB
     );
   PExportsStatus = ^TExportsStatus;
   TExportsStatus = set of TExportStatus;
@@ -64,6 +81,12 @@ type
     FStackOverflowLimit: Integer;
     FSearchLimit: Integer;
     FExportsShowFilter: TExportsStatus;
+    FUsePDB: Boolean;
+    FDownloadPDB: Boolean;
+    FSymSrv: string;
+    FCheckUpdates: Boolean;
+    FLastCheckedUpdate: string;
+    FProxy: TProxySettings;
   private
     procedure SetExportsShowFilter(const Value: TExportsStatus);
   public
@@ -102,8 +125,14 @@ type
     property ShowAligns: Boolean read FShowAligns write FShowAligns;
     property CheckStackAddrPCExecutable: Boolean read FCheckStackAddrPCExecutable write FCheckStackAddrPCExecutable;
     property SearchLimit: Integer read FSearchLimit write FSearchLimit;
+    property UsePDB: Boolean read FUsePDB write FUsePDB;
+    property DownloadPDB: Boolean read FDownloadPDB write FDownloadPDB;
+    property SymSrv: string read FSymSrv write FSymSrv;
+    property Proxy: TProxySettings read FProxy write FProxy;
+    property CheckUpdates: Boolean read FCheckUpdates write FCheckUpdates;
+    property LastCheckedUpdate: string read FLastCheckedUpdate write FLastCheckedUpdate;
 
-    // настройки отсутствующие в диалоге
+    // Settings not present in the dialog
     property ExportsShowFilter: TExportsStatus read FExportsShowFilter write SetExportsShowFilter;
   end;
 
@@ -137,6 +166,8 @@ begin
 end;
 
 procedure TSettings.LoadDefault;
+const
+  DefaultSymPath = 'srv*c:\symbols*https://msdl.microsoft.com/download/symbols';
 begin
   ImageColor := RGB(210, 160, 255);
   ImagePartColor := RGB(157, 160, 255);
@@ -167,7 +198,17 @@ begin
   AutoRefresh := False;
   AutoRefreshDelay := 5000;
   SearchLimit := 50;
-  FExportsShowFilter := [esNormal..esDwarfData];
+  FExportsShowFilter := [esNormal..esPdbData];
+  FUsePDB := True;
+  FDownloadPDB := False;
+  FSymSrv := GetEnvironmentVariable('_NT_SYMBOL_PATH');
+  if FSymSrv = '' then
+    FSymSrv := DefaultSymPath;
+  FProxy := Default(TProxySettings);
+  FCheckUpdates := True;
+
+  // Do NOT reset this one!!!
+  // FLastCheckedUpdate := '';
 end;
 
 procedure TSettings.LoadSettings;
@@ -227,6 +268,26 @@ begin
         I := R.ReadInteger('ExportsShowFilter');
         FExportsShowFilter := PExportsStatus(@I)^;
       end;
+      if R.ValueExists('UsePDB') then
+      begin
+        UsePDB := R.ReadBool('UsePDB');
+        DownloadPDB := R.ReadBool('DownloadPDB');
+        SymSrv := R.ReadString('SymSrv');
+        FProxy.Kind := TProxyKind(R.ReadInteger('ProxyKind'));
+        FProxy.AuthKind := TProxyAuthKind(R.ReadInteger('ProxyAuthKind'));
+        FProxy.Host := R.ReadString('ProxyHost');
+        FProxy.Port := R.ReadInteger('ProxyPort');
+        FProxy.Login := R.ReadString('ProxyLogin');
+        FProxy.Password := R.ReadString('ProxyPassword');
+        CheckUpdates := R.ReadBool('CheckUpdates');
+        LastCheckedUpdate := R.ReadString('LastCheckedUpdate');
+      end
+      else
+      begin
+        UsePDB := True;
+        Include(FExportsShowFilter, esPdb);
+        Include(FExportsShowFilter, esPdbData);
+      end;
     except
       LoadDefault;
     end;
@@ -269,6 +330,17 @@ begin
     R.WriteInteger('AutoRefreshDelay', AutoRefreshDelay);
     R.WriteInteger('SearchLimit', SearchLimit);
     R.WriteInteger('ExportsShowFilter', PInteger(@FExportsShowFilter)^);
+    R.WriteBool('UsePDB', UsePDB);
+    R.WriteBool('DownloadPDB', DownloadPDB);
+    R.WriteString('SymSrv', SymSrv);
+    R.WriteInteger('ProxyKind', Integer(Proxy.Kind));
+    R.WriteInteger('ProxyAuthKind', Integer(Proxy.AuthKind));
+    R.WriteString('ProxyHost', Proxy.Host);
+    R.WriteInteger('ProxyPort', Proxy.Port);
+    R.WriteString('ProxyLogin', Proxy.Login);
+    R.WriteString('ProxyPassword', Proxy.Password);
+    R.WriteBool('CheckUpdates', CheckUpdates);
+    R.WriteString('LastCheckedUpdate', LastCheckedUpdate);
   finally
     R.Free;
   end;

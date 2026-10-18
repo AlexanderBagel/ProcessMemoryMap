@@ -162,6 +162,7 @@ object dlgResources: TdlgResources
           Align = alClient
           PopupMenu = pmHex
           TabOrder = 0
+          ExplicitWidth = 904
         end
       end
       object tsText: TTabSheet

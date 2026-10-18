@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uResources.pas
-//  * Purpose   : Форма для отображения ресурсов процесса
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Resource Viewer
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -128,7 +144,6 @@ type
       Node: PVirtualNode);
     procedure cbTypesChange(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure pbResImagePaint(Sender: TObject);
     procedure tsImageResize(Sender: TObject);
     procedure sbVertChange(Sender: TObject);
@@ -336,7 +351,9 @@ begin
         if Frames[I].Handle = 0 then Continue;
         RowHeight := Max(Frames[I].Height + Param.DblPadding, TextHeight);
 
-        // зебра для длинных списков
+        // zebra striping for long lists
+        // [ru] зебра для длинных списков
+
         if Odd(I) then
         begin
           Result.Canvas.Brush.Style := bsSolid;
@@ -348,7 +365,9 @@ begin
 
         Result.Canvas.TextOut(Param.Margin, Y + (RowHeight - TextHeight) div 2, Texts[I]);
 
-        // ячейка под иконку + шахматный фон для более явного отображения альфа-канала
+        // cell for the icon + checkerboard background to make the alpha channel more visible
+        // [ru] ячейка под иконку + шахматный фон для более явного отображения альфа-канала
+
         CellRect := Bounds(IconColumnX, Y + (RowHeight - (Frames[I].Height + Param.DblPadding)) div 2,
           Frames[I].Width + Param.DblPadding, Frames[I].Height + Param.DblPadding);
         DrawCheckerBoard(Result.Canvas, Param.CheckerSize, CellRect);
@@ -760,6 +779,8 @@ begin
   FAnimation.Color := clWhite;
   FAnimation.PopupMenu := pmImage;
   FAnimation.Visible := False;
+  FAnimation.Font.Name := 'Segoe UI';
+  FAnimation.Font.Size := MulDiv(10, FCurrentPPI, USER_DEFAULT_SCREEN_DPI);
 end;
 
 procedure TdlgResources.FormDestroy(Sender: TObject);
@@ -768,12 +789,6 @@ begin
   FResTypes.Free;
   FResTrees.Free;
   FResImage.Free;
-end;
-
-procedure TdlgResources.FormKeyPress(Sender: TObject; var Key: Char);
-begin
-  if Key = #27 then
-    Close;
 end;
 
 procedure TdlgResources.FormShow(Sender: TObject);
@@ -810,10 +825,17 @@ begin
 
           if not FileExists(FilePath) then
           begin
-            // А файла на месте может и не быть ибо он перемещен, хотя в списках
+
+            // The file may no longer be in place because it has been moved,
+            // even though the loader's lists will still contain the path
+            // where it is supposed to be. In that case, we will request the
+            // path from MemoryMapCore, which always contains up-to-date path
+
+            // [ru] А файла на месте может и не быть ибо он перемещен, хотя в списках
             // загрузчика все еще будет путь по которому он должен находиться.
-            // Тогда запросим актуальный путь у MemoryMapCore у которой всегда
-            // актуальные пути.
+            // Тогда запросим путь у MemoryMapCore которой всегда
+            // содержит актуальные пути.
+
             FilePath := FilePathAtImageBase(Image.ImageBase);
             if not FileExists(FilePath) then
               Continue;
@@ -910,6 +932,7 @@ begin
     brtTiff: Filter := '|TIFF (*.tiff)|*.tiff';
     brtSvgUtf8: Filter := '|SVG (*.svg)|*.svg';
     brtDFM: Filter := '|Delphi Form (*.dfm)|*.dfm';
+    brtAvi: Filter := '|AVI (*.avi)|*.avi';
   else
     FilterCount := 2;
   end;
@@ -1057,7 +1080,8 @@ begin
     else
     begin
       pBuff := PByteArray(PByte(AStream.Memory) + Entries[I].ImageOffset - 4);
-      PInteger(pBuff)^ := 0; // хотспоты курсора (два ворда), просто скидываю в ноль
+      PInteger(pBuff)^ := 0; // cursor hotspots (two WORDs), just reset them to zero
+                             // [ru] хотспоты курсора (два ворда), просто скидываю в ноль
       Result[I].Handle := CreateIconFromResourceEx(PByte(pBuff),
         Entries[I].BytesInRes + 4, False, $00030000,
         Result[I].Width, Result[I].Height, LR_DEFAULTCOLOR)
@@ -1124,7 +1148,8 @@ end;
 
 procedure TdlgResources.sbVertChange(Sender: TObject);
 begin
-  // Отключение флика
+  // flicker is eliminated with this simple trick
+  // [ru] отключение флика делается вот таким простым трюком
   InvalidateRect(tsImage.Handle, pbResImage.BoundsRect, False);
 end;
 

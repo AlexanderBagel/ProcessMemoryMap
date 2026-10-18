@@ -1,17 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uCallStack.pas
-//  * Purpose   : Утилита демангла CallStack от ProcessExpplorer
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Utility that resolves a Process Explorer CallStack
+//  *           : into units, functions and lines
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -108,7 +125,6 @@ type
       State: TCustomDrawState; var DefaultDraw: Boolean);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure FormKeyPress(Sender: TObject; var Key: Char);
     procedure tvThreadGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
     procedure tvThreadAddToSelection(Sender: TBaseVirtualTree;
@@ -381,9 +397,14 @@ procedure TdlgCallStack.DoConvert(Image64: Boolean);
     Result := '';
     Count := SymbolStorage.GetDataCountAtAddr(AddrVa);
 
-    // если адрес в середине функции и нам нужно вытащить её название
+    // If the address is in the middle of a function and you need to get its name,
+    // then force a single data query,
+    // GetExportAtAddr will return data from which you can extract the offset
+
+    // [ru] если адрес в середине функции и нужно получить её название
     // тогда принудительно запускаем один запрос данных,
     // GetExportAtAddr вернет данные по которым можно вытянуть оффсет
+
     if Count = 0 then
       Count := 1;
 
@@ -504,10 +525,14 @@ begin
         Delete(Line, 1, 1);
       FuncName := GetFunction(Line);
 
-      // контроль деманглинга имени функции экспортируемой по ординалу
+      // Check for demangling of function names exported by ordinal
+      // SymGetSymFromAddr returns such functions with the prefix "Ordinal"
+      // MemoryMap.Symbols prefixes them with the # symbol
+
+      // [ru] контроль деманглинга имени функции экспортируемой по ординалу
       // SymGetSymFromAddr возвращает такие функции с префиксом Ordinal
-      // MemoryMap.Symbols экранирует их символом # и для этого режима
-      // данный контроль будет избыточен
+      // MemoryMap.Symbols экранирует их символом #
+
       if (FCurrentMode in [ntCustom32, ntCustom64]) and FuncName.StartsWith('Ordinal') then
         BaseAddr := GetFunctionAddr(ModuleName, '#' + Copy(FuncName, 8, Length(FuncName)), PEImage)
       else
@@ -517,8 +542,12 @@ begin
       Failed := not TryStrToUInt(Line, FuncOffset);
       Item.SubItems.Add(ModuleName);
 
-      // проверка на наличие смещения от начала функции
+      // checking for an offset relative to the start of the function
+      // and for the function's address
+
+      // [ru] проверка на наличие смещения от начала функции
       // и наличия адреса функции
+
       if Failed or (BaseAddr = 0) then
       begin
         Item.SubItems.Add(EmptyStr);
@@ -629,10 +658,16 @@ begin
     FirstRoot := nil;
     for I := 0 to FThreads.ThreadStackEntries.Count - 1 do
     begin
-      // заполняем рута
+
+      // fill in the root
+      // [ru] заполняем рута
+
       if CurrentID <> FThreads.ThreadStackEntries[I].ThreadID then
       begin
-        // если новый рут, то к предыдущему докидываем SEH если есть
+
+        // f the root is new, add SEH to the previous one, if it exists
+        // [ru] если рут новый, то к предыдущему докидываем SEH если есть
+
         if CurrentID <> 0 then
           FillSEH(CurrentID);
         CurrentID := FThreads.ThreadStackEntries[I].ThreadID;
@@ -646,12 +681,17 @@ begin
         Data.Level := 0;
         Continue;
       end;
-      // если появился новый тип потока, переключаемся на него
+
+      // f a new type of stream appears, switch to it
+      // [ru] если появился новый тип потока, переключаемся на него
+
       NextType := GetNodeType(FThreads.ThreadStackEntries[I]);
       if NextType <> CurrentType then
       begin
-        // если присутствует 32 битный стек нити
-        // переключаем рута на него
+
+        // if a 32-bit thread stack is present, switch the root to it.
+        // [ru] если присутствует 32 битный стек нити переключаем рута на него
+
         Data := Root.GetData;
         Data.AType := NextType;
         Child := tvThread.AddChild(Root);
@@ -706,11 +746,6 @@ begin
   FThreads.Free;
   FCurrentStackData.Free;
   FCustomStacks.Free;
-end;
-
-procedure TdlgCallStack.FormKeyPress(Sender: TObject; var Key: Char);
-begin
-  if Key = #27 then Close;
 end;
 
 function TdlgCallStack.GetLineText(AItem: TListItem): string;

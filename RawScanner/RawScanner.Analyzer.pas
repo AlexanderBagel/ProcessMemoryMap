@@ -1,18 +1,34 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : RawScanner.Analyzer.pas
-//  * Purpose   : Класс сравнивает состояние памяти процесса с рассчитаным
-//  *           : на основе образов файлов с диска и отдает результаты наружу.
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : This class compares the process's memory state with
+//  *           : the state calculated based on file images from disk.
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.2.27
+//  * Version   : 1.2.30
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -41,42 +57,114 @@ uses
 
 type
   TImportAdvanced = record
-    OriginalForvardedTo,                // изначальное перенправление функции
-    ForvardedTo: string;                // текущее перенаправление функции
+
+    // initial function redirection
+    // [ru] изначальное перенаправление функции
+
+    OriginalForvardedTo,
+
+    // current function redirection
+    // [ru] текущее перенаправление функции
+
+    ForvardedTo: string;
   end;
 
   TExportAdvanced = record
-    Patched: Boolean;                   // флаг признака модификации страницы
-    RawOffset: DWORD;                   // оффсет в файле
-    ExpRawRva, ExpRemoteRva: DWORD;     // рассчитаные и реальные данные в блоке (только для экспорта)
+
+    // page modification flag
+    // [ru] флаг признака модификации страницы
+
+    Patched: Boolean;
+
+    // offset in the file
+    // [ru] оффсет в файле
+
+    RawOffset: DWORD;
+
+    // Calculated and actual data in the block (for export only)
+    // [ru] Рассчитанные и реальные данные в блоке (только для экспорта)
+
+    ExpRawRva, ExpRemoteRva: DWORD;
   end;
 
   THookData = record
-    ProcessHandle: THandle;             // хэндл процесса, потребуется для получения допинформации
-    Image64: Boolean;                   // флаг битности модуля
-    ImageBase: ULONG_PTR64;             // инстанс модуля
-    VirtualSize: UInt64;                // размер модуля в памяти
-    AddrVA: ULONG_PTR64;                // VA адрес блока памяти
-    HookType: THookType;                // тип блока импорт/экспорт
-    RawVA, RemoteVA: ULONG_PTR64;       // рассчитаный и реальный VA адрес, на который указывает блок
-    Calculated: Boolean;                // флаг показывающий что рассчитаны контрольные Raw данные
-    ModuleName,                         // имя модуля в котором обьявлена функция
-    FuncName: string;                   // имя функции, которую описывает блок
+
+    // process handle, required to retrieve additional information
+    // [ru] хэндл процесса, потребуется для получения дополнительной информации
+
+    ProcessHandle: THandle;
+    Image64: Boolean;
+    ImageBase: ULONG_PTR64;
+    VirtualSize: UInt64;
+    HookType: THookType;
+
+    // Virtual address of the memory block
+    // [ru] VA адрес блока памяти
+
+    AddrVA: ULONG_PTR64;
+
+    // the calculated and actual VA address pointed to by the block
+    // [ru] рассчитанный и реальный VA адрес, на который указывает блок
+
+    RawVA, RemoteVA: ULONG_PTR64;
+
+    // A flag indicating that the raw test data has been calculated
+    // [ru] Флаг, показывающий, что контрольные Raw-данные рассчитаны
+
+    Calculated: Boolean;
+
+    // the name of the module in which the function is declared
+    // [ru] имя модуля, в котором объявлена функция
+
+    ModuleName,
+
+    // the name of the function described by the block
+    // [ru] имя функции, которую описывает блок
+
+    FuncName: string;
     ImportAdv: TImportAdvanced;
     ExportAdv: TExportAdvanced;
   end;
   TProcessTableHookCallBack = reference to procedure(const Data: THookData);
 
   TCodeHookData = record
-    ProcessHandle: THandle;             // хэндл процесса, потребуется для получения допинформации
-    Image64: Boolean;                   // флаг битности модуля
-    ImageBase: ULONG_PTR64;             // инстанс модуля
-    AddrVA: ULONG_PTR64;                // VA адрес блока в удаленном процессе
-    RawOffset: DWORD;                   // оффсет в файле
-    ExportFunc: string;                 // имя функции описываемой блоком
-    Raw, Remote: PByte;                 // указатель на блоки данных
-    BufSize: Integer;                   // размер блоков
-    Patched: Boolean;                   // флаг признака модификации страницы
+
+    // process handle, required to retrieve additional information
+    // [ru] хэндл процесса, потребуется для получения дополнительной информации
+
+    ProcessHandle: THandle;
+    Image64: Boolean;
+    ImageBase: ULONG_PTR64;
+
+    // Virtual address of the memory block
+    // [ru] VA адрес блока памяти
+
+    AddrVA: ULONG_PTR64;
+
+    // offset in the file
+    // [ru] оффсет в файле
+
+    RawOffset: DWORD;
+
+    // the name of the function described by the block
+    // [ru] имя функции, которую описывает блок
+
+    ExportFunc: string;
+
+    // pointers to data blocks
+    // [ru] указатели на блоки данных
+
+    Raw, Remote: PByte;
+
+    // size of the blocks
+    // [ru] размер блоков
+
+    BufSize: Integer;
+
+    // page modification flag
+    // [ru] флаг признака модификации страницы
+
+    Patched: Boolean;
   end;
   TProcessCodeHookCallBack = reference to procedure(const Data: TCodeHookData);
 
@@ -102,7 +190,11 @@ type
     Modules: TAnalizedItem;
     Import: TAnalizedItem;
     Export: TAnalizedItem;
-    Code: TAnalizedItem; // включая EntryPoint + TLS Callback
+
+    // including EntryPoint + TLS Callback
+    // [ru] включая EntryPoint + TLS Callback
+
+    Code: TAnalizedItem;
   end;
 
   TPatchAnalyzer = class
@@ -258,8 +350,13 @@ var
   Tmp: Byte;
 begin
   Result := FWorkingSet.TryGetValue(AddrVA and PageMask, SharedCount);
-  // Если информации по странице нет в кэше первичной инициализации ворксета,
+
+  // If the information for the page is not in the working set's initialization cache,
+  // then it must be forcibly loaded into the work set by reading 1 byte at the address
+
+  // [ru] Если информации по странице нет в кэше первичной инициализации ворксета,
   // то нужно её принудительно подгрузить в ворксет чтением 1 байта по адресу
+
   if not Result then
   begin
     if ReadRemoteMemory(FProcessHandle, AddrVa, @Tmp, 1) then
@@ -289,24 +386,54 @@ begin
   SetLength(RawBuff, DefaultBuffSize);
   SetLength(RemoteBuff, DefaultBuffSize);
 
-  // Проверяем размер буфера который можно прочитать.
-  // Если мы находимся в конце секции, то нужно ограничить размер
-  // т.к. в Raw файле сразу за данными текущей секции пойдут данные следующей
-  // секции, а в памяти они будут разнесены по своим VA адресам
-  // в итоге получится что-то типа такого
+  // = [EN] ====================================================================
+
+  // Check the size of the buffer that can be read.
+  // If we are at the end of a section, we need to limit the size
+  // because in a Raw file, the data for the next section follows immediately
+  // after the data for the current section,
+  // but in memory, they will be separated by their VA addresses
+  // The result will look something like this
+
   {
   [+] WARN: dclIndyProtocols270.bpl export: Finalize current: 0000000023425BF4 binary modified.
   [.]       Expected: B8 1C 4B 42 23 E8 F2 BB FF FF C3 90 ! FF 25 04 A1 42 23 8B C0...
   [.]       Present:  B8 1C 4B 42 23 E8 F2 BB FF FF C3 90 ! 00 00 00 00 00 00 00 00...
   }
+
+  // Here, after the exclamation mark, FF 25... this is already data
+  // from the next section at address 0x23426000
+
+  // = [RU] ====================================================================
+
+  // Проверяем размер буфера который можно прочитать.
+  // Если мы находимся в конце секции, то нужно ограничить размер
+  // т.к. в Raw файле сразу за данными текущей секции пойдут данные следующей
+  // секции, а в памяти они будут разнесены по своим VA адресам
+  // в итоге получится что-то типа такого
+
+  {
+  [+] WARN: dclIndyProtocols270.bpl export: Finalize current: 0000000023425BF4 binary modified.
+  [.]       Expected: B8 1C 4B 42 23 E8 F2 BB FF FF C3 90 ! FF 25 04 A1 42 23 8B C0...
+  [.]       Present:  B8 1C 4B 42 23 E8 F2 BB FF FF C3 90 ! 00 00 00 00 00 00 00 00...
+  }
+
   // здесь после восклицательного знака FF 25... это уже данные
-  // из следующей секции по адресу 0х23426000
+  // из следующей секции по адресу 0x23426000
+
+  // ===========================================================================
+
   BuffSize := DefaultBuffSize;
   Module.FixAddrSize(AddrVA, BuffSize);
 
-  // проверка, если мы в конце секции и читать нечего, значит (скорее всего)
-  // алгоритм рассчета ошибся с определением адреса.
-  // пишем уведомление в лог
+  // Check if we're at the end of the section and there's nothing left to read,
+  // if so, the calculation algorithm (most likely) made a mistake in determining the address.
+  // Write a message to the log
+
+  // [ru] Проверка, если мы в конце секции и читать нечего,
+  // значит (скорее всего) алгоритм расчета ошибся с определением адреса.
+  // Пишем уведомление в лог
+
   if BuffSize = 0 then
   begin
     Warn(Format('Error reading function "%s" at address 0x%.1x',
@@ -315,11 +442,15 @@ begin
     Exit;
   end;
 
-  // зачитываем блок из файла
+  // Read a block from a file
+  // [ru] Читаем блок из файла
+
   FRaw.Position := AddrRaw;
   FRaw.ReadBuffer(RawBuff[0], BuffSize);
 
-  // и из памяти
+  // and from memory
+  // [ru] и из памяти
+
   if not ReadRemoteMemory(FProcessHandle, AddrVA,
     @RemoteBuff[0], BuffSize) then
   begin
@@ -336,8 +467,12 @@ begin
       CheckPageSharing(AddrVA, SharedCount) and
       (SharedCount = 0);
 
-    // блоки не совпали
+    // blocks do not match
+    // pass to an external processor for analysis, if one has been assigned
+
+    // [ru] блоки не совпали
     // отдаем на анализ внешнему обработчику, если таковой назначен
+
     if Assigned(FProcessCodeHook) then
     begin
       Data.ProcessHandle := FProcessHandle;
@@ -423,10 +558,9 @@ end;
 
 procedure TPatchAnalyzer.ScanEntryPoints(Index: Integer; Module: TRawPEImage);
 begin
-  // проверка, есть ли вообще функции на проверку?
   if Module.EntryPointList.Count = 0 then Exit;
 
-  Notify('Process EntryPoint and TSL Callbacks',
+  Notify('Process EntryPoint and TLS Callbacks',
     Format('(%d)', [Module.EntryPointList.Count]));
 
   for var I := 0 to Module.EntryPointList.Count - 1 do
@@ -440,7 +574,6 @@ var
   ExportDirectory: TRemoteStream;
   HookData: THookData;
 begin
-  // проверка, есть ли вообще таблица экспорта?
   if Module.ExportList.Count = 0 then Exit;
 
   Notify('Process export', Format('(%d)',[Module.ExportList.Count]));
@@ -469,7 +602,9 @@ begin
       HookData.ExportAdv.ExpRawRva := Exp.FuncAddrRVA;
       HookData.Calculated := True;
 
-      // RVA адрес в таблице экспорта всегда 4 байта, даже в 64 битах
+      // The RVA address in the export table is always 4 bytes, even in 64-bit systems
+      // [ru] RVA адрес в таблице экспорта всегда 4 байта, даже в 64 битах
+
       if not ExportDirectory.ReadMemory(Exp.ExportTableVA, 4,
         @HookData.ExportAdv.ExpRemoteRva) then
       begin
@@ -487,11 +622,19 @@ begin
       if HookData.RemoteVA <> HookData.RawVA then
       begin
 
-        // если функция перенаправлена, пытаемся её подгрузить
+        // If a function is redirected, we attempt to load it
+        // This applies only to 32-bit systems, where the export table contains
+        // the full offset to the redirected function,
+        // in 64-bit systems, this field is usually left untouched
+        // because libraries may be spread out beyond what a
+        // 32-bit RVA offset can accommodate
+
+        // [ru] Если функция перенаправлена, пытаемся её подгрузить
         // это актуально только для 32 бит где в таблицу экспорта прописывается
-        // полный оффсет до перенаправленой функции, в 64 битах это поле обычно не трогается
+        // полный оффсет до перенаправленной функции, в 64 битах это поле обычно не трогается
         // т.к. библиотеки могут быть разнесены больше чем позволяет в себя вместить
         // 32 битный RVA оффсет
+
         if Exp.ForvardedTo <> EmptyStr then
           if not FRawModules.GetProcData(Exp.ForvardedTo,
             Module.Image64, ForvardedExp, HookData.RemoteVA) then
@@ -511,25 +654,32 @@ begin
 
       end;
 
-      // Подготовка перед проверкой кода функции:
+      // If the function is redirected to another module, skip the check
+      // [ru] Если функция перенаправлена в другой модуль - пропускаем проверку
 
-      // 1. Если функция перенаправлена в другой модуль - пропускаем проверку
       if Exp.OriginalForvardedTo <> EmptyStr then
       begin
         Inc(FAnalizeResult.Code.Skipped);
         Continue;
       end;
 
-      // 2. Если функция не содержит кода - пропускаем проверку
+      // If a function does not contain any code, skip the check
+      // [ru] Если функция не содержит кода - пропускаем проверку
+
       if not Exp.Executable then
       begin
         Inc(FAnalizeResult.Code.Skipped);
         Continue;
       end;
 
-      // после того как удостоверились что запись в таблице экспорта вадидная
+      // After verifying that the entry in the export table is valid
+      // and has not been redirected to another module, then
+      // we check the function's binary code
+
+      // [ru] После того как удостоверились, что запись в таблице экспорта валидная
       // и не перенаправлена в другой модуль, то тогда
       // проверяем бинарный код функции
+
       CompareBinary(Exp.FuncAddrVA, Exp.FuncAddrRaw, Exp.ToString, Module);
 
     end;
@@ -581,12 +731,13 @@ var
   ModuleIndex: Integer;
   ValidModule: Boolean;
 begin
-  // проверка, есть ли вообще таблица импорта?
   if Module.ImportList.Count = 0 then Exit;
 
   Notify('Process import', Format('(%d)', [Module.ImportList.Count]));
 
-  // если модуль IMAGE_SUBSYSTEM_NATIVE, то импорт смотреть не имеет смысла
+  // If the module is IMAGE_SUBSYSTEM_NATIVE, there's no point in checking the import
+  // [ru] Если модуль IMAGE_SUBSYSTEM_NATIVE, то импорт смотреть не имеет смысла
+
   if Module.NtHeader.OptionalHeader.Subsystem = IMAGE_SUBSYSTEM_NATIVE then
   begin
     Inc(FAnalizeResult.Import.Skipped, Module.ImportList.Count);
@@ -595,33 +746,72 @@ begin
     Exit;
   end;
 
-  // отдельная проверка .NET библиотек
+  // Separate testing of .NET libraries
+  // [ru] Отдельная проверка .NET библиотек
+
   if Module.ComPlusILOnly then
   begin
-    // В процес могут быть загружены библиотеки содержащие только IL код
-    // не выполняемый нативно. У таких библиотек в COR20 заголовке
-    // выставлен флаг COMIMAGE_FLAGS_ILONLY, а так-же у файла в таблице
-    // импорта есть единственная заглушка ведущая на mscoree.dll -> _CorDllMain
-    // Загрузчик, при наличии данного флага, не обрабатывает таблицу импорта,
-    // что можно наглядно увидеть в "...base\ntdll\ldrapi.c" в функции LdrpLoadDll()
+
+    // = [EN] ==================================================================
+
+    // Libraries containing only IL code, that is not executed natively
+    // may be loaded into the process. For such libraries, the COR20 header
+    // sets the COMIMAGE_FLAGS_ILONLY flag, and the file's import table
+    // contains a single placeholder pointing to mscoree.dll -> _CorDllMain
+    // If this flag is present, the loader does not process the import table,
+    // which can be clearly seen in "...base\ntdll\ldrapi.c" in the LdrpLoadDll() function
+
     {
       // if the image is COR-ILONLY, then don't walk the import descriptor
       // as it is assumed that it only imports %windir%\system32\mscoree.dll, otherwise
       // walk the import descriptor table of the dll.
     }
-    // При наличии данного флага также не обрабатывается секция релокации.
+
+    // If this flag is set, the relocation table is also not processed.
+    // However, if the library is to be loaded into a 32-bit application,
+    // ILAsm can override this flag by replacing it with COMIMAGE_FLAGS_32BITREQUIRED.
+    // The TRawPEImage.LoadCor20Header function, when initializing the ComPlusILOnly parameter,
+    // takes this nuance into account.
+
+    // These libraries can be identified not only by reading the COM header;
+    // an indicator that the native image is not executable is also contained in the flags
+    // of the loader table: LDR_DATA_TABLE_ENTRYxx.Flags and LDRP_COR_IMAGE <> 0
+    // It is set in the module "...base\ntdll\ldrinit.c" in LdrpInitializeProcess()
+
+    // = [RU] ==================================================================
+
+    // В процесс могут быть загружены библиотеки содержащие только IL код
+    // не выполняемый нативно. У таких библиотек в COR20 заголовке
+    // выставлен флаг COMIMAGE_FLAGS_ILONLY, а также у файла в таблице
+    // импорта есть единственная заглушка ведущая на mscoree.dll -> _CorDllMain
+    // Загрузчик, при наличии данного флага, не обрабатывает таблицу импорта,
+    // что можно наглядно увидеть в "...base\ntdll\ldrapi.c" в функции LdrpLoadDll()
+
+    {
+      // if the image is COR-ILONLY, then don't walk the import descriptor
+      // as it is assumed that it only imports %windir%\system32\mscoree.dll, otherwise
+      // walk the import descriptor table of the dll.
+    }
+
+    // При наличии данного флага также не обрабатывается таблица релокаций.
     // Однако если библиотека должна загружаться в 32 битное приложение
-    // ILAsm может исключить этот флаг, заменив его на COMIMAGE_FLAGS_32BITREQUIRED.
+    // ILAsm может переопределить этот флаг, заменив его на COMIMAGE_FLAGS_32BITREQUIRED.
     // Функция TRawPEImage.LoadCor20Header при инициализации параметра ComPlusILOnly
     // учитывает этот нюанс.
-    //
+
     // Определить такие библиотеки можно не только читая COM заголовок,
-    // признак неисполняемого нативного образа содержится так-же и в флагах
+    // признак неисполняемого нативного образа содержится также и в флагах
     // таблицы загрузчика LDR_DATA_TABLE_ENTRYxx.Flags and LDRP_COR_IMAGE <> 0
     // Он выставляется в модуле "...base\ntdll\ldrinit.c" в LdrpInitializeProcess()
-    //
-    // Помимо этих двух проверок, можно сделать контрольную.
+
+    // =========================================================================
+
+    // In addition to these two checks, you can perform a verification check.
+    // Specifically: the section pointed to by the entry point is not executable!
+
+    // [ru] Помимо этих двух проверок, можно сделать контрольную.
     // А именно: секция, на которую указывает точка входа, не исполняемая!
+
     if Module.EntryPoint <> 0 then
       if VirtualQueryEx64(FProcessHandle,
         Module.EntryPoint, MBI,
@@ -632,7 +822,10 @@ begin
           PAGE_EXECUTE_WRITECOPY or
           PAGE_EXECUTE_READWRITE) = 0 then
         begin
-          // если точка входа не исполняемая - пропускаем такой файл
+
+          // If the entry point is not executable, skip that file
+          // [ru] Если точка входа не исполняемая - пропускаем такой файл
+
           Inc(FAnalizeResult.Import.Skipped, Module.ImportList.Count);
           Info(Module.ImageName + ' (imagebase: 0x' +
             IntToHex(Module.ImageBase, 1) +
@@ -640,25 +833,52 @@ begin
           Exit;
         end;
 
-    // Еще можно проверить следующие два момента, но это немного спорно:
-    // 1. инициализирована ли таблица импорта через сброшеный шаринг страницы.
-    // Если не инициализирована (не сброшен шаринг) - пропускаем.
+    // = [EN] ==================================================================
+
+    // You can also check the following two points, but this is somewhat debatable:
+
+    // 1. Check whether the import table has been initialized via a reset page share.
+    // If it hasn't been initialized (the share hasn't been reset), skip this step.
     // if CheckPageSharing(
     //   AIat.BaseAddress, SharedCount) and (SharedCount <> 0) then
-    // Спорно потому что, судя по всему, модификация IAT происходит по причине
-    // отработавшего BoundsImport, которого у таких библиотек нет.
-    //
-    // 2.еще у таких библиотек странная особенность, при их загрузке
-    // 32 битный OptionalHeader полностью перезаписывается 64 битным аналогом
-    // Можно сделать проверку на сброшеный шаринг страницы с РЕ заголовком
+    // This is debatable because, apparently, the IAT is modified due to
+    // a completed BoundsImport, which such libraries do not have.
+
+    // 2. These libraries also have a strange quirk when they are loaded:
+    // The 32-bit OptionalHeader is completely overwritten by its 64-bit counterpart.
+    // You can check to see if the page sharing with the PE header has been reset.
     // if CheckPageSharing(
     //   Module.ImageBase, SharedCount) and (SharedCount = 0) then
 
+    // = [RU] ==================================================================
+
+    // Еще можно проверить следующие два момента, но это немного спорно:
+
+    // 1. Проверка, инициализирована ли таблица импорта через сброшенный шаринг страницы.
+    // Если не инициализирована (не сброшен шаринг) - пропускаем.
+    // if CheckPageSharing(
+    //   AIat.BaseAddress, SharedCount) and (SharedCount <> 0) then
+    // Спорно, потому что, судя по всему, модификация IAT происходит по причине
+    // отработавшего BoundsImport, которого у таких библиотек нет.
+
+    // 2. Еще у таких библиотек странная особенность, при их загрузке
+    // 32 битный OptionalHeader полностью перезаписывается 64 битным аналогом
+    // Можно сделать проверку на сброшенный шаринг страницы с PE заголовком
+    // if CheckPageSharing(
+    //   Module.ImageBase, SharedCount) and (SharedCount = 0) then
+
+    // =========================================================================
+
   end;
 
-  // подгружаем кэш таблицы импорта, обычно она сидит в секции IAT
+  // Load the import table cache; it is usually located in the IAT section
+  // but in rare cases, this section is missing and the table is placed
+  // directly in the import section
+
+  // [ru] Подгружаем кэш таблицы импорта, обычно она сидит в секции IAT
   // но в редких случаях эта секция отсутствует и таблица размещается
   // прямо в секции импорта
+
   CacheVA := IfThen(Module.ImportAddressTable.Size = 0,
     Module.ImportDirectory.VirtualAddress, Module.ImportAddressTable.VirtualAddress);
   CacheSize := IfThen(Module.ImportAddressTable.Size = 0,
@@ -703,9 +923,14 @@ begin
       else
         HookData.RawVA := 0;
 
-      // зачитываем текущий адрес из таблицы импорта
-      // на основе него будем определять, на какую из библиотек идет перенаправление
-      // в случае редиректа
+      // read the current address from the import table
+      // based on this, we'll determine which library
+      // the redirect points to in the event of a redirect
+
+      // [ru] читаем текущий адрес из таблицы импорта
+      // на его основе будем определять, на какую из библиотек
+      // идет перенаправление в случае редиректа
+
       if not AIat.ReadMemory(Import.ImportTableVA, AddrSize, @HookData.RemoteVA) then
       begin
         Error(
@@ -721,19 +946,31 @@ begin
         HookData.Calculated := FRawModules.GetProcData(Import.LibraryName,
           Import.FuncName, Module.Image64, Exp, HookData.RemoteVA);
 
-      // если пропатчен отложеный вызов, то технически можно еще проверить
+      // If the delayed call has been patched, it is technically still possible to check
+      // whether the field containing the module's HInst has been initialized,
+      // but this won't accomplish anything, because, in any case,
+      // RemoteVA must correspond to either an uninitialized value
+      // stored in DelayedIATData, or the FuncAddrVA of the found export
+
+      // [ru] Если пропатчен отложенный вызов, то технически можно еще проверить
       // инициализировано ли поле с HInst модуля, но это ничего не даст
       // т.к. в любом случае RemoteVA должно соответствовать или
       // неинициализированному значению, хранящемуся в DelayedIATData,
-      // или FuncAddrVA найденого экспорта
+      // или FuncAddrVA найденного экспорта
+
       if Import.Delayed and (Import.DelayedModuleInstanceVA <> 0) then
       begin
         var DelayedModuleInst: ULONG_PTR64 := 0;
         if ReadRemoteMemory(FProcessHandle, Import.DelayedModuleInstanceVA,
           @DelayedModuleInst, AddrSize) and (DelayedModuleInst <> 0) then
         begin
-          // впрочем мы можем проверить, соответствует ли HInst модуля
+
+          // however, we can check whether the module's HInst
+          // matches the declared one, and display a warning if it does not
+
+          // [ru] впрочем мы можем проверить, соответствует ли HInst модуля
           // заявленному, и вывести предупреждение если это не так
+
           ModuleIndex := FRawModules.GetModule(DelayedModuleInst);
           ValidModule := (ModuleIndex >= 0) and AnsiSameText(
             FRawModules.Items.List[ModuleIndex].ImageName,
@@ -760,7 +997,10 @@ begin
 
       if not CheckRemoteVA then
       begin
-        // если функция перенаправлена, пытаемся её подгрузить
+
+        // If the function has been redirected, we try to load it
+        // [ru] Если функция перенаправлена, пытаемся её подгрузить
+
         if Exp.ForvardedTo <> EmptyStr then
           if not FRawModules.GetProcData(Exp.ForvardedTo,
             Module.Image64, Exp, HookData.RemoteVA) then
@@ -803,7 +1043,9 @@ begin
 
   ScanImport(Index, Module);
 
-  // для проверки машинного кода функций потребуется образ файла
+  // To verify the machine code of the functions, you will need a file image
+  // [ru] Для проверки машинного кода функций потребуется образ файла
+
   try
     FRaw.LoadFromFile(Module.ImagePath);
   except
@@ -815,8 +1057,12 @@ begin
       Exit;
     end;
   end;
-  // причем к нему необходимо применить релокейшены
+
+  // and relocations must be applied to it
+  // [ru] причем к нему необходимо применить релокейшены
+
   Module.ProcessRelocations(FRaw);
+
   ScanExport(Index, Module);
   if not Module.ComPlusILOnly then
     ScanEntryPoints(Index, Module);

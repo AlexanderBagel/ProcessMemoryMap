@@ -1,17 +1,33 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 //
 //  ****************************************************************************
-//  * Project   : ProcessMM
+//  * Project   : Process Memory Map
 //  * Unit Name : uUtils.pas
-//  * Purpose   : Модуль с различными вспомогательными функциями и процедурами
-//  * Author    : Александр (Rouse_) Багель
+//  * Purpose   : Miscellaneous utility routines
+//  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.7.53
+//  * Version   : 1.7.54
 //  * Home Page : http://rouse.drkb.ru
 //  * Home Blog : http://alexander-bagel.blogspot.ru
 //  ****************************************************************************
-//  * Stable Release : http://rouse.drkb.ru/winapi.php#pmm2
+//  * Stable Release : https://github.com/AlexanderBagel/ProcessMemoryMap/releases/latest
 //  * Latest Source  : https://github.com/AlexanderBagel/ProcessMemoryMap
+//  ****************************************************************************
+//  *
+//  * SPDX-License-Identifier: MPL-2.0
+//  * This Source Code Form is subject to the terms of the Mozilla Public
+//  * License, v. 2.0. If a copy of the MPL was not distributed with this
+//  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//  *
+//  ****************************************************************************
+//  *
+//  * Support the Project:
+//  *
+//  * If you found this project useful, you can support its development
+//  * on the author's main-project page:
+//  *
+//  * https://boosty.to/processmemorymap
+//  *
 //  ****************************************************************************
 //
 
@@ -28,12 +44,16 @@ uses
   Winapi.TlHelp32,
   Winapi.CommCtrl,
   System.Classes,
+  System.JSON,
+  System.DateUtils,
   VirtualTrees,
   VirtualTrees.Types,
+  Generics.Collections,
   MemoryMap.Core,
   RawScanner.Core,
   RawScanner.Image.Pe,
-  RawScanner.SymbolStorage;
+  RawScanner.SymbolStorage,
+  RawScanner.Pdb;
 
 type
   TMemoryDump = array of Byte;
@@ -49,6 +69,7 @@ type
   procedure ConcatenateStrings(var A: string; const B: string);
   function SizeToStr(Value: NativeUInt): string;
   function SizeToStr2(Value: NativeUInt): string;
+  function SizeToStr3(Value: Int64): string;
   function UInt64ToStr(Value: NativeUInt): string; overload;
   function UInt64ToStr(Value: Pointer): string; overload;
   procedure ShowErrorHint(AHandle: THandle); overload;
@@ -62,6 +83,36 @@ type
     rcReadIfReadWriteAccessPresent,
     rcReadAllwais);
 
+    /// <summary>
+    ///  Reads data from a remote process
+    ///  IMPORTANT!!!
+    ///  If the SuspendProcess flag is not enabled in the settings, then
+    ///  ReadCondition set to rcReadAllwais is treated as
+    ///  rcReadIfReadAccessPresent
+    /// </summary>
+    /// <param name="Process">the process handle</param>
+    /// <param name="Address">the address to read from</param>
+    /// <param name="OutBuffer">the buffer the data is read into</param>
+    /// <param name="Size">
+    ///  [in] the size of OutBuffer;
+    ///  [out] the size of the data actually read
+    /// </param>
+    /// <param name="RegionSize">
+    ///  the size from Address to the end of the region
+    /// </param>
+    /// <param name="ReadCondition">the read parameters</param>
+    /// <remarks>
+    ///  [ru] Функция читает данные с удаленного процесса
+    ///  in     Process - хэндл процесса
+    ///  in     Address - адрес с которого нужно читать
+    ///  in     OutBuffer - буффер в который происходит чтение
+    ///  in/out Size - размер OutBuffer (после вызова, размер зачитанных данных)
+    ///  out    RegionSize - размер от Address до конца региона
+    ///  in     ReadCondition - параметры чтения
+    ///  ВАЖНО!!!
+    ///  Если в настройках не включен флаг SuspendProcess, то ReadCondition
+    ///  установленный в rcReadAllwais трактуется как rcReadIfReadAccessPresent
+    /// </remarks>
   function ReadProcessData(Process: THandle; Address, OutBuffer: Pointer;
     var Size: NativeUInt; out RegionSize: NativeUInt;
     ReadCondition: TReadCondition): Boolean;
@@ -78,11 +129,33 @@ type
 
   procedure FixVirtualStringTreeDpiBug(Value: TVirtualStringTree);
 
+type
+  TVersionInfo = record
+    Major, Minor, Release, Build: Integer;
+    Beta: Boolean;
+    class operator GreaterThan(const A, B: TVersionInfo): Boolean;
+  end;
+
+  function GetVersionInfo(var Info: TVersionInfo): Boolean;
+
+type
+  TReseaseInfo = record
+    Version,
+    HtmlUrl,
+    DownloadUrl,
+    Body,
+    DownloadCount,
+    PublishedDate,
+    ErrorData: string;
+    VerInfo: TVersionInfo;
+  end;
+
+  function GetLatestRelease(const ProxySettings: TProxySettings; out Info: TReseaseInfo): Boolean;
+
 implementation
 
 uses
-  uProcessMM,
-  uSettings;
+  uProcessMM;
 
 var
   hShell32: HMODULE = 0;
@@ -231,9 +304,30 @@ begin
     Result := IntToStr(Value div 1024) + ' K';
 end;
 
+function SizeToStr3(Value: Int64): string;
+const
+  Units: array[0..4] of string = ('bytes', 'KB', 'MB', 'GB', 'TB');
+var
+  Size: Double;
+  UnitIdx: Integer;
+  FS: TFormatSettings;
+begin
+  FS := TFormatSettings.Invariant;
+  if Value < 1024 then
+    Exit(Format('%d %s', [Value, Units[0]]));
+  Size := Value;
+  UnitIdx := 0;
+  while (Size >= 1024) and (UnitIdx < High(Units)) do
+  begin
+    Size := Size / 1024;
+    Inc(UnitIdx);
+  end;
+  Result := Format('%.2f %s', [Size, Units[UnitIdx]], FS);
+end;
+
 function UInt64ToStr(Value: NativeUInt): string;
 begin
-  // а зачем нам лишние нули?
+  // No leading zeros needed
 //  if MemoryMapCore.Process64 then
 //    Result := IntToHex(Value, 16)
 //  else
@@ -279,18 +373,6 @@ begin
     Result := (MBI.Protect and PAGE_GUARD) = 0;
 end;
 
-//
-//  Функция читает данные с удаленного процесса
-//  in     Process - хэндл процесса
-//  in     Address - адрес с которого нужно читать
-//  in     OutBuffer - буффер в который происходит чтение
-//  in/out Size - размер OutBuffer (после вызова, размер зачитанных данных)
-//  out    RegionSize - размер от Address до конца региона
-//  in     ReadCondition - параметры чтения
-//  ВАЖНО!!!
-//  Если в настройках не включен флаг SuspendProcess, то ReadCondition
-//  установленный в rcReadAllwais трактуется как rcReadIfReadAccessPresent
-// =============================================================================
 function ReadProcessData(Process: THandle; Address, OutBuffer: Pointer;
   var Size: NativeUInt; out RegionSize: NativeUInt;
   ReadCondition: TReadCondition): Boolean;
@@ -322,13 +404,20 @@ begin
   if VirtualQueryEx(Process,
     Address, MBI, dwLength) <> dwLength then Exit;
 
-  // Rouse_ 16.10.2015
-  // Если на регион в котором расположена KUSER_SHARED_DATA
+  // If the memory region containing KUSER_SHARED_DATA,
+  // whose protection attribute is PAGE_READONLY,
+  // is explicitly assigned PAGE_READONLY once again,
+  // updating of this structure is disabled on 64-bit Windows 7.
+  // As a consequence, GetTickCount and similar functions cease to work.
+  // Therefore, these redundant operations are skipped.
+
+  // [ru] Если на регион в котором расположена KUSER_SHARED_DATA
   // и который имеет атрибуты защиты PAGE_READONLY
   // принудительно выставить еще раз PAGE_READONLY
   // то в Windows 7 64 бита отключается обновление этой структуры
   // и как следствие перестает работать GetTickCount и прочее
   // поэтому отключаем лишние телодвижения
+
   if (ReadCondition = rcReadAllwais) and CanRead then
     ReadCondition := rcReadIfReadAccessPresent;
 
@@ -353,7 +442,9 @@ begin
         PAGE_READONLY, OldProtect);
   end;
 
-  // рассчет предельного размера, чтобы не вышл за границу региона
+  // clamp the size so it doesn’t exceed the region boundar
+  // [ru] рассчет предельного размера, чтобы он не вышел за границу региона
+
   if Size > RegionSize then
     Size := RegionSize;
 
@@ -607,6 +698,161 @@ begin
   end;
   TVTAccess(Value).UpdateVerticalRange;
   TVTAccess(Value).UpdateScrollBars(True);
+end;
+
+{ TVersionInfo }
+
+class operator TVersionInfo.GreaterThan(const A, B: TVersionInfo): Boolean;
+begin
+  Result := False;
+  if A.Major > B.Major then Exit(True);
+  if A.Minor > B.Minor then Exit(True);
+  if A.Release > B.Release then Exit(True);
+end;
+
+function GetVersionInfo(var Info: TVersionInfo): Boolean;
+const
+  VFF_PRERELEASE = 2;
+var
+  VerInfoSize, Dummy: DWORD;
+  PVerBbuff, PFixed: Pointer;
+  FixLength: UINT;
+begin
+  Info := Default(TVersionInfo);
+  VerInfoSize := GetFileVersionInfoSize(PChar(ParamStr(0)), Dummy);
+  Result := False;
+  if VerInfoSize > 0 then
+  begin
+    GetMem(PVerBbuff, VerInfoSize);
+    try
+      if GetFileVersionInfo(PChar(ParamStr(0)), 0, VerInfoSize, PVerBbuff) then
+      begin
+        if VerQueryValue(PVerBbuff, '\', PFixed, FixLength) then
+        begin
+          Info.Major := PVSFixedFileInfo(PFixed)^.dwFileVersionMS shr 16;
+          Info.Minor := PVSFixedFileInfo(PFixed)^.dwFileVersionMS and $FFFF;
+          Info.Release := PVSFixedFileInfo(PFixed)^.dwFileVersionLS shr 16;
+          Info.Build := PVSFixedFileInfo(PFixed)^.dwFileVersionLS and $FFFF;
+          Info.Beta := PVSFixedFileInfo(PFixed)^.dwFileFlags and VFF_PRERELEASE <> 0;
+          Result := True;
+        end;
+      end;
+    finally
+      FreeMem(PVerBbuff);
+    end;
+  end;
+end;
+
+function TryParseVersion(const VerStr: string; out AInfo: TVersionInfo): Boolean;
+var
+  S: string;
+  Parts: TArray<string>;
+  DashPos: Integer;
+begin
+  Result := False;
+  AInfo := Default(TVersionInfo);
+  S := VerStr.Trim;
+
+  if (S <> '') and (CharInSet(S[1], ['v', 'V'])) then
+    Delete(S, 1, 1);
+
+  DashPos := Pos('-', S);
+  if DashPos > 0 then
+    S := Copy(S, 1, DashPos - 1);
+
+  Parts := S.Split(['.']);
+  if Length(Parts) < 3 then
+    Exit;
+  if not TryStrToInt(Parts[0], AInfo.Major) then Exit;
+  if not TryStrToInt(Parts[1], AInfo.Minor) then Exit;
+  if not TryStrToInt(Parts[2], AInfo.Release) then Exit;
+
+  Result := True;
+end;
+
+function GitHubDateToLocalStr(const ISODate: string): string;
+var
+  Dt: TDateTime;
+begin
+  try
+    Dt := ISO8601ToDate(ISODate, False);
+    Result := FormatDateTime('dd.mm.yyyy hh:nn', Dt);
+  except
+    Result := ISODate;
+  end;
+end;
+
+function GetLatestRelease(const ProxySettings: TProxySettings; out Info: TReseaseInfo): Boolean;
+const
+  CheckUrl = 'https://api.github.com/repos/AlexanderBagel/ProcessMemoryMap/releases/latest';
+  AssetName = 'pmm.zip';
+var
+  Json, PublishedDate: string;
+  SymSrv: TSymSrv;
+  JsonObj: TJSONObject;
+  JsonVal: TJSONValue;
+  Assets: TJSONArray;
+  Asset: TJSONValue;
+  I: Integer;
+begin
+  Result := False;
+  Info := Default(TReseaseInfo);
+
+  SymSrv := TSymSrv.Create;
+  try
+    SymSrv.ProxySettings := ProxySettings;
+    if not SymSrv.DownloadJson(CheckUrl, Json) then
+    begin
+      Info.ErrorData := Format('Error (HTTP Status: %d, Last Error: %d): %s',
+        [SymSrv.LastHttpStatus, SymSrv.LastErrorCode, SymSrv.LastError]);
+      Exit;
+    end;
+
+    JsonVal := TJSONObject.ParseJSONValue(Json);
+    if JsonVal = nil then
+    begin
+      Info.ErrorData := 'Error: failed to parse JSON response';
+      Exit;
+    end;
+
+    try
+      if not (JsonVal is TJSONObject) then
+      begin
+        Info.ErrorData := 'Error: unexpected JSON format';
+        Exit;
+      end;
+      JsonObj := TJSONObject(JsonVal);
+
+      JsonObj.TryGetValue<string>('tag_name', Info.Version);
+      JsonObj.TryGetValue<string>('html_url', Info.HtmlUrl);
+      JsonObj.TryGetValue<string>('body', Info.Body);
+      if JsonObj.TryGetValue<string>('published_at', PublishedDate) then
+        Info.PublishedDate := GitHubDateToLocalStr(PublishedDate);
+
+      if JsonObj.TryGetValue<TJSONArray>('assets', Assets) then
+      begin
+        for I := 0 to Assets.Count - 1 do
+        begin
+          Asset := Assets.Items[I];
+          if (Asset is TJSONObject) and
+             (TJSONObject(Asset).GetValue<string>('name') = 'pmm.zip') then
+          begin
+            TJSONObject(Asset).TryGetValue<string>('browser_download_url', Info.DownloadUrl);
+            TJSONObject(Asset).TryGetValue<string>('download_count', Info.DownloadCount);
+            Break;
+          end;
+        end;
+      end;
+
+      Result := TryParseVersion(Info.Version, Info.VerInfo);
+
+    finally
+      JsonVal.Free;
+    end;
+
+  finally
+    SymSrv.Free;
+  end;
 end;
 
 end.

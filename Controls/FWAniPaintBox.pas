@@ -5,7 +5,7 @@
 //  * Purpose   : Animation Viewer in the RIFF Container (AVI, ANICURSOR)
 //  * Author    : Alexander (Rouse_) Bagel
 //  * Copyright : © Fangorn Wizards Lab 1998 - 2026.
-//  * Version   : 1.0
+//  * Version   : 1.1
 //  ****************************************************************************
 //
 
@@ -176,6 +176,7 @@ type
     property BackgroundMode;
     property Color;
     property FillColor;
+    property Font;
     property PopupMenu;
     property ShowInfo;
     property StretchMode;
@@ -553,8 +554,14 @@ begin
           DstRow[X * 3] := SrcRow[X * 4];         // B
           DstRow[X * 3 + 1] := SrcRow[X * 4 + 1]; // G
           DstRow[X * 3 + 2] := SrcRow[X * 4 + 2]; // R
-          // Альфу пока что отбрасываем, не на чем тестировать,
+
+          // We'll set Alpha aside for now—we don't have anything to test it on,
+          // in theory, we need pre-multiplication here,
+          // but I haven't found any AVI files like that
+
+          // [ru] Альфу пока что отбрасываем, не на чем тестировать,
           // по идее тут нужна премультипликация, но таких AVI я не нашел
+
         end;
       end;
     end;
@@ -774,8 +781,11 @@ end;
 
 procedure TCustomAniPaintBox.Paint;
 begin
-  Canvas.Brush.Color := Color;
-  Canvas.FillRect(ClientRect);
+  if BackgroundMode = abmGrayChecker then
+  begin
+    Canvas.Brush.Color := Color;
+    Canvas.FillRect(ClientRect);
+  end;
   if not FLoaded then Exit;
   case FKind of
     pkAniCursor: PaintAniFrame;
@@ -831,30 +841,24 @@ begin
           X := (R.Width - FAvi.Width) div 2;
           Y := (R.Height - FAvi.Height) div 2;
           PaintBackground(X, Y, FAvi.Width, FAvi.Height);
-          if FBackgroundMode in [abmTransparent, abmGrayChecker] then
-          begin
-            AColor := ColorToRGB(FTransparentColor);
-            TransparentBlt(Canvas.Handle, X, Y, FAvi.Width, FAvi.Height,
-              MemDC, 0, 0, FAvi.Width, FAvi.Height, AColor);
-          end
-          else
-            BitBlt(Canvas.Handle, X, Y, FAvi.Width, FAvi.Height,
-              MemDC, 0, 0, SRCCOPY);
+          AColor := ColorToRGB(FTransparentColor);
+          TransparentBlt(Canvas.Handle, X, Y, FAvi.Width, FAvi.Height,
+            MemDC, 0, 0, FAvi.Width, FAvi.Height, AColor);
         end;
         asmStretch:
         begin
-          if FBackgroundMode in [abmTransparent, abmGrayChecker] then
-          begin
-            AColor := ColorToRGB(FTransparentColor);
-            TransparentBlt(Canvas.Handle, 0, 0, R.Width, R.Height,
-              MemDC, 0, 0, FAvi.Width, FAvi.Height, AColor);
-          end
-          else
-          begin
-            SetStretchBltMode(Canvas.Handle, COLORONCOLOR);
-            StretchBlt(Canvas.Handle, 0, 0, R.Width, R.Height,
-              MemDC, 0, 0, FAvi.Width, FAvi.Height, SRCCOPY);
+          case BackgroundMode of
+            abmFillColor:
+            begin
+              Canvas.Brush.Color := FillColor;
+              Canvas.FillRect(ClientRect);
+            end;
+            abmGrayChecker:
+              DrawCheckerBoard(MulDiv(6, FCurrentPPI, USER_DEFAULT_SCREEN_DPI), ClientRect);
           end;
+          AColor := ColorToRGB(FTransparentColor);
+          TransparentBlt(Canvas.Handle, 0, 0, R.Width, R.Height,
+            MemDC, 0, 0, FAvi.Width, FAvi.Height, AColor);
         end;
       end;
     finally
@@ -869,25 +873,27 @@ procedure TCustomAniPaintBox.PaintBackground(X, Y, W, H: Integer);
 var
   AText: string;
 begin
-  if BackgroundMode = abmTransparent then Exit;
   FInvalidateRect := Bounds(X, Y, W, H);
-  if BackgroundMode = abmFillColor then
-  begin
-    Canvas.Brush.Color := FillColor;
-    Canvas.FillRect(FInvalidateRect);
-    Exit;
+  case BackgroundMode of
+    abmFillColor:
+    begin
+      Canvas.Brush.Color := FillColor;
+      Canvas.FillRect(FInvalidateRect);
+    end;
+    abmGrayChecker:
+    begin
+      X := MulDiv(2, FCurrentPPI, USER_DEFAULT_SCREEN_DPI);
+      InflateRect(FInvalidateRect, X, X);
+      DrawCheckerBoard(MulDiv(6, FCurrentPPI, USER_DEFAULT_SCREEN_DPI), FInvalidateRect);
+    end;
   end;
-  X := MulDiv(2, FCurrentPPI, USER_DEFAULT_SCREEN_DPI);
-  InflateRect(FInvalidateRect, X, X);
-  DrawCheckerBoard(MulDiv(6, FCurrentPPI, USER_DEFAULT_SCREEN_DPI), FInvalidateRect);
   if ShowInfo then
   begin
     AText := Format('%s %dx%d %d frames', [
       IfThen(FKind = pkAniCursor, 'ANICURSOR', 'AVI'), W, H,
       IfThen(FKind = pkAniCursor, Length(FAniCursorIcon.Seq), Length(FAvi.Frames))
       ]);
-    Canvas.Font.Name := 'Segoe UI';
-    Canvas.Font.Size := MulDiv(10, FCurrentPPI, USER_DEFAULT_SCREEN_DPI);
+    Canvas.Font := Font;
     Canvas.Brush.Style := bsClear;
     X := (ClientWidth - Canvas.TextWidth(AText)) div 2;
     Canvas.TextOut(X, Y + H + MulDiv(6, FCurrentPPI, USER_DEFAULT_SCREEN_DPI), AText);
