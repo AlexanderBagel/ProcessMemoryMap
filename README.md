@@ -14,8 +14,8 @@ Displays the following data:
 * process heaps
 * thread data: stack, TEB, SEH frames and CallStack
 * information about loaded PE files, broken down by sections, with entry points of every loaded image and their structures
-* PEB data
-* KUSER_SHARED_DATA data
+* PEB data, PEB_LDR_DATA, Process Parameters
+* KUSER_SHARED_DATA data, ACTIVATION_CONTEXT_DATA, ApiSetNameSpace, and others
 * built-in x86/x64 disassembler (based on DiStorm)
 
 Provides the ability to:
@@ -28,7 +28,9 @@ Additional features:
 * lists exported functions
 * lists resources
 * displays process stacks (x86 + x64)
-* supports debug MAP files (affects the list of recognized functions and the disassembler output)
+* displays a list of the process’s windows along with their window procedures
+* a separate mode for working with process strings
+* supports MAP/DWARF/COFF/STUB/PDB debug information (affects the list of recognized functions and the disassembler output)
 * displays changes in allocated memory blocks (alloc/realloc/free)
 * quick hints for known memory blocks
 
